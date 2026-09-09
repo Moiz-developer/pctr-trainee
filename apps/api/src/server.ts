@@ -1,3 +1,9 @@
+// Must run before any other import: populates process.env from .env (no-op if the
+// file doesn't exist, e.g. in production where the platform injects env vars directly;
+// never overrides an already-set variable). config/env.ts reads process.env at import
+// time, so this has to come first.
+import "dotenv/config";
+
 import { app } from "./app.js";
 import { env } from "./config/env.js";
 
