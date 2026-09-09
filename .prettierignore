@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+**/*.tsbuildinfo
+
+# Generated (not hand-written) code
+**/src/generated/
+prisma/generated/
+
+# Package manager
+pnpm-lock.yaml
+
+# Environment files (not a Prettier-supported format anyway, but explicit is safer)
+.env
+.env.*
+!.env.example

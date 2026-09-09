@@ -1,0 +1,15 @@
+// Internal Training Platform — Prisma schema
+//
+// STEP 0.6 FOUNDATION: this file intentionally contains no domain models yet.
+// The complete data model from SYSTEM_PLAN.md §14 is introduced in a later,
+// dedicated schema step. This file exists only to prove the
+// Node -> Prisma -> Supabase PostgreSQL connection path works.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../apps/api/src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}

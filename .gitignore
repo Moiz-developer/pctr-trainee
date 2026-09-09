@@ -1,0 +1,50 @@
+# ---- Dependencies ----
+node_modules/
+.pnpm-store/
+
+# ---- Environment / secrets ----
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# ---- Build output ----
+dist/
+build/
+out/
+.vite/
+.turbo/
+*.tsbuildinfo
+
+# ---- Prisma ----
+# schema.prisma and prisma/migrations/ must stay version controlled — do not ignore those.
+prisma/generated/
+**/src/generated/
+
+# ---- Logs ----
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ---- Testing / coverage ----
+coverage/
+.nyc_output/
+
+# ---- Editors / IDE ----
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+
+# ---- OS files (Windows/macOS) ----
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# ---- Misc ----
+*.local
+.cache/

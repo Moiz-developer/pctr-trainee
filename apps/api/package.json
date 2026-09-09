@@ -1,0 +1,37 @@
+{
+  "name": "@internal-training/api",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Internal Training Platform — backend (Node.js/Express/TypeScript)",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit",
+    "prisma:generate": "prisma generate --config ../../prisma.config.ts",
+    "prisma:validate": "prisma validate --config ../../prisma.config.ts",
+    "prisma:migrate": "prisma migrate dev --config ../../prisma.config.ts",
+    "prisma:studio": "prisma studio --config ../../prisma.config.ts"
+  },
+  "dependencies": {
+    "@internal-training/shared": "workspace:*",
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "helmet": "^8.3.0",
+    "pg": "^8.23.0",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.4.1",
+    "@types/pg": "^8.23.1",
+    "dotenv": "^17.4.2",
+    "prisma": "7.10.0",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2"
+  }
+}
