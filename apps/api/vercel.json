@@ -1,6 +1,15 @@
 {
   "builds": [
-    { "src": "api/index.ts", "use": "@vercel/node" }
+    {
+      "src": "api/index.ts",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": [
+          "../../packages/shared/dist/**",
+          "../../packages/shared/package.json"
+        ]
+      }
+    }
   ],
   "routes": [
     { "src": "/(.*)", "dest": "api/index.ts" }
