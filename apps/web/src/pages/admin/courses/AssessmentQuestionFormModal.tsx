@@ -116,8 +116,14 @@ export function AssessmentQuestionFormModal({
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Saving…" : isEdit ? "Save changes" : "Add question"}
+          <Button type="submit" disabled={isSubmitting || mutation.isPending}>
+            {isSubmitting || mutation.isPending
+              ? isEdit
+                ? "Saving…"
+                : "Adding…"
+              : isEdit
+                ? "Save changes"
+                : "Add question"}
           </Button>
         </div>
       </form>

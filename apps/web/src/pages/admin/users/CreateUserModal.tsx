@@ -160,8 +160,8 @@ export function CreateUserModal({
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Inviting…" : "Invite user"}
+          <Button type="submit" disabled={isSubmitting || mutation.isPending}>
+            {isSubmitting || mutation.isPending ? "Inviting…" : "Invite user"}
           </Button>
         </div>
       </form>

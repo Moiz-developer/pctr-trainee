@@ -145,8 +145,14 @@ export function CourseCategoryFormModal({
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Saving…" : isEdit ? "Save changes" : "Create category"}
+          <Button type="submit" disabled={isSubmitting || mutation.isPending}>
+            {isSubmitting || mutation.isPending
+              ? isEdit
+                ? "Saving…"
+                : "Creating…"
+              : isEdit
+                ? "Save changes"
+                : "Create category"}
           </Button>
         </div>
       </form>

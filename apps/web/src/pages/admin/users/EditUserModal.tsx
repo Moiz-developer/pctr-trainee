@@ -147,8 +147,8 @@ export function EditUserModal({
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Saving…" : "Save changes"}
+          <Button type="submit" disabled={isSubmitting || mutation.isPending}>
+            {isSubmitting || mutation.isPending ? "Saving…" : "Save changes"}
           </Button>
         </div>
       </form>

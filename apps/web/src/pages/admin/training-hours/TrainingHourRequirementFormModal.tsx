@@ -149,8 +149,8 @@ export function TrainingHourRequirementFormModal({
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Saving…" : "Create requirement"}
+          <Button type="submit" disabled={isSubmitting || mutation.isPending}>
+            {isSubmitting || mutation.isPending ? "Creating…" : "Create requirement"}
           </Button>
         </div>
       </form>

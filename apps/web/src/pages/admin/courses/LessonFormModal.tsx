@@ -61,8 +61,32 @@ export function LessonFormModal({
   });
   const contentType = watch("content_type");
 
+  const mutation = useMutation({
+    mutationFn: (values: CreateCourseLessonRequest) => {
+      const payload: CreateCourseLessonRequest = {
+        ...values,
+        description: values.description || null,
+        duration_seconds: values.duration_seconds || undefined,
+        external_url: values.content_type === "EXTERNAL_LINK" ? values.external_url : null,
+        text_content: values.content_type === "TEXT" ? values.text_content : null,
+      };
+      return isEdit
+        ? updateCourseLesson(courseId, moduleId, lesson!.id, payload)
+        : createCourseLesson(courseId, moduleId, { ...payload, sort_order: nextSortOrder });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["course-lessons", moduleId] });
+      onClose();
+    },
+  });
+
   useEffect(() => {
     if (!open) return;
+    // Resets any stale isPending/isError/error left over from a previous
+    // open/submit of this same, never-unmounted modal instance — otherwise
+    // the Create/Save button's `disabled={mutation.isPending}` could reflect
+    // a prior session's in-flight or failed request instead of this one.
+    mutation.reset();
     reset(
       lesson
         ? {
@@ -84,25 +108,6 @@ export function LessonFormModal({
           },
     );
   }, [open, lesson, reset]);
-
-  const mutation = useMutation({
-    mutationFn: (values: CreateCourseLessonRequest) => {
-      const payload: CreateCourseLessonRequest = {
-        ...values,
-        description: values.description || null,
-        duration_seconds: values.duration_seconds || undefined,
-        external_url: values.content_type === "EXTERNAL_LINK" ? values.external_url : null,
-        text_content: values.content_type === "TEXT" ? values.text_content : null,
-      };
-      return isEdit
-        ? updateCourseLesson(courseId, moduleId, lesson!.id, payload)
-        : createCourseLesson(courseId, moduleId, { ...payload, sort_order: nextSortOrder });
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["course-lessons", moduleId] });
-      onClose();
-    },
-  });
 
   const submitError =
     mutation.error instanceof ApiClientError
@@ -153,7 +158,9 @@ export function LessonFormModal({
             type="number"
             min={0}
             error={errors.duration_seconds?.message}
-            {...register("duration_seconds", { valueAsNumber: true })}
+            {...register("duration_seconds", {
+              setValueAs: (value) => (value === "" ? undefined : Number(value)),
+            })}
           />
         </div>
 
@@ -204,8 +211,14 @@ export function LessonFormModal({
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Saving…" : isEdit ? "Save changes" : "Create lesson"}
+          <Button type="submit" disabled={isSubmitting || mutation.isPending}>
+            {isSubmitting || mutation.isPending
+              ? isEdit
+                ? "Saving…"
+                : "Creating…"
+              : isEdit
+                ? "Save changes"
+                : "Create lesson"}
           </Button>
         </div>
       </form>
