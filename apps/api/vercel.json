@@ -1,6 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
+  "outputDirectory": "public",
   "buildCommand": "pnpm run build",
   "functions": {
     "api/index.ts": {
