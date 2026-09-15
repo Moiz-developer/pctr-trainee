@@ -1,0 +1,8 @@
+{
+  "functions": {
+    "api/index.ts": {}
+  },
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api" }
+  ]
+}
