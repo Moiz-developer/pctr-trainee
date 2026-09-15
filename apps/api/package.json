@@ -6,22 +6,27 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc -p tsconfig.json",
+    "build": "prisma generate --config ../../prisma.config.ts && tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
     "prisma:generate": "prisma generate --config ../../prisma.config.ts",
     "prisma:validate": "prisma validate --config ../../prisma.config.ts",
     "prisma:migrate": "prisma migrate dev --config ../../prisma.config.ts",
-    "prisma:studio": "prisma studio --config ../../prisma.config.ts"
+    "prisma:migrate:deploy": "prisma migrate deploy --config ../../prisma.config.ts",
+    "prisma:studio": "prisma studio --config ../../prisma.config.ts",
+    "db:seed": "tsx src/db/seed.ts",
+    "db:seed:demo": "tsx src/db/seed-demo.ts"
   },
   "dependencies": {
     "@internal-training/shared": "workspace:*",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
+    "@supabase/supabase-js": "^2.116.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "helmet": "^8.3.0",
+    "jose": "^6.2.12",
     "pg": "^8.23.0",
     "zod": "^4.5.4"
   },
@@ -32,6 +37,6 @@
     "@types/pg": "^8.23.1",
     "prisma": "7.10.0",
     "tsx": "^4.23.13",
-    "typescript": "^7.0.2"
+    "typescript": "^6.0.3"
   }
 }
