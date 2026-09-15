@@ -1,14 +1,20 @@
 import express, { type Express } from "express";
 import cors from "cors";
-import * as helmet from "helmet";
+import { createRequire } from "node:module";
 import { healthResponseSchema, type HealthResponse } from "@internal-training/shared";
 import { env } from "./config/env.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { routes } from "./routes/index.js";
 
+// Loaded via createRequire (rather than a static import) because helmet's
+// declared default-export interop is resolved inconsistently across
+// TypeScript module-resolution configurations; require() always returns the
+// callable directly, matching helmet's actual CJS runtime shape.
+const helmet = createRequire(import.meta.url)("helmet") as typeof import("helmet").default;
+
 export const app: Express = express();
 
-app.use(helmet.default());
+app.use(helmet());
 app.use(
   cors({
     origin: env.CORS_ALLOWED_ORIGINS,
