@@ -1,6 +1,6 @@
 import express, { type Express } from "express";
 import cors from "cors";
-import helmet from "helmet";
+import * as helmet from "helmet";
 import { healthResponseSchema, type HealthResponse } from "@internal-training/shared";
 import { env } from "./config/env.js";
 import { errorHandler } from "./middleware/error-handler.js";
@@ -8,7 +8,7 @@ import { routes } from "./routes/index.js";
 
 export const app: Express = express();
 
-app.use(helmet());
+app.use(helmet.default());
 app.use(
   cors({
     origin: env.CORS_ALLOWED_ORIGINS,
