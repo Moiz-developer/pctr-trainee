@@ -1,20 +1,18 @@
 import express, { type Express } from "express";
 import cors from "cors";
-import { createRequire } from "node:module";
+import helmet from "helmet";
 import { healthResponseSchema, type HealthResponse } from "@internal-training/shared";
 import { env } from "./config/env.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { routes } from "./routes/index.js";
 
-// Loaded via createRequire (rather than a static import) because helmet's
-// declared default-export interop is resolved inconsistently across
-// TypeScript module-resolution configurations; require() always returns the
-// callable directly, matching helmet's actual CJS runtime shape.
-const helmet = createRequire(import.meta.url)("helmet") as typeof import("helmet").default;
-
 export const app: Express = express();
 
-app.use(helmet());
+// A static import keeps helmet traceable by Vercel's dependency bundler.
+// helmet's default-export type resolves inconsistently across TypeScript
+// module-resolution configurations, so it's cast explicitly to its declared
+// callable type rather than relying on that resolution.
+app.use((helmet as unknown as typeof import("helmet").default)());
 app.use(
   cors({
     origin: env.CORS_ALLOWED_ORIGINS,
