@@ -5,6 +5,7 @@
       "use": "@vercel/node",
       "config": {
         "includeFiles": [
+          "dist/**",
           "node_modules/@internal-training/shared/dist/**",
           "node_modules/@internal-training/shared/package.json"
         ]
