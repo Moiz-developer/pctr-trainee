@@ -40,8 +40,14 @@ pnpm install
 # 2. Configure environment files (placeholders only — see each file's comments)
 cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env
-# The defaults work as-is for local development with no database configured yet.
-# DATABASE_URL/SUPABASE_* can stay empty until the Supabase integration step.
+# DATABASE_URL can stay empty (no database-backed route wired up outside the
+# admin-user endpoints, which use the Supabase Admin SDK, not Prisma, for Auth
+# provisioning). apps/api/.env's SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and
+# apps/web/.env's VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY are REQUIRED —
+# both apps fail to start without them. Fill these in from your Supabase
+# project's dashboard (Project Settings -> API). SUPABASE_JWT_SECRET stays
+# optional — only needed if your project signs tokens with a legacy shared
+# secret (HS256) rather than the current default (asymmetric keys via JWKS).
 
 # 3. Generate the Prisma client (required before apps/api will typecheck or build —
 #    apps/api/src/generated/prisma/ is gitignored, so this must be run after every

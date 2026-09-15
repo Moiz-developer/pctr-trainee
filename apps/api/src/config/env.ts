@@ -5,7 +5,6 @@ import { z } from "zod";
 // it to .env unedited should mean "not configured yet", not a validation failure.
 const emptyStringToUndefined = (value: unknown) => (value === "" ? undefined : value);
 
-const optionalUrl = () => z.preprocess(emptyStringToUndefined, z.url().optional());
 const optionalNonEmptyString = () =>
   z.preprocess(emptyStringToUndefined, z.string().min(1).optional());
 
@@ -27,21 +26,44 @@ const envSchema = z.object({
         .filter((origin) => origin.length > 0),
     ),
 
-  // ---- Server-only infrastructure credentials (not yet required) ----
-  // Each is optional today because the feature that needs it isn't wired in yet, and
-  // this module's validation must not prevent the API (and its health checks) from
-  // starting before real credentials exist. When the owning feature is implemented,
-  // remove `.optional()` from that field below — there is no second config path to
-  // update; this file stays the single source of truth for server-side config.
+  // ---- Server-only infrastructure credentials ----
+  // Each remaining `optional*()` field stays optional because the feature that needs
+  // it isn't wired in yet, and this module's validation must not prevent the API (and
+  // its health checks) from starting before real credentials exist. When the owning
+  // feature is implemented, remove `.optional()` from that field — there is no second
+  // config path to update; this file stays the single source of truth for server-side
+  // config.
 
-  // Consumed by apps/api/src/lib/prisma.ts once wired into a route. Prisma's own CLI
-  // tooling (migrate/studio/db pull) reads the same DATABASE_URL independently via
-  // prisma.config.ts at the repo root — see STEP 0.6.
+  // Prisma CLI tooling (migrate/studio/db pull) reads this independently via
+  // prisma.config.ts at the repo root — see STEP 0.6. Also used directly by
+  // lib/prisma-privileged.ts (seed scripts only) — the privileged `postgres`
+  // role, which bypasses RLS. The API's own runtime connection uses
+  // RUNTIME_DATABASE_URL instead (see below) — never this one.
   DATABASE_URL: optionalNonEmptyString(),
 
-  // Becomes required in the Supabase integration step (Auth/Storage).
-  SUPABASE_URL: optionalUrl(),
-  SUPABASE_SERVICE_ROLE_KEY: optionalNonEmptyString(),
+  // Required as of Phase 2H (RLS + non-bypassing DB role): lib/prisma.ts's
+  // runtime client connects as `app_api` (NOBYPASSRLS, created by the
+  // enable_rls migration), never as the privileged `postgres` role DATABASE_URL
+  // points at — so every query the running API issues is actually subject to
+  // Postgres RLS, not silently exempt from it (SYSTEM_PLAN.md §1 Pillar 2 /
+  // §12/§13).
+  RUNTIME_DATABASE_URL: z.string().min(1),
+
+  // Required as of the authentication/authorization foundation unit: modules/auth/jwt.ts
+  // fetches this project's JWKS endpoint (SUPABASE_URL + "/auth/v1/.well-known/jwks.json")
+  // to verify asymmetric-algorithm tokens — the default for current Supabase projects
+  // (confirmed empirically: this project's tokens are ES256, not HS256).
+  SUPABASE_URL: z.url(),
+
+  // Required as of the admin-user-provisioning unit: lib/supabase-admin.ts uses this to
+  // create/update/delete Supabase Auth users (POST/PATCH /api/v1/admin/users). Never
+  // sent to the browser, never logged.
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+
+  // Optional: only consulted for tokens whose header declares alg=HS256 (legacy
+  // Supabase projects using a shared secret instead of JWKS). Not required for THIS
+  // project, which uses ES256/JWKS exclusively, but kept for portability — see
+  // modules/auth/jwt.ts.
   SUPABASE_JWT_SECRET: optionalNonEmptyString(),
 });
 
@@ -56,10 +78,3 @@ if (!parsedEnv.success) {
 
 export const env = parsedEnv.data;
 export type Env = typeof env;
-
-// Single source of truth for "has Supabase been configured yet." Later steps (Auth,
-// Storage) should check this instead of re-deriving it from individual env fields.
-export const isSupabaseConfigured: boolean =
-  Boolean(env.SUPABASE_URL) &&
-  Boolean(env.SUPABASE_SERVICE_ROLE_KEY) &&
-  Boolean(env.SUPABASE_JWT_SECRET);

@@ -1,0 +1,11 @@
+-- Admin Users + Departments UI unit: DELETE /admin/users/:id/departments/:departmentId
+-- (users.service.ts's removeUserDepartment) was silently blocked by RLS —
+-- discovered via live testing, not assumed. The enable_rls migration
+-- (Phase 2H) gave user_departments SELECT and INSERT policies only, because
+-- no removal endpoint existed yet at that time; RLS's default-deny then
+-- correctly (if silently) rejects the DELETE this new endpoint issues,
+-- returning a 200 with zero rows affected rather than an error. This adds
+-- exactly the missing policy, mirroring course_departments_delete
+-- (identical permission, same resource shape) — no other table, policy, or
+-- authorization rule is touched.
+CREATE POLICY user_departments_delete ON user_departments FOR DELETE USING (has_permission('department.manage'));

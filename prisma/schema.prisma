@@ -1,15 +1,1232 @@
 // Internal Training Platform — Prisma schema
 //
-// STEP 0.6 FOUNDATION: this file intentionally contains no domain models yet.
-// The complete data model from SYSTEM_PLAN.md §14 is introduced in a later,
-// dedicated schema step. This file exists only to prove the
-// Node -> Prisma -> Supabase PostgreSQL connection path works.
+// Phase 1 — Identity & Access (SYSTEM_PLAN.md §5, §6, §14.1).
+// The complete data model beyond identity/departments is introduced in later,
+// dedicated implementation units, per §40's phased plan.
 
 generator client {
-  provider = "prisma-client"
-  output   = "../apps/api/src/generated/prisma"
+  provider        = "prisma-client"
+  output          = "../apps/api/src/generated/prisma"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
+  provider   = "postgresql"
+  // pgcrypto: gen_random_uuid() for all primary keys (§13).
+  // citext:   case-insensitive unique email on profiles (§14.1).
+  extensions = [pgcrypto, citext]
+}
+
+// ---------------------------------------------------------------------------
+// §14.1 Identity & Access
+// ---------------------------------------------------------------------------
+
+model Role {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String   @unique
+  name        String
+  description String?
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  rolePermissions RolePermission[]
+  profiles        Profile[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String   @unique
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String @map("role_id") @db.Uuid
+  permissionId String @map("permission_id") @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+enum ProfileStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+
+  @@map("profile_status")
+}
+
+// Extends Supabase auth.users (1:1). auth.users is owned and migrated by
+// Supabase Auth, not by this project's Prisma migrations, so it is
+// deliberately NOT modeled here — see this unit's implementation report for
+// why. `id` is a plain UUID column; the foreign key to auth.users(id)
+// ON DELETE CASCADE is added directly in this migration's SQL.
+model Profile {
+  id            String        @id @db.Uuid
+  employeeId    String        @unique @map("employee_id")
+  fullName      String        @map("full_name")
+  email         String        @unique @db.Citext
+  phone         String?
+  roleId        String        @map("role_id") @db.Uuid
+  status        ProfileStatus @default(ACTIVE)
+  // References media_assets.id (SET NULL) once that table exists — deferred,
+  // see this unit's implementation report. No FK constraint yet: the
+  // referenced table does not exist.
+  avatarMediaId String?       @map("avatar_media_id") @db.Uuid
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  role                        Role                      @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  memberships                 UserDepartment[]          @relation("UserDepartmentUser")
+  departmentAssignmentsMade   UserDepartment[]          @relation("UserDepartmentAssignedBy")
+  coursesCreated              Course[]
+  courseAccess                CourseAccess[]            @relation("CourseAccessUser")
+  courseAccessGrantsMade      CourseAccess[]            @relation("CourseAccessGrantedBy")
+  courseAccessRevocationsMade CourseAccess[]            @relation("CourseAccessRevokedBy")
+  mediaAssetsUploaded         MediaAsset[]
+  lessonProgress              LessonProgress[]
+  courseProgress              CourseProgress[]
+  trainingSessions            TrainingSession[]
+  trainingHourRequirements    TrainingHourRequirement[] @relation("TrainingHourRequirementUser")
+  trainingHourRequirementsSet TrainingHourRequirement[] @relation("TrainingHourRequirementCreatedBy")
+  assessmentsCreated          Assessment[]
+  assessmentAttempts          AssessmentAttempt[]
+  assessmentAnswersGraded     AssessmentAnswer[]
+  queriesSubmitted            Query[]                   @relation("QuerySubmitter")
+  queriesAssigned             Query[]                   @relation("QueryAssignee")
+  queryMessagesSent           QueryMessage[]            @relation("QueryMessageSender")
+  auditLogsRecorded           AuditLog[]
+  resourcesUploaded                 Resource[]
+  resourceAccess                    ResourceAccess[]          @relation("ResourceAccessUser")
+  resourceAccessGrantsMade          ResourceAccess[]          @relation("ResourceAccessGrantedBy")
+  resourceAccessRevocationsMade     ResourceAccess[]          @relation("ResourceAccessRevokedBy")
+  policyVersionsUploaded            PolicyVersion[]
+  announcementsAuthored             Announcement[]
+  announcementReads                 AnnouncementRead[]
+  announcementAccess                AnnouncementAccess[]      @relation("AnnouncementAccessUser")
+  announcementAccessGrantsMade      AnnouncementAccess[]      @relation("AnnouncementAccessGrantedBy")
+  announcementAccessRevocationsMade AnnouncementAccess[]      @relation("AnnouncementAccessRevokedBy")
+  systemSettingsUpdates             SystemSettings[]
+
+  @@index([roleId])
+  @@index([status])
+  @@map("profiles")
+}
+
+model Department {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  userDepartments          UserDepartment[]
+  courseDepartments        CourseDepartment[]
+  trainingHourRequirements TrainingHourRequirement[]
+  resourceDepartments      ResourceDepartment[]
+  announcementDepartments  AnnouncementDepartment[]
+  policyDepartments        PolicyDepartment[]
+  // Department -> Category -> Training Content hierarchy unit. A category
+  // NULLABLY belongs to at most one department (NULL = global, matching the
+  // "empty mapping = globally visible" convention every *_departments join
+  // table already uses) — deliberately a single scalar FK, not a new join
+  // table: the requirement is "categories belong to a department," not
+  // "categories belong to many departments."
+  courseCategories   CourseCategory[]
+  resourceCategories ResourceCategory[]
+  queryCategories    QueryCategory[]
+
+  @@map("departments")
+}
+
+// ---------------------------------------------------------------------------
+// Course Categories (Admin Navigation + Dynamic Course Categories unit).
+// §14.2 originally documented `courses.category` as "free-form now; see §39
+// for future course_categories table if it grows complex" — this unit's task
+// explicitly requires admin-managed create/list/update/activate-deactivate,
+// so that future table is introduced now. Mirrors the Department model
+// exactly (same admin-managed-lookup-table shape), per this unit's "use
+// existing conventions" instruction.
+// ---------------------------------------------------------------------------
+
+model CourseCategory {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  // Department -> Category -> Training Content hierarchy unit. NULL = a
+  // global category, not scoped to any one department — every category that
+  // existed before this unit lands here unchanged (ON DELETE SET NULL: a
+  // department deletion never deletes or orphans the categories under it).
+  departmentId String? @map("department_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  courses    Course[]
+
+  @@index([departmentId])
+
+  @@map("course_categories")
+}
+
+model UserDepartment {
+  userId       String   @map("user_id") @db.Uuid
+  departmentId String   @map("department_id") @db.Uuid
+  isPrimary    Boolean  @default(false) @map("is_primary")
+  assignedBy   String?  @map("assigned_by") @db.Uuid
+  assignedAt   DateTime @default(now()) @map("assigned_at") @db.Timestamptz(6)
+
+  user           Profile    @relation("UserDepartmentUser", fields: [userId], references: [id], onDelete: Cascade)
+  department     Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  assignedByUser Profile?   @relation("UserDepartmentAssignedBy", fields: [assignedBy], references: [id], onDelete: SetNull)
+
+  @@id([userId, departmentId])
+  @@index([departmentId])
+  @@map("user_departments")
+}
+
+// ---------------------------------------------------------------------------
+// §14.2 Courses & Content (foundation only — Phase 2 Unit 2.1).
+// Modules, lessons, course_access, and progress tables are deliberately not
+// part of this unit; see this unit's implementation report.
+// ---------------------------------------------------------------------------
+
+enum CourseStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+
+  @@map("course_status")
+}
+
+model Course {
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title            String
+  slug             String       @unique
+  description      String?
+  // §14.2/§14.9: optional course thumbnail (course-media bucket). FK →
+  // media_assets(id) ON DELETE SET NULL added in Unit 2.8's migration now
+  // that media_assets exists. No API sets it yet — the catalogue exposes the
+  // bare reference (Unit 2.7); a course-thumbnail attach flow is a later unit.
+  thumbnailMediaId String?      @map("thumbnail_media_id") @db.Uuid
+  // Replaces the original free-form `category` text column (Admin Navigation
+  // + Dynamic Course Categories unit) — now a real FK to the admin-managed
+  // course_categories table. ON DELETE SET NULL: deactivating/archiving a
+  // category must never break or delete an existing course.
+  categoryId       String?      @map("category_id") @db.Uuid
+  durationMinutes  Int?         @map("duration_minutes")
+  status           CourseStatus @default(DRAFT)
+
+  // Completion criteria config (§19).
+  completionRequireAllLessons     Boolean @default(true) @map("completion_require_all_lessons")
+  completionRequirePractical      Boolean @default(true) @map("completion_require_practical")
+  completionRequireAssessmentPass Boolean @default(false) @map("completion_require_assessment_pass")
+  completionMinAssessmentScorePct Int?    @map("completion_min_assessment_score_pct")
+
+  createdBy  String?   @map("created_by") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(6)
+
+  createdByProfile  Profile?           @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  courseDepartments CourseDepartment[]
+  modules           CourseModule[]
+  accessGrants      CourseAccess[]
+  thumbnail         MediaAsset?        @relation("CourseThumbnail", fields: [thumbnailMediaId], references: [id], onDelete: SetNull)
+  category          CourseCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  courseProgress    CourseProgress[]
+  trainingSessions  TrainingSession[]
+  assessments       Assessment[]
+  queries           Query[]
+
+  @@index([status])
+  @@index([categoryId])
+  @@map("courses")
+}
+
+model CourseDepartment {
+  courseId     String @map("course_id") @db.Uuid
+  departmentId String @map("department_id") @db.Uuid
+
+  course     Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@id([courseId, departmentId])
+  @@index([departmentId])
+  @@map("course_departments")
+}
+
+// ---------------------------------------------------------------------------
+// §14.2 Course Modules (Phase 2 Unit 2.3). Lessons, progress, access, and
+// RLS remain out of scope — see this unit's implementation report.
+// ---------------------------------------------------------------------------
+
+model CourseModule {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  courseId    String   @map("course_id") @db.Uuid
+  title       String
+  description String?
+  sortOrder   Int      @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  course  Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons CourseLesson[]
+
+  @@index([courseId, sortOrder])
+  @@map("course_modules")
+}
+
+// ---------------------------------------------------------------------------
+// §14.2 Course Lessons (Phase 2 Unit 2.4). Media assets, progress, access,
+// and RLS remain out of scope — see this unit's implementation report.
+// ---------------------------------------------------------------------------
+
+enum LessonContentType {
+  VIDEO
+  PDF
+  DOCUMENT
+  PRESENTATION
+  EXTERNAL_LINK
+  TEXT
+
+  @@map("lesson_content_type")
+}
+
+enum LessonClassification {
+  THEORETICAL
+  PRACTICAL
+
+  @@map("lesson_classification")
+}
+
+model CourseLesson {
+  id              String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  moduleId        String               @map("module_id") @db.Uuid
+  title           String
+  description     String?
+  contentType     LessonContentType    @map("content_type")
+  // §14.2/§14.9: optional lesson media (course-media bucket). Null for
+  // EXTERNAL_LINK/TEXT. FK → media_assets(id) ON DELETE RESTRICT added in
+  // Unit 2.8's migration (protects media that is in use). Set only via the
+  // dedicated PUT .../lessons/:id/media endpoint (permission
+  // `course.content.manage`), not via lesson create/update.
+  mediaAssetId    String?              @map("media_asset_id") @db.Uuid
+  externalUrl     String?              @map("external_url")
+  textContent     String?              @map("text_content")
+  durationSeconds Int?                 @map("duration_seconds")
+  sortOrder       Int                  @map("sort_order")
+  isRequired      Boolean              @default(true) @map("is_required")
+  classification  LessonClassification
+  isActive        Boolean              @default(true) @map("is_active")
+  createdAt       DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  module           CourseModule      @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  mediaAsset       MediaAsset?       @relation(fields: [mediaAssetId], references: [id], onDelete: Restrict)
+  progress         LessonProgress[]
+  trainingSessions TrainingSession[]
+
+  @@index([moduleId, sortOrder])
+  @@index([classification])
+  @@index([mediaAssetId])
+  @@map("course_lessons")
+}
+
+// ---------------------------------------------------------------------------
+// §14.2 Course Access (Phase 2 Unit 2.5): explicit, department-independent
+// per-user grants. Field set and UNIQUE(course_id, user_id) constraint match
+// §14.2 exactly — "one row per pairing... revocation flips fields rather
+// than inserting a duplicate" (§6). No `is_active` column: active/revoked
+// state is derived from `revokedAt IS NULL`/`IS NOT NULL`, exactly as the
+// plan's field list implies (it lists no separate status column). The
+// Course Access Resolver, RLS, and department-based access remain out of
+// scope — see this unit's implementation report.
+// ---------------------------------------------------------------------------
+
+model CourseAccess {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  courseId  String    @map("course_id") @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  grantedBy String?   @map("granted_by") @db.Uuid
+  grantedAt DateTime  @default(now()) @map("granted_at") @db.Timestamptz(6)
+  revokedBy String?   @map("revoked_by") @db.Uuid
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+
+  course        Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user          Profile  @relation("CourseAccessUser", fields: [userId], references: [id], onDelete: Cascade)
+  grantedByUser Profile? @relation("CourseAccessGrantedBy", fields: [grantedBy], references: [id], onDelete: SetNull)
+  revokedByUser Profile? @relation("CourseAccessRevokedBy", fields: [revokedBy], references: [id], onDelete: SetNull)
+
+  @@unique([courseId, userId])
+  @@index([userId])
+  @@index([courseId])
+  @@map("course_access")
+}
+
+// ---------------------------------------------------------------------------
+// §14.9 / §16 Media Assets (Phase 2 Unit 2.8): private-bucket file metadata.
+// Field set matches §14.9 exactly — bucket + storage_path (server-computed,
+// never client-supplied), original_filename, mime_type, size_bytes (bigint),
+// nullable checksum, uploaded_by, created_at. UNIQUE(bucket, storage_path).
+// "No public URL is ever stored — only the bucket + path needed to mint a
+// signed URL on demand" (§14.9). RLS on storage.objects and a dedicated DB
+// role remain a separate security-hardening concern (§12/§21), not this unit.
+// ---------------------------------------------------------------------------
+
+model MediaAsset {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bucket           String
+  storagePath      String   @map("storage_path")
+  originalFilename String   @map("original_filename")
+  mimeType         String   @map("mime_type")
+  sizeBytes        BigInt   @map("size_bytes")
+  checksum         String?
+  uploadedBy       String?  @map("uploaded_by") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  uploadedByProfile       Profile?          @relation(fields: [uploadedBy], references: [id], onDelete: SetNull)
+  courseThumbnails        Course[]          @relation("CourseThumbnail")
+  lessons                 CourseLesson[]
+  queryAttachments        QueryAttachment[]
+  resources               Resource[]
+  policyVersions          PolicyVersion[]
+  announcementAttachments Announcement[]    @relation("AnnouncementAttachment")
+  announcementImages      Announcement[]    @relation("AnnouncementImage")
+
+  @@unique([bucket, storagePath])
+  @@map("media_assets")
+}
+
+// ---------------------------------------------------------------------------
+// §14.3 Lesson Progress (database foundation only — this unit). Field set
+// and constraints match §14.3's `lesson_progress` table exactly — the
+// documented "source of truth for progress". `course_progress` (the
+// derived, recomputed cache over lesson_progress + assessment_attempts),
+// `training_sessions`, and `training_hour_requirements` are deliberately
+// NOT introduced here: course_progress depends on completion-criteria logic
+// that isn't buildable until assessments exist, and building it now would
+// be exactly the speculative, premature modeling this unit was told to
+// avoid. No API/UI is added in this unit — see this unit's implementation
+// report.
+// ---------------------------------------------------------------------------
+
+enum LessonProgressStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+
+  @@map("lesson_progress_status")
+}
+
+model LessonProgress {
+  id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId               String               @map("user_id") @db.Uuid
+  lessonId             String               @map("lesson_id") @db.Uuid
+  status               LessonProgressStatus @default(NOT_STARTED)
+  // Video resume point (§18: "the player emits periodic position updates...
+  // On load, the player seeks to the stored position"). Meaningless for
+  // non-VIDEO lessons but not worth a nullable/conditional column for —
+  // §14.3 defines it as a plain non-null integer with a 0 default.
+  videoPositionSeconds Int                  @default(0) @map("video_position_seconds")
+  startedAt            DateTime?            @map("started_at") @db.Timestamptz(6)
+  completedAt          DateTime?            @map("completed_at") @db.Timestamptz(6)
+  // No separate created_at: §14.3 lists only updated_at for this table —
+  // startedAt already marks when tracking began.
+  updatedAt            DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user   Profile      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson CourseLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, lessonId])
+  @@index([lessonId])
+  @@map("lesson_progress")
+}
+
+// ---------------------------------------------------------------------------
+// §14.3 / §18 Course Progress (Phase 3): the derived, recomputed cache over
+// lesson_progress (+ assessment_attempts once Phase 4 exists). Recomputed by
+// progress.service.ts's recomputeCourseProgress() inside the same DB
+// transaction as the triggering lesson_progress write (§18: "inside the same
+// DB transaction as that write") — never written directly by any route
+// handler. Field set and UNIQUE(user_id, course_id) match §14.3 exactly.
+// ---------------------------------------------------------------------------
+
+enum CourseProgressStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+
+  @@map("course_progress_status")
+}
+
+model CourseProgress {
+  id                     String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                 String               @map("user_id") @db.Uuid
+  courseId               String               @map("course_id") @db.Uuid
+  theoreticalProgressPct Decimal              @default(0) @map("theoretical_progress_pct") @db.Decimal(5, 2)
+  practicalProgressPct   Decimal              @default(0) @map("practical_progress_pct") @db.Decimal(5, 2)
+  overallProgressPct     Decimal              @default(0) @map("overall_progress_pct") @db.Decimal(5, 2)
+  status                 CourseProgressStatus @default(NOT_STARTED)
+  startedAt              DateTime?            @map("started_at") @db.Timestamptz(6)
+  completedAt            DateTime?            @map("completed_at") @db.Timestamptz(6)
+  lastRecalculatedAt     DateTime             @default(now()) @map("last_recalculated_at") @db.Timestamptz(6)
+
+  user   Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@index([courseId])
+  @@map("course_progress")
+}
+
+// ---------------------------------------------------------------------------
+// §14.3 Training Sessions (Phase 3): "hours consumed" ledger. Auto-created by
+// progress.service.ts when lesson_progress first transitions to IN_PROGRESS
+// and auto-closed when it reaches COMPLETED (see this unit's implementation
+// report for the exact hook) — no direct create/update API exists. Only
+// status=COMPLETED rows count toward consumed hours (§14.3: "only COMPLETED
+// counts toward hours consumed").
+// ---------------------------------------------------------------------------
+
+enum TrainingType {
+  THEORETICAL
+  PRACTICAL
+  ASSESSMENT
+  OTHER
+
+  @@map("training_type")
+}
+
+enum TrainingSessionStatus {
+  ACTIVE
+  COMPLETED
+  ABANDONED
+
+  @@map("training_session_status")
+}
+
+model TrainingSession {
+  id              String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String                @map("user_id") @db.Uuid
+  courseId        String?               @map("course_id") @db.Uuid
+  lessonId        String?               @map("lesson_id") @db.Uuid
+  trainingType    TrainingType          @map("training_type")
+  startedAt       DateTime              @map("started_at") @db.Timestamptz(6)
+  endedAt         DateTime?             @map("ended_at") @db.Timestamptz(6)
+  durationMinutes Int?                  @map("duration_minutes")
+  status          TrainingSessionStatus @default(ACTIVE)
+  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user   Profile       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course?       @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  lesson CourseLesson? @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status])
+  @@index([courseId])
+  @@map("training_sessions")
+}
+
+// ---------------------------------------------------------------------------
+// §14.3 Training Hour Requirements (Phase 3): "hours allocated" config,
+// scoped to a department or an individual user. Resolution rule (§14.3
+// leaves "highest wins, or summed" as an implementation choice, to be
+// documented here): a user's required hours = the most recent applicable
+// USER-scope row if one exists, else the highest required_hours among the
+// most recent applicable row per department the user belongs to. See
+// training-hours.service.ts for the exact resolution implementation. The
+// CHECK constraint (exactly one of department_id/user_id set, matching
+// scope) is hand-written in this table's migration — Prisma cannot express
+// CHECK constraints declaratively in this version.
+// ---------------------------------------------------------------------------
+
+enum TrainingHourRequirementScope {
+  DEPARTMENT
+  USER
+
+  @@map("training_hour_requirement_scope")
+}
+
+model TrainingHourRequirement {
+  id            String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  scope         TrainingHourRequirementScope
+  departmentId  String?                      @map("department_id") @db.Uuid
+  userId        String?                      @map("user_id") @db.Uuid
+  requiredHours Decimal                      @map("required_hours") @db.Decimal(6, 2)
+  effectiveFrom DateTime                     @map("effective_from") @db.Date
+  createdBy     String?                      @map("created_by") @db.Uuid
+  createdAt     DateTime                     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  department       Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  user             Profile?    @relation("TrainingHourRequirementUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdByProfile Profile?    @relation("TrainingHourRequirementCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([departmentId, effectiveFrom])
+  @@index([userId, effectiveFrom])
+  @@map("training_hour_requirements")
+}
+
+// ---------------------------------------------------------------------------
+// §14.4 / §19 Assessment Engine (Phase 4): a generic engine, not a
+// hard-coded quiz — question_type determines rendering/grading strategy.
+// Scoring happens server-side only, on submit (the client never receives
+// correct answers before submission, and never computes the score itself).
+// `result` is derived by comparing `percentage` to the assessment's own
+// `passing_marks`/`total_marks` ratio at submission time and preserved for
+// history even if the threshold changes later. Course completion criteria
+// (`completion_require_assessment_pass` + `completion_min_assessment_score_pct`,
+// already on `Course` since Phase 3) tie into the SAME `course_progress`
+// recompute built in Phase 3 — see progress/course-progress.service.ts's
+// assessment-gating clause. There is no separate assessment-driven
+// completion mechanism (one course-completion system, per this unit's task).
+// ---------------------------------------------------------------------------
+
+enum AssessmentType {
+  QUIZ
+  MOCK_EXAM
+  PRACTICAL
+  TEST
+  OTHER
+
+  @@map("assessment_type")
+}
+
+enum AssessmentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+
+  @@map("assessment_status")
+}
+
+model Assessment {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  courseId        String           @map("course_id") @db.Uuid
+  title           String
+  description     String?
+  type            AssessmentType
+  totalMarks      Int              @map("total_marks")
+  passingMarks    Int              @map("passing_marks")
+  durationMinutes Int?             @map("duration_minutes")
+  dueDate         DateTime?        @map("due_date") @db.Timestamptz(6)
+  maxAttempts     Int              @default(1) @map("max_attempts")
+  status          AssessmentStatus @default(DRAFT)
+  createdBy       String?          @map("created_by") @db.Uuid
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  course           Course               @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdByProfile Profile?             @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  questions        AssessmentQuestion[]
+  attempts         AssessmentAttempt[]
+
+  @@index([courseId])
+  @@index([status])
+  @@map("assessments")
+}
+
+enum AssessmentQuestionType {
+  SINGLE_CHOICE
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+  SHORT_ANSWER
+  PRACTICAL_MANUAL
+
+  @@map("assessment_question_type")
+}
+
+model AssessmentQuestion {
+  id           String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assessmentId String                 @map("assessment_id") @db.Uuid
+  questionText String                 @map("question_text")
+  questionType AssessmentQuestionType @map("question_type")
+  marks        Int
+  sortOrder    Int                    @map("sort_order")
+  createdAt    DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  assessment Assessment                 @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  options    AssessmentQuestionOption[]
+  answers    AssessmentAnswer[]
+
+  @@index([assessmentId, sortOrder])
+  @@map("assessment_questions")
+}
+
+// Not used for SHORT_ANSWER/PRACTICAL_MANUAL question types (§14.4).
+model AssessmentQuestionOption {
+  id         String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  questionId String  @map("question_id") @db.Uuid
+  optionText String  @map("option_text")
+  isCorrect  Boolean @default(false) @map("is_correct")
+  sortOrder  Int     @map("sort_order")
+
+  question          AssessmentQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  selectedInAnswers AssessmentAnswer[]
+
+  @@index([questionId])
+  @@map("assessment_question_options")
+}
+
+enum AssessmentAttemptResult {
+  PENDING
+  PASS
+  FAIL
+
+  @@map("assessment_attempt_result")
+}
+
+enum AssessmentAttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+  GRADED
+  EXPIRED
+
+  @@map("assessment_attempt_status")
+}
+
+model AssessmentAttempt {
+  id            String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assessmentId  String                  @map("assessment_id") @db.Uuid
+  userId        String                  @map("user_id") @db.Uuid
+  // Server-assigned (never client-supplied) to prevent replay/tampering (§19).
+  attemptNumber Int                     @map("attempt_number")
+  startedAt     DateTime                @map("started_at") @db.Timestamptz(6)
+  submittedAt   DateTime?               @map("submitted_at") @db.Timestamptz(6)
+  score         Decimal?                @db.Decimal(6, 2)
+  percentage    Decimal?                @db.Decimal(5, 2)
+  result        AssessmentAttemptResult @default(PENDING)
+  status        AssessmentAttemptStatus @default(IN_PROGRESS)
+
+  assessment Assessment         @relation(fields: [assessmentId], references: [id], onDelete: Restrict)
+  user       Profile            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answers    AssessmentAnswer[]
+
+  @@unique([assessmentId, userId, attemptNumber])
+  @@index([userId, assessmentId])
+  @@map("assessment_attempts")
+}
+
+model AssessmentAnswer {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  attemptId        String    @map("attempt_id") @db.Uuid
+  questionId       String    @map("question_id") @db.Uuid
+  selectedOptionId String?   @map("selected_option_id") @db.Uuid
+  answerText       String?   @map("answer_text")
+  isCorrect        Boolean?  @map("is_correct")
+  marksAwarded     Decimal?  @map("marks_awarded") @db.Decimal(6, 2)
+  // §14.4: "a small graded_by/graded_at pair is added ... for this path"
+  // (PRACTICAL_MANUAL — and, this implementation's documented extension,
+  // SHORT_ANSWER, which §19 leaves unautomated: "stored for manual review
+  // ... depending on future need"; no auto-grading rule is invented here).
+  gradedBy         String?   @map("graded_by") @db.Uuid
+  gradedAt         DateTime? @map("graded_at") @db.Timestamptz(6)
+
+  attempt         AssessmentAttempt         @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question        AssessmentQuestion        @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  selectedOption  AssessmentQuestionOption? @relation(fields: [selectedOptionId], references: [id], onDelete: SetNull)
+  gradedByProfile Profile?                  @relation(fields: [gradedBy], references: [id], onDelete: SetNull)
+
+  @@unique([attemptId, questionId])
+  @@map("assessment_answers")
+}
+
+// ---------------------------------------------------------------------------
+// §14.7 Query / Support (Phase 6, database only — this unit). Ticket-style
+// thread: one `queries` row (the ticket) containing many `query_messages`
+// (the conversation), each optionally carrying `query_attachments`. Field
+// set, enums, FKs, indexes, and nullability match §14.7 exactly. No
+// API/UI/RLS-policy-authoring is added in this unit — see §22's own note
+// that "a user can only ever see/query queries where user_id = self (both
+// API filter and RLS policy)" is enforced by later units, not this schema
+// pass.
+// ---------------------------------------------------------------------------
+
+enum QueryPriority {
+  LOW
+  NORMAL
+  HIGH
+
+  @@map("query_priority")
+}
+
+enum QueryStatus {
+  OPEN
+  UNDER_REVIEW
+  RESPONDED
+  RESOLVED
+  CLOSED
+
+  @@map("query_status")
+}
+
+/**
+ * Query Category dropdown unit: an admin-managed lookup table, mirroring
+ * `ResourceCategory`/`CourseCategory` field-for-field, replacing the
+ * previously-uncontrolled free-text `Query.category` for NEW tickets.
+ */
+model QueryCategory {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String   @unique
+  slug         String   @unique
+  description  String?
+  isActive     Boolean  @default(true) @map("is_active")
+  // Department -> Category -> Training Content hierarchy unit. NULL = a
+  // global category. See CourseCategory's identical field for the full
+  // reasoning (ON DELETE SET NULL, nullable-for-backward-compatibility).
+  departmentId String?  @map("department_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  queries    Query[]
+
+  @@index([departmentId])
+  @@map("query_categories")
+}
+
+model Query {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String        @map("user_id") @db.Uuid
+  subject     String
+  // LEGACY free-text category (Query Category dropdown unit deliberately
+  // keeps this column for backward compatibility with existing rows — see
+  // that unit's migration). New tickets no longer write it; `categoryId`
+  // below is the controlled replacement. Never both required — either may
+  // be null.
+  category    String?
+  categoryId  String?       @map("category_id") @db.Uuid
+  description String
+  courseId    String?       @map("course_id") @db.Uuid
+  priority    QueryPriority @default(NORMAL)
+  status      QueryStatus   @default(OPEN)
+  assignedTo  String?       @map("assigned_to") @db.Uuid
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user              Profile        @relation("QuerySubmitter", fields: [userId], references: [id], onDelete: Cascade)
+  course            Course?        @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  categoryRecord    QueryCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  assignedToProfile Profile?       @relation("QueryAssignee", fields: [assignedTo], references: [id], onDelete: SetNull)
+  messages          QueryMessage[]
+
+  @@index([userId, status])
+  @@index([status])
+  @@index([categoryId])
+  @@map("queries")
+}
+
+model QueryMessage {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  queryId   String   @map("query_id") @db.Uuid
+  senderId  String?  @map("sender_id") @db.Uuid
+  message   String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  query       Query             @relation(fields: [queryId], references: [id], onDelete: Cascade)
+  sender      Profile?          @relation("QueryMessageSender", fields: [senderId], references: [id], onDelete: SetNull)
+  attachments QueryAttachment[]
+
+  @@index([queryId, createdAt])
+  @@map("query_messages")
+}
+
+model QueryAttachment {
+  queryMessageId String @map("query_message_id") @db.Uuid
+  mediaAssetId   String @map("media_asset_id") @db.Uuid
+
+  queryMessage QueryMessage @relation(fields: [queryMessageId], references: [id], onDelete: Cascade)
+  mediaAsset   MediaAsset   @relation(fields: [mediaAssetId], references: [id], onDelete: Restrict)
+
+  @@id([queryMessageId, mediaAssetId])
+  @@map("query_attachments")
+}
+
+// ---------------------------------------------------------------------------
+// §14.9 / §32 Audit Logs (Phase 6.9). Field set matches §14.9 exactly. This
+// is the canonical, generic audit-log table the plan has specified since
+// §14.9/§32 — not a Query-specific one — so `lib/audit.ts`'s writer can be
+// reused by any future privileged action elsewhere in the system rather
+// than inventing a second logging mechanism. Query privileged actions
+// (status change, assignment change, admin/support responses) are this
+// table's first consumer (Phase 6.9). Append-only: no update/delete
+// relation or policy anywhere, same precedent as query_messages/
+// query_attachments (Phase 6).
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorId    String?  @map("actor_id") @db.Uuid
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id") @db.Uuid
+  metadata   Json?
+  ipAddress  String?  @map("ip_address") @db.Inet
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  actor Profile? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// §14.5 / §20 Resources (Phase 5.1). Field set matches §14.5 exactly —
+// `resource_categories` mirrors `course_categories` field-for-field (same
+// admin-managed-lookup-table shape); `resources` reuses `media_assets` for
+// the attached file (never a second storage mechanism) and
+// `resource_departments` reuses the exact same empty-join-means-global
+// department-visibility shape as `course_departments`/`can_access_course`,
+// just without a `course_access`-style explicit per-user grant (§20: "not
+// tied to a specific lesson's structured progress tracking... reuse the same
+// media_assets and department-visibility patterns as courses" — §14.5 lists
+// no per-user grant table for resources, unlike courses' `course_access`).
+// `category_id`/`media_asset_id` are both NOT NULL per §14.5's literal field
+// list (no "nullable" marker, unlike e.g. `queries.course_id`) — every
+// resource is category-classified and file-backed; there is no separate
+// "external link" resource type in the plan's schema.
+// ---------------------------------------------------------------------------
+
+model ResourceCategory {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String   @unique
+  slug         String   @unique
+  description  String?
+  isActive     Boolean  @default(true) @map("is_active")
+  // Department -> Category -> Training Content hierarchy unit. NULL = a
+  // global category. See CourseCategory's identical field for the full
+  // reasoning (ON DELETE SET NULL, nullable-for-backward-compatibility).
+  departmentId String?  @map("department_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  resources  Resource[]
+
+  @@index([departmentId])
+  @@map("resource_categories")
+}
+
+enum ResourceStatus {
+  PUBLISHED
+  ARCHIVED
+
+  @@map("resource_status")
+}
+
+model Resource {
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title        String
+  description  String?
+  categoryId   String         @map("category_id") @db.Uuid
+  // Useful Links unit: exactly one of mediaAssetId/externalUrl is non-null —
+  // "resources_media_or_url_check" (hand-written migration, not expressible
+  // in Prisma's schema DSL, same precedent as
+  // training_hour_requirements_scope_check).
+  mediaAssetId String?        @map("media_asset_id") @db.Uuid
+  externalUrl  String?        @map("external_url")
+  // Denormalized copy of media_assets.mime_type at attach time (§14.5: "for
+  // fast filtering") — never client-supplied, always server-derived from the
+  // attached media asset so it can never drift from the real file's type.
+  // For a URL-backed resource (no attached media asset) this is the fixed
+  // sentinel "LINK" instead of a MIME type — still NOT NULL, no schema
+  // change needed for this column.
+  fileType     String         @map("file_type")
+  uploadedBy   String?        @map("uploaded_by") @db.Uuid
+  status       ResourceStatus @default(PUBLISHED)
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  category            ResourceCategory     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  mediaAsset          MediaAsset?          @relation(fields: [mediaAssetId], references: [id], onDelete: Restrict)
+  uploadedByProfile   Profile?             @relation(fields: [uploadedBy], references: [id], onDelete: SetNull)
+  resourceDepartments ResourceDepartment[]
+  accessGrants        ResourceAccess[]
+
+  @@index([status])
+  @@index([categoryId])
+  @@map("resources")
+}
+
+model ResourceDepartment {
+  resourceId   String @map("resource_id") @db.Uuid
+  departmentId String @map("department_id") @db.Uuid
+
+  resource   Resource   @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@id([resourceId, departmentId])
+  @@index([departmentId])
+  @@map("resource_departments")
+}
+
+// Consistent granular access control unit: explicit per-user resource access
+// grants, byte-for-byte the same shape as CourseAccess (soft-revocable,
+// UNIQUE(resource_id, user_id), granted_by/revoked_by always the
+// authenticated identity, never client input).
+model ResourceAccess {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  resourceId String    @map("resource_id") @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  grantedBy  String?   @map("granted_by") @db.Uuid
+  grantedAt  DateTime  @default(now()) @map("granted_at") @db.Timestamptz(6)
+  revokedBy  String?   @map("revoked_by") @db.Uuid
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(6)
+
+  resource      Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  user          Profile  @relation("ResourceAccessUser", fields: [userId], references: [id], onDelete: Cascade)
+  grantedByUser Profile? @relation("ResourceAccessGrantedBy", fields: [grantedBy], references: [id], onDelete: SetNull)
+  revokedByUser Profile? @relation("ResourceAccessRevokedBy", fields: [revokedBy], references: [id], onDelete: SetNull)
+
+  @@unique([resourceId, userId])
+  @@index([userId])
+  @@index([resourceId])
+  @@map("resource_access")
+}
+
+// ---------------------------------------------------------------------------
+// §14.8 / §23 Policy & Procedures (Phase 5.2). `policies` is the stable,
+// versionless concept ("Attendance Policy"); `policy_versions` is its
+// immutable-once-superseded history — field sets match §14.8 exactly, with
+// one deliberate, minimal addition: `policies.description` is NOT in §14.8's
+// literal column list, but this phase's own trainee-listing requirement
+// ("policy name, description, version, effective date...") needs it, so it
+// is added the same way `resource.manage`/`training.manage` were added in
+// earlier phases when a concrete requirement outran the plan's literal text
+// — nowhere else does this schema diverge from §14.8.
+//
+// The partial unique index guaranteeing "at most one active version per
+// policy" (§14.8: "at the database level, not just by application
+// discipline") has no Prisma schema DSL equivalent (no `where:` clause on
+// `@@unique`) — it is added as raw SQL in the hand-written migration,
+// exactly the same "expressed outside the Prisma-managed schema, in the
+// migration itself" treatment already given to every RLS policy in this
+// project. `@@unique([policyId, versionLabel])` below IS Prisma-expressible
+// and is declared normally.
+// ---------------------------------------------------------------------------
+
+model Policy {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title       String
+  slug        String   @unique
+  category    String?
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  versions          PolicyVersion[]
+  policyDepartments PolicyDepartment[]
+
+  @@map("policies")
+}
+
+// Consistent granular access control unit: department-based visibility for
+// Policies, byte-for-byte the same empty-mapping-means-global shape as
+// ResourceDepartment/AnnouncementDepartment/CourseDepartment — NOT an
+// explicit per-user grant (§7 of this unit asks only for department-based
+// visibility for Policies, unlike Resources/Announcements).
+model PolicyDepartment {
+  policyId     String @map("policy_id") @db.Uuid
+  departmentId String @map("department_id") @db.Uuid
+
+  policy     Policy     @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@id([policyId, departmentId])
+  @@index([departmentId])
+  @@map("policy_departments")
+}
+
+model PolicyVersion {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  policyId      String   @map("policy_id") @db.Uuid
+  versionLabel  String   @map("version_label")
+  mediaAssetId  String?  @map("media_asset_id") @db.Uuid
+  // Sanitized HTML/plain text, for an in-app policy not stored as a file
+  // (§14.8). Rendered as plain text on the frontend (whitespace-pre-wrap,
+  // never dangerouslySetInnerHTML) — this codebase has no HTML sanitizer
+  // anywhere, and introducing one is out of this narrowly-scoped phase.
+  content       String?
+  effectiveDate DateTime @map("effective_date") @db.Date
+  isActive      Boolean  @default(false) @map("is_active")
+  isArchived    Boolean  @default(false) @map("is_archived")
+  uploadedBy    String?  @map("uploaded_by") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  policy            Policy      @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  mediaAsset        MediaAsset? @relation(fields: [mediaAssetId], references: [id], onDelete: Restrict)
+  uploadedByProfile Profile?    @relation(fields: [uploadedBy], references: [id], onDelete: SetNull)
+
+  @@unique([policyId, versionLabel])
+  @@index([policyId, isActive])
+  @@map("policy_versions")
+}
+
+// ---------------------------------------------------------------------------
+// §14.6 / §21 Announcements (Phase 5.3.1 — database foundation only, no
+// API/frontend). Field set matches §14.6 exactly: `announcements` (the
+// publishable content, `DRAFT -> PUBLISHED -> ARCHIVED`, §21), an
+// empty-join-means-global `announcement_departments` targeting table
+// (byte-for-byte the same shape already used by `resource_departments` —
+// §14.6 itself: "Resources and Announcements follow the same pattern"),
+// and `announcement_reads` (per-user read/acknowledge/dismiss tracking,
+// UNIQUE(announcement_id, user_id) — the server-tracked fact §14.6's own
+// popup-suppression logic reads, never localStorage). No API/frontend is
+// added in this unit — see this unit's implementation report.
+// ---------------------------------------------------------------------------
+
+enum AnnouncementPriority {
+  LOW
+  NORMAL
+  HIGH
+
+  @@map("announcement_priority")
+}
+
+enum AnnouncementStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+
+  @@map("announcement_status")
+}
+
+model Announcement {
+  id                String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title             String
+  body              String
+  priority          AnnouncementPriority @default(NORMAL)
+  isImportant       Boolean              @default(false) @map("is_important")
+  showAsPopup       Boolean              @default(false) @map("show_as_popup")
+  attachmentMediaId String?              @map("attachment_media_id") @db.Uuid
+  imageMediaId      String?              @map("image_media_id") @db.Uuid
+  authorId          String?              @map("author_id") @db.Uuid
+  status            AnnouncementStatus   @default(DRAFT)
+  publishedAt       DateTime?            @map("published_at") @db.Timestamptz(6)
+  createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  attachmentMedia         MediaAsset?              @relation("AnnouncementAttachment", fields: [attachmentMediaId], references: [id], onDelete: SetNull)
+  imageMedia              MediaAsset?              @relation("AnnouncementImage", fields: [imageMediaId], references: [id], onDelete: SetNull)
+  author                  Profile?                 @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  announcementDepartments AnnouncementDepartment[]
+  reads                   AnnouncementRead[]
+  accessGrants            AnnouncementAccess[]
+
+  @@index([status])
+  @@index([status, publishedAt])
+  @@map("announcements")
+}
+
+model AnnouncementDepartment {
+  announcementId String @map("announcement_id") @db.Uuid
+  departmentId   String @map("department_id") @db.Uuid
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  department   Department   @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@id([announcementId, departmentId])
+  @@index([departmentId])
+  @@map("announcement_departments")
+}
+
+// Consistent granular access control unit: explicit per-user announcement
+// access grants, byte-for-byte the same shape as CourseAccess/ResourceAccess.
+model AnnouncementAccess {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  announcementId String    @map("announcement_id") @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  grantedBy      String?   @map("granted_by") @db.Uuid
+  grantedAt      DateTime  @default(now()) @map("granted_at") @db.Timestamptz(6)
+  revokedBy      String?   @map("revoked_by") @db.Uuid
+  revokedAt      DateTime? @map("revoked_at") @db.Timestamptz(6)
+
+  announcement  Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  user          Profile      @relation("AnnouncementAccessUser", fields: [userId], references: [id], onDelete: Cascade)
+  grantedByUser Profile?     @relation("AnnouncementAccessGrantedBy", fields: [grantedBy], references: [id], onDelete: SetNull)
+  revokedByUser Profile?     @relation("AnnouncementAccessRevokedBy", fields: [revokedBy], references: [id], onDelete: SetNull)
+
+  @@unique([announcementId, userId])
+  @@index([userId])
+  @@index([announcementId])
+  @@map("announcement_access")
+}
+
+model AnnouncementRead {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  announcementId String    @map("announcement_id") @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  readAt         DateTime? @map("read_at") @db.Timestamptz(6)
+  acknowledgedAt DateTime? @map("acknowledged_at") @db.Timestamptz(6)
+  dismissedAt    DateTime? @map("dismissed_at") @db.Timestamptz(6)
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  user         Profile      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, userId])
+  @@index([userId])
+  @@map("announcement_reads")
+}
+
+// ---------------------------------------------------------------------------
+// Admin Portal / System Settings unit. A single-row, admin-editable
+// replacement for the previously-hardcoded constants in
+// apps/api/src/modules/media/media.constants.ts (MIME allowlists,
+// per-purpose size limits, signed-URL TTLs) and
+// apps/web/src/pages/portal/courses/VideoLessonPlayer.tsx
+// (VIDEO_COMPLETION_THRESHOLD) — exactly the values those files' own
+// comments already documented as intended to become configurable, and no
+// others (bucket names/MEDIA_BACKED_LESSON_CONTENT_TYPES stay hardcoded
+// constants; they were never named as configurable). Deliberately a single
+// known row, not a generic key/value store — a flat, typed table is the
+// smallest fit for a fixed, small set of global settings, matching this
+// project's preference for typed columns over inventing a generic settings
+// architecture. Byte-limit columns are BigInt (not Int) because
+// course_media_max_bytes's existing default, 2 GiB, already exceeds
+// Postgres INT4's ~2.1B ceiling — mirrors media_assets.size_bytes's own
+// existing BigInt precedent.
+// ---------------------------------------------------------------------------
+
+model SystemSettings {
+  id                             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  courseMediaMaxBytes            BigInt   @map("course_media_max_bytes")
+  courseMediaMimeAllowlist       String[] @map("course_media_mime_allowlist")
+  queryAttachmentMaxBytes        BigInt   @map("query_attachment_max_bytes")
+  queryAttachmentMimeAllowlist   String[] @map("query_attachment_mime_allowlist")
+  resourceFileMaxBytes           BigInt   @map("resource_file_max_bytes")
+  resourceFileMimeAllowlist      String[] @map("resource_file_mime_allowlist")
+  policyDocumentMaxBytes         BigInt   @map("policy_document_max_bytes")
+  policyDocumentMimeAllowlist    String[] @map("policy_document_mime_allowlist")
+  announcementMediaMaxBytes      BigInt   @map("announcement_media_max_bytes")
+  announcementMediaMimeAllowlist String[] @map("announcement_media_mime_allowlist")
+  signedUrlTtlVideoSeconds       Int      @map("signed_url_ttl_video_seconds")
+  signedUrlTtlDefaultSeconds     Int      @map("signed_url_ttl_default_seconds")
+  // Fraction of a video's duration that must be watched for it to
+  // auto-complete (§18) — the exact same 0..1 value
+  // VideoLessonPlayer.tsx's own VIDEO_COMPLETION_THRESHOLD held.
+  videoCompletionThreshold       Decimal  @map("video_completion_threshold") @db.Decimal(3, 2)
+  updatedBy                      String?  @map("updated_by") @db.Uuid
+  createdAt                      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  updatedByProfile Profile? @relation(fields: [updatedBy], references: [id], onDelete: SetNull)
+
+  @@map("system_settings")
 }

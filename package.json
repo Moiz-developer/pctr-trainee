@@ -13,7 +13,9 @@
     "prisma:generate": "pnpm --filter @internal-training/api run prisma:generate",
     "prisma:validate": "pnpm --filter @internal-training/api run prisma:validate",
     "prisma:migrate": "pnpm --filter @internal-training/api run prisma:migrate",
-    "prisma:studio": "pnpm --filter @internal-training/api run prisma:studio"
+    "prisma:studio": "pnpm --filter @internal-training/api run prisma:studio",
+    "db:seed": "pnpm --filter @internal-training/api run db:seed",
+    "db:seed:demo": "pnpm --filter @internal-training/api run db:seed:demo"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
