@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "prisma generate --config ../../prisma.config.ts && tsc -p tsconfig.json",
+    "build": "pnpm --filter @internal-training/shared run build && prisma generate --config ../../prisma.config.ts && tsc -p tsconfig.json",
     "prepare": "prisma generate --config ../../prisma.config.ts && tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
