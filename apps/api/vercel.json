@@ -1,18 +1,12 @@
 {
-  "builds": [
-    {
-      "src": "api/index.ts",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": [
-          "dist/**",
-          "node_modules/@internal-training/shared/dist/**",
-          "node_modules/@internal-training/shared/package.json"
-        ]
-      }
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "pnpm run build",
+  "functions": {
+    "api/index.ts": {
+      "includeFiles": ["dist/**"]
     }
-  ],
-  "routes": [
-    { "src": "/(.*)", "dest": "api/index.ts" }
+  },
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api" }
   ]
 }
