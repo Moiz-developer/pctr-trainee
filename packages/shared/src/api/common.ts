@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { paginationMetaSchema } from "../types/common.js";
 
 /**
  * Generic wrapper for the platform's success response envelope: { "data": ... }
@@ -15,6 +16,20 @@ export function apiSuccessSchema<DataSchema extends z.ZodType>(dataSchema: DataS
 }
 
 export type ApiSuccess<T> = { data: T };
+
+/**
+ * Envelope for paginated list endpoints: { "data": [...], "meta": {...} }
+ * (SYSTEM_PLAN.md §26 "every list endpoint supports pagination", §33). Not a
+ * second response format — it's the same `{ data }` envelope with pagination
+ * facts attached via `paginationMetaSchema`, which was already defined for
+ * this exact purpose.
+ */
+export function apiPaginatedSchema<ItemSchema extends z.ZodType>(itemSchema: ItemSchema) {
+  return z.object({
+    data: z.array(itemSchema),
+    meta: paginationMetaSchema,
+  });
+}
 
 /**
  * The platform's error response envelope: { "error": { code, message, fields? } }

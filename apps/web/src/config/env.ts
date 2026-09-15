@@ -1,14 +1,5 @@
 import { z } from "zod";
 
-// Treat an explicitly-empty value the same as "not set" — .env.example ships the
-// Supabase variables as empty placeholders, and copying it to .env unedited should
-// mean "not configured yet", not a validation failure.
-const emptyStringToUndefined = (value: unknown) => (value === "" ? undefined : value);
-
-const optionalUrl = () => z.preprocess(emptyStringToUndefined, z.url().optional());
-const optionalNonEmptyString = () =>
-  z.preprocess(emptyStringToUndefined, z.string().min(1).optional());
-
 // A required URL with a sensible local-dev fallback: unlike the Supabase variables,
 // this isn't tied to an unconfigured external service, so "" behaves like "use the
 // default" rather than "not configured yet".
@@ -16,11 +7,12 @@ const urlWithDefault = (fallback: string) =>
   z.preprocess((value) => (value === "" || value === undefined ? fallback : value), z.url());
 
 const envSchema = z.object({
-  // ---- Not yet required: Supabase Auth is wired up in a later step ----
-  VITE_SUPABASE_URL: optionalUrl(),
-  VITE_SUPABASE_ANON_KEY: optionalNonEmptyString(),
+  // Required as of the authentication foundation unit: the browser Supabase client
+  // (services/supabase/client.ts) is constructed from these at module load.
+  VITE_SUPABASE_URL: z.url(),
+  VITE_SUPABASE_ANON_KEY: z.string().min(1),
 
-  // ---- Required now (has a sensible local default; no API client exists yet this step) ----
+  // Required, with a sensible local default (no API client exists yet this step).
   VITE_API_BASE_URL: urlWithDefault("http://localhost:4000"),
 });
 
@@ -41,8 +33,3 @@ if (!parsedEnv.success) {
 
 export const env = parsedEnv.data;
 export type Env = typeof env;
-
-// Single source of truth for "has Supabase been configured yet." The Supabase Auth
-// step should check this instead of re-deriving it from individual env fields.
-export const isSupabaseConfigured: boolean =
-  Boolean(env.VITE_SUPABASE_URL) && Boolean(env.VITE_SUPABASE_ANON_KEY);

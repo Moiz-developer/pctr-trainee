@@ -1,0 +1,88 @@
+import {
+  apiSuccessSchema,
+  createMediaUploadUrlRequestSchema,
+  mediaAccessUrlSuccessResponseSchema,
+  mediaAssetSuccessResponseSchema,
+  mediaUploadUrlResponseSchema,
+  type MediaAccessUrlResponse,
+  type MediaAssetResponse,
+  type MediaPurpose,
+} from "@internal-training/shared";
+import { apiFetch } from "./client";
+
+const uploadUrlEnvelope = apiSuccessSchema(mediaUploadUrlResponseSchema);
+
+/**
+ * Full client-side upload flow (SYSTEM_PLAN.md §16): request a signed
+ * upload slot from our API, PUT the bytes straight to Supabase Storage
+ * (never through our server), then confirm. The confirm step, not this
+ * function, is what actually creates the `media_assets` row. Generalized
+ * over `purpose` (Phase 6.2) so `uploadCourseMedia`/`uploadQueryAttachment`
+ * below share one implementation rather than duplicating this flow.
+ */
+async function uploadMedia(file: File, purpose: MediaPurpose): Promise<MediaAssetResponse> {
+  const uploadReq = createMediaUploadUrlRequestSchema.parse({
+    purpose,
+    filename: file.name,
+    mime_type: file.type || "application/octet-stream",
+    size_bytes: file.size,
+  });
+
+  const uploadUrlBody = await apiFetch<unknown>("/media/upload-url", {
+    method: "POST",
+    body: JSON.stringify(uploadReq),
+  });
+  const { upload_url, storage_path } = uploadUrlEnvelope.parse(uploadUrlBody).data;
+
+  // Direct-to-Storage PUT — deliberately not apiFetch: this goes to Supabase's
+  // signed URL, not our API, and must not carry our Authorization header.
+  const putResponse = await fetch(upload_url, {
+    method: "PUT",
+    headers: { "content-type": uploadReq.mime_type },
+    body: file,
+  });
+  if (!putResponse.ok) {
+    throw new Error("Uploading the file to storage failed. Please try again.");
+  }
+
+  const confirmBody = await apiFetch<unknown>("/media/confirm", {
+    method: "POST",
+    body: JSON.stringify({
+      purpose,
+      storage_path,
+      mime_type: uploadReq.mime_type,
+      size_bytes: uploadReq.size_bytes,
+      original_filename: file.name,
+    }),
+  });
+  return mediaAssetSuccessResponseSchema.parse(confirmBody).data;
+}
+
+export async function uploadCourseMedia(file: File): Promise<MediaAssetResponse> {
+  return uploadMedia(file, "course-media");
+}
+
+/** A trainee's own ticket attachment (Phase 6.2, SYSTEM_PLAN.md §16 `query-attachments` bucket). */
+export async function uploadQueryAttachment(file: File): Promise<MediaAssetResponse> {
+  return uploadMedia(file, "query-attachments");
+}
+
+/** An admin-authored Resource Library file (Phase 5.1, SYSTEM_PLAN.md §16 `resource-files` bucket, permission `resource.manage`). */
+export async function uploadResourceFile(file: File): Promise<MediaAssetResponse> {
+  return uploadMedia(file, "resource-files");
+}
+
+/** An admin-authored Policy & Procedures document (Phase 5.2, SYSTEM_PLAN.md §16 `policy-documents` bucket, permission `policy.manage`). */
+export async function uploadPolicyDocument(file: File): Promise<MediaAssetResponse> {
+  return uploadMedia(file, "policy-documents");
+}
+
+/** An admin-authored announcement's banner image or attachment (Phase 5.3.2, SYSTEM_PLAN.md §16 `announcement-media` bucket, permission `announcement.manage`). */
+export async function uploadAnnouncementMedia(file: File): Promise<MediaAssetResponse> {
+  return uploadMedia(file, "announcement-media");
+}
+
+export async function getMediaAccessUrl(mediaAssetId: string): Promise<MediaAccessUrlResponse> {
+  const body = await apiFetch<unknown>(`/media/${mediaAssetId}/access-url`);
+  return mediaAccessUrlSuccessResponseSchema.parse(body).data;
+}
