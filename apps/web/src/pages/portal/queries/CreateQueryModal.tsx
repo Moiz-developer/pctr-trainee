@@ -68,11 +68,6 @@ export function CreateQueryModal({
     defaultValues: { subject: "", description: "", priority: "NORMAL" },
   });
 
-  useEffect(() => {
-    if (!open) return;
-    reset({ subject: "", category_id: "", description: "", priority: "NORMAL", course_id: "" });
-  }, [open, reset]);
-
   // Resets the file input on every close path (Cancel, backdrop, Escape, or
   // a successful submit) — Modal.tsx routes all of those through this same
   // callback, so wrapping it here (rather than an open-triggered effect)
@@ -105,6 +100,16 @@ export function CreateQueryModal({
       }
     },
   });
+
+  useEffect(() => {
+    if (!open) return;
+    // Resets any stale isPending/isError/error left over from a previous
+    // open/submit of this same, never-unmounted modal instance — otherwise
+    // the Submit button's `disabled={mutation.isPending}` could reflect a
+    // prior session's in-flight or failed request instead of this one.
+    mutation.reset();
+    reset({ subject: "", category_id: "", description: "", priority: "NORMAL", course_id: "" });
+  }, [open, reset]);
 
   const submitError =
     mutation.error instanceof ApiClientError && !mutation.error.fields
@@ -197,8 +202,8 @@ export function CreateQueryModal({
           <Button type="button" variant="secondary" onClick={handleClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Submitting…" : "Submit Query"}
+          <Button type="submit" disabled={isSubmitting || mutation.isPending}>
+            {isSubmitting || mutation.isPending ? "Submitting…" : "Submit Query"}
           </Button>
         </div>
       </form>
