@@ -24,7 +24,8 @@ import { createCourseLesson, updateCourseLesson } from "../../../services/api/co
  * field-consistency check (EXTERNAL_LINK needs external_url and forbids
  * text_content, TEXT is the reverse, VIDEO/PDF/DOCUMENT/PRESENTATION forbid
  * both) — so this form never re-implements that rule, only reuses it.
- * `sort_order` isn't a form field, matching ModuleFormModal's reasoning.
+ * `sort_order` is supplied automatically by the lesson list for create and
+ * preserved from the existing lesson for edit.
  */
 export function LessonFormModal({
   open,
@@ -49,7 +50,9 @@ export function LessonFormModal({
     handleSubmit,
     reset,
     watch,
-    formState: { errors, isSubmitting },
+    setValue,
+    getValues,
+    formState: { errors, isSubmitting, isValid },
   } = useForm<CreateCourseLessonRequest>({
     resolver: zodResolver(createCourseLessonRequestSchema),
     defaultValues: {
@@ -61,22 +64,46 @@ export function LessonFormModal({
   });
   const contentType = watch("content_type");
 
+  // Clears the other content-type-specific field whenever content_type
+  // changes, so a value typed while a different type was selected can't be
+  // left behind in RHF state after its own field (and error display)
+  // unmounts — the schema's content-type/field-consistency rule would
+  // otherwise reject that stale value with no way to show why.
+  useEffect(() => {
+    if (contentType !== "TEXT") setValue("text_content", undefined);
+    if (contentType !== "EXTERNAL_LINK") setValue("external_url", undefined);
+  }, [contentType, setValue]);
+
   const mutation = useMutation({
     mutationFn: (values: CreateCourseLessonRequest) => {
+      // eslint-disable-next-line no-console
+      console.log("[DIAG-9] mutationFn ENTERED with values:", values);
       const payload: CreateCourseLessonRequest = {
         ...values,
         description: values.description || null,
         duration_seconds: values.duration_seconds || undefined,
         external_url: values.content_type === "EXTERNAL_LINK" ? values.external_url : null,
         text_content: values.content_type === "TEXT" ? values.text_content : null,
+
       };
-      return isEdit
+      // eslint-disable-next-line no-console
+      console.log("[DIAG-9] mutationFn computed payload:", payload, "isEdit:", isEdit);
+      const promise = isEdit
         ? updateCourseLesson(courseId, moduleId, lesson!.id, payload)
         : createCourseLesson(courseId, moduleId, { ...payload, sort_order: nextSortOrder });
+      // eslint-disable-next-line no-console
+      console.log("[DIAG-9] mutationFn about to return the API-call promise (network request initiated)");
+      return promise;
     },
     onSuccess: async () => {
+      // eslint-disable-next-line no-console
+      console.log("[DIAG] mutation onSuccess fired");
       await queryClient.invalidateQueries({ queryKey: ["course-lessons", moduleId] });
       onClose();
+    },
+    onError: (err) => {
+      // eslint-disable-next-line no-console
+      console.log("[DIAG] mutation onError fired:", err);
     },
   });
 
@@ -98,6 +125,7 @@ export function LessonFormModal({
             duration_seconds: lesson.duration_seconds ?? undefined,
             external_url: lesson.external_url ?? "",
             text_content: lesson.text_content ?? "",
+            sort_order: lesson.sort_order,
           }
         : {
             title: "",
@@ -105,9 +133,10 @@ export function LessonFormModal({
             content_type: "TEXT",
             classification: "THEORETICAL",
             is_required: true,
+            sort_order: nextSortOrder,
           },
     );
-  }, [open, lesson, reset]);
+  }, [open, lesson,nextSortOrder, reset]);
 
   const submitError =
     mutation.error instanceof ApiClientError
@@ -120,7 +149,50 @@ export function LessonFormModal({
     <Modal open={open} onClose={onClose} title={isEdit ? "Edit Lesson" : "New Lesson"} wide>
       <form
         className="space-y-4"
-        onSubmit={(event) => void handleSubmit((values) => mutation.mutate(values))(event)}
+        onSubmit={(event) => {
+          // eslint-disable-next-line no-console
+          console.log("[DIAG-1] native form submit event reached <form>", {
+            defaultPrevented: event.defaultPrevented,
+          });
+          // eslint-disable-next-line no-console
+          console.log("[DIAG-5] formState snapshot before handleSubmit:", {
+            isValid,
+            isSubmitting,
+            errors,
+          });
+          const currentValues = getValues();
+          // eslint-disable-next-line no-console
+          console.log("[DIAG-6] contentType at click time:", currentValues.content_type);
+          // eslint-disable-next-line no-console
+          console.log("[DIAG-7] full field values at click time:", {
+            title: currentValues.title,
+            description: currentValues.description,
+            content_type: currentValues.content_type,
+            text_content: currentValues.text_content,
+            external_url: currentValues.external_url,
+            duration_seconds: currentValues.duration_seconds,
+            classification: currentValues.classification,
+            is_required: currentValues.is_required,
+            sort_order: (currentValues as { sort_order?: number }).sort_order,
+          });
+          // eslint-disable-next-line no-console
+          console.log("[DIAG-2] calling handleSubmit(onValid, onInvalid) now");
+          void handleSubmit(
+            (values) => {
+              // eslint-disable-next-line no-console
+              console.log("[DIAG-3] onValid FIRED — complete submitted values:", values);
+              // eslint-disable-next-line no-console
+              console.log("[DIAG-8] calling mutation.mutate(values) now");
+              mutation.mutate(values);
+              // eslint-disable-next-line no-console
+              console.log("[DIAG-8] mutation.mutate(values) call returned (fire-and-forget, does not await)");
+            },
+            (invalidErrors) => {
+              // eslint-disable-next-line no-console
+              console.log("[DIAG-4] onInvalid FIRED — complete RHF errors object:", invalidErrors);
+            },
+          )(event);
+        }}
       >
         <TextField
           label="Title"
@@ -128,7 +200,12 @@ export function LessonFormModal({
           error={errors.title?.message}
           {...register("title")}
         />
-        <TextAreaField label="Description" id="lesson-description" {...register("description")} />
+        <TextAreaField
+          label="Description"
+          id="lesson-description"
+          error={errors.description?.message}
+          {...register("description")}
+        />
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <SelectField
