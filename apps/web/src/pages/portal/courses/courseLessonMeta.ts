@@ -3,6 +3,7 @@ import {
   ExternalLink,
   File,
   FileText,
+  PlayCircle,
   Presentation,
   Video,
   type LucideIcon,
@@ -12,6 +13,7 @@ import type {
   LessonContentType,
   LessonProgressStatus,
 } from "@internal-training/shared";
+import { DOCX_MIME } from "./DocumentLessonViewer";
 import { getEmbeddableVideoUrl } from "./ExternalVideoPlayer";
 
 export const STATUS_LABEL: Record<LessonProgressStatus, string> = {
@@ -70,4 +72,67 @@ export function isVideoLesson(lesson: CourseDetailLesson): boolean {
     !!lesson.external_url &&
     getEmbeddableVideoUrl(lesson.external_url) !== null
   );
+}
+
+/** Which protected viewer renders a lesson's body. */
+export type LessonViewerKind =
+  "VIDEO" | "PDF" | "DOCX" | "LEGACY_DOC" | "PRESENTATION" | "IMAGE" | "INLINE" | "NO_MEDIA";
+
+const PRESENTATION_MIMES = new Set([
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+]);
+
+/**
+ * Picks the viewer from the file's REAL type, not the lesson's label. A lesson
+ * marked "PDF" can hold any uploaded document, and feeding a DOCX to pdf.js only
+ * produces a misleading "PDF could not be loaded". `media_mime_type` (the stored
+ * MIME the upload was validated against) decides; `content_type` is only the
+ * fallback when no MIME is known. Every kind still renders through the same
+ * signed-URL viewers — nothing here fetches or links a file.
+ */
+export function getLessonViewerKind(lesson: CourseDetailLesson): LessonViewerKind {
+  if (lesson.content_type === "VIDEO") return "VIDEO";
+  if (lesson.content_type === "TEXT" || lesson.content_type === "EXTERNAL_LINK") return "INLINE";
+  if (!lesson.media_asset_id) return "NO_MEDIA";
+
+  const mime = lesson.media_mime_type;
+  if (mime === "application/pdf") return "PDF";
+  if (mime === DOCX_MIME) return "DOCX";
+  if (mime === "application/msword") return "LEGACY_DOC";
+  if (mime && PRESENTATION_MIMES.has(mime)) return "PRESENTATION";
+  if (mime?.startsWith("image/")) return "IMAGE";
+
+  // No usable MIME: fall back to what the lesson says it is.
+  if (lesson.content_type === "PDF") return "PDF";
+  if (lesson.content_type === "PRESENTATION") return "PRESENTATION";
+  return "LEGACY_DOC";
+}
+
+/** The reference's three chapter tabs: Presentation / Videos / Notes. */
+export type LessonCategory = "PRESENTATION" | "VIDEO" | "NOTES";
+
+export const LESSON_CATEGORY_META: Record<
+  LessonCategory,
+  { label: string; caption: string; icon: LucideIcon }
+> = {
+  PRESENTATION: { label: "Presentation", caption: "Presentation Files", icon: Presentation },
+  VIDEO: { label: "Videos", caption: "Video Files", icon: PlayCircle },
+  NOTES: { label: "Notes", caption: "Notes Files", icon: FileText },
+};
+
+export const LESSON_CATEGORY_ORDER: LessonCategory[] = ["PRESENTATION", "VIDEO", "NOTES"];
+
+/** Presentations and videos have their own tab; PDFs, documents, text and links are Notes. */
+export function getLessonCategory(lesson: CourseDetailLesson): LessonCategory {
+  if (lesson.content_type === "PRESENTATION") return "PRESENTATION";
+  if (isVideoLesson(lesson)) return "VIDEO";
+  return "NOTES";
+}
+
+/** Whole-number percentage of a chapter's lessons that are completed (real per-lesson status). */
+export function getGroupCompletionPct(group: ModuleGroup): number {
+  if (group.entries.length === 0) return 0;
+  const done = group.entries.filter((e) => e.status === "COMPLETED").length;
+  return Math.round((done / group.entries.length) * 100);
 }

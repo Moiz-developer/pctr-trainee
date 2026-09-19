@@ -235,7 +235,11 @@ export function CourseDetailPage() {
         : !isGroupCompleted(group),
   );
 
-  const openLesson = lessons.find((lesson) => lesson.id === openLessonId);
+  // The chapter/task card the open lesson belongs to — the lesson view lists its sibling files.
+  const openGroup =
+    [...theoryGroups, ...practicalGroups].find((group) =>
+      group.entries.some((e) => e.lesson.id === openLessonId),
+    ) ?? null;
   const openIndex = openLessonId ? progressIndexByLessonId.get(openLessonId) : undefined;
   const openProgressQuery = openIndex !== undefined ? progressQueries[openIndex] : undefined;
 
@@ -375,10 +379,12 @@ export function CourseDetailPage() {
       </RemoteDataView>
 
       <LessonViewerModal
-        entry={openLesson ? buildEntry(openLesson) : null}
+        group={openGroup}
+        openLessonId={openLessonId}
         progress={openLessonId ? progressByLessonId.get(openLessonId) : undefined}
         progressError={openProgressQuery?.isError ? openProgressQuery.error : null}
         isCompleting={completeMutation.isPending && completeMutation.variables === openLessonId}
+        onSelectLesson={handleOpenLesson}
         onComplete={(lessonId) => completeMutation.mutate(lessonId)}
         onRetryProgress={() => void openProgressQuery?.refetch()}
         onClose={() => setOpenLessonId(null)}
