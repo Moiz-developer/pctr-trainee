@@ -110,6 +110,9 @@ model Profile {
   resourceAccess                    ResourceAccess[]          @relation("ResourceAccessUser")
   resourceAccessGrantsMade          ResourceAccess[]          @relation("ResourceAccessGrantedBy")
   resourceAccessRevocationsMade     ResourceAccess[]          @relation("ResourceAccessRevokedBy")
+  policyAccess                      PolicyAccess[]            @relation("PolicyAccessUser")
+  policyAccessGrantsMade            PolicyAccess[]            @relation("PolicyAccessGrantedBy")
+  policyAccessRevocationsMade       PolicyAccess[]            @relation("PolicyAccessRevokedBy")
   policyVersionsUploaded            PolicyVersion[]
   announcementsAuthored             Announcement[]
   announcementReads                 AnnouncementRead[]
@@ -1035,15 +1038,15 @@ model Policy {
 
   versions          PolicyVersion[]
   policyDepartments PolicyDepartment[]
+  accessGrants      PolicyAccess[]
 
   @@map("policies")
 }
 
 // Consistent granular access control unit: department-based visibility for
 // Policies, byte-for-byte the same empty-mapping-means-global shape as
-// ResourceDepartment/AnnouncementDepartment/CourseDepartment — NOT an
-// explicit per-user grant (§7 of this unit asks only for department-based
-// visibility for Policies, unlike Resources/Announcements).
+// ResourceDepartment/AnnouncementDepartment/CourseDepartment. Explicit
+// per-user grants live in PolicyAccess below (added after that unit).
 model PolicyDepartment {
   policyId     String @map("policy_id") @db.Uuid
   departmentId String @map("department_id") @db.Uuid
@@ -1054,6 +1057,29 @@ model PolicyDepartment {
   @@id([policyId, departmentId])
   @@index([departmentId])
   @@map("policy_departments")
+}
+
+// Explicit per-user Policy access grants, byte-for-byte the same shape as
+// ResourceAccess/CourseAccess (soft-revocable, one row per policy/user
+// pairing; revoked_at IS NULL means the grant is active).
+model PolicyAccess {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  policyId   String    @map("policy_id") @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  grantedBy  String?   @map("granted_by") @db.Uuid
+  grantedAt  DateTime  @default(now()) @map("granted_at") @db.Timestamptz(6)
+  revokedBy  String?   @map("revoked_by") @db.Uuid
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(6)
+
+  policy        Policy  @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  user          Profile @relation("PolicyAccessUser", fields: [userId], references: [id], onDelete: Cascade)
+  grantedByUser Profile? @relation("PolicyAccessGrantedBy", fields: [grantedBy], references: [id], onDelete: SetNull)
+  revokedByUser Profile? @relation("PolicyAccessRevokedBy", fields: [revokedBy], references: [id], onDelete: SetNull)
+
+  @@unique([policyId, userId])
+  @@index([userId])
+  @@index([policyId])
+  @@map("policy_access")
 }
 
 model PolicyVersion {

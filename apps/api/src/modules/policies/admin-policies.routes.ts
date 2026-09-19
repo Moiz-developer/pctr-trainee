@@ -21,6 +21,7 @@ import {
   updatePolicyVersion,
 } from "./admin-policies.service.js";
 import { policyDepartmentsRoutes } from "./policy-departments.routes.js";
+import { policyAccessRoutes } from "./policy-access.routes.js";
 
 /**
  * Admin Policy & Procedures management (SYSTEM_PLAN.md §14.8/§23/§26,
@@ -44,6 +45,7 @@ const policyIdParamsSchema = z.object({ policyId: z.string().min(1) });
 const READ_PERMISSIONS = ["policy.manage", "policy.version.activate"];
 
 adminPoliciesRoutes.use("/:policyId/departments", policyDepartmentsRoutes);
+adminPoliciesRoutes.use("/:policyId/access", policyAccessRoutes);
 
 adminPoliciesRoutes.get(
   "/",

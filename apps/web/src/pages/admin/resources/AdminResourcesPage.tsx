@@ -8,6 +8,7 @@ import { Button } from "../../../components/ui/Button";
 import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { SelectField } from "../../../components/ui/FormField";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
+import { ConfirmDialog } from "../../../components/shared/ConfirmDialog";
 import { Can } from "../../../authorization/Can";
 import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
@@ -42,6 +43,7 @@ export function AdminResourcesPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<ResourceResponse | null>(null);
   const [managingAccess, setManagingAccess] = useState<ResourceResponse | null>(null);
+  const [confirmArchive, setConfirmArchive] = useState<ResourceResponse | null>(null);
 
   const categoriesQuery = useQuery({
     queryKey: ["active-resource-categories"],
@@ -61,9 +63,12 @@ export function AdminResourcesPage() {
 
   const toggleStatus = useMutation({
     mutationFn: (target: ResourceResponse) =>
-      updateResource(target.id, { status: target.status === "PUBLISHED" ? "ARCHIVED" : "PUBLISHED" }),
+      updateResource(target.id, {
+        status: target.status === "PUBLISHED" ? "ARCHIVED" : "PUBLISHED",
+      }),
     onSuccess: async (_data, target) => {
       await queryClient.invalidateQueries({ queryKey: ["admin-resources"] });
+      setConfirmArchive(null);
       toast.success(target.status === "PUBLISHED" ? "Resource archived." : "Resource published.");
     },
     onError: (error) => {
@@ -160,7 +165,10 @@ export function AdminResourcesPage() {
                     <tr key={item.id} className="border-b border-slate-50">
                       <td className="max-w-xs py-3 pr-4">
                         <div className="flex items-center gap-1.5">
-                          <FileText className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden="true" />
+                          <FileText
+                            className="h-3.5 w-3.5 shrink-0 text-slate-400"
+                            aria-hidden="true"
+                          />
                           <span className="truncate font-medium text-slate-900">{item.title}</span>
                         </div>
                       </td>
@@ -195,8 +203,14 @@ export function AdminResourcesPage() {
                           <Button
                             variant="secondary"
                             className="px-2 py-1 text-xs"
-                            disabled={toggleStatus.isPending && toggleStatus.variables?.id === item.id}
-                            onClick={() => toggleStatus.mutate(item)}
+                            disabled={
+                              toggleStatus.isPending && toggleStatus.variables?.id === item.id
+                            }
+                            onClick={() =>
+                              item.status === "PUBLISHED"
+                                ? setConfirmArchive(item)
+                                : toggleStatus.mutate(item)
+                            }
                           >
                             {item.status === "PUBLISHED" ? "Archive" : "Publish"}
                           </Button>
@@ -261,6 +275,15 @@ export function AdminResourcesPage() {
           resourceTitle={managingAccess.title}
         />
       )}
+      <ConfirmDialog
+        open={!!confirmArchive}
+        title="Archive resource"
+        description={`"${confirmArchive?.title ?? ""}" will no longer be visible to trainees. You can publish it again later.`}
+        confirmLabel="Archive"
+        isPending={toggleStatus.isPending}
+        onConfirm={() => confirmArchive && toggleStatus.mutate(confirmArchive)}
+        onCancel={() => setConfirmArchive(null)}
+      />
     </div>
   );
 }

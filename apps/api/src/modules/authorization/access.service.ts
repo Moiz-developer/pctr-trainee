@@ -144,7 +144,9 @@ export async function canViewResource(userId: string, resourceId: string): Promi
  * bulk Prisma filter and RLS" reason as every other visibility predicate in
  * this file (§12).
  */
-export function effectiveAnnouncementVisibilityFilter(userId: string): Prisma.AnnouncementWhereInput {
+export function effectiveAnnouncementVisibilityFilter(
+  userId: string,
+): Prisma.AnnouncementWhereInput {
   return {
     OR: [
       { announcementDepartments: { none: {} } },
@@ -173,7 +175,10 @@ export function effectiveAnnouncementVisibilityFilter(userId: string): Prisma.An
  * same "callers check `status === 'PUBLISHED'` separately" division of
  * responsibility.
  */
-export async function canViewAnnouncement(userId: string, announcementId: string): Promise<boolean> {
+export async function canViewAnnouncement(
+  userId: string,
+  announcementId: string,
+): Promise<boolean> {
   const match = await prisma.announcement.findFirst({
     where: { id: announcementId, ...effectiveAnnouncementVisibilityFilter(userId) },
     select: { id: true },
@@ -183,18 +188,16 @@ export async function canViewAnnouncement(userId: string, announcementId: string
 
 /**
  * The single authoritative policy-visibility predicate (consistent-granular-
- * access-control unit, §7: "add department-based visibility using the
- * existing department-scoping conventions"). Byte-for-byte the same
- * empty-mapping-means-global shape as `effectiveResourceVisibilityFilter`'s
- * first two branches — a policy is visible to a user if EITHER
- * `policy_departments` has no rows for it at all (empty mapping = globally
- * visible) OR the user holds an active membership in at least one
- * department it IS mapped to. Deliberately NO explicit per-user grant
- * branch: §7 asks only for department-based visibility for Policies, unlike
- * Resources/Announcements (§1/§2). Mirrors `can_view_policy()` (the RLS-side
- * SQL expression of this exact rule) for the same "one authoritative
- * predicate, reused in both the bulk Prisma filter and RLS" reason as every
- * other visibility predicate in this file (§12).
+ * access-control unit, §7, widened by explicit per-user policy access).
+ * Byte-for-byte the same shape as `effectiveResourceVisibilityFilter` — a
+ * policy is visible to a user if EITHER `policy_departments` has no rows for
+ * it at all (empty mapping = globally visible) OR the user holds an active
+ * membership in at least one active department it IS mapped to OR an active
+ * (`revoked_at IS NULL`) explicit `policy_access` grant exists for that
+ * user/policy. A revoked grant confers nothing. Mirrors `can_view_policy()`
+ * (the RLS-side SQL expression of this exact rule) for the same "one
+ * authoritative predicate, reused in both the bulk Prisma filter and RLS"
+ * reason as every other visibility predicate in this file (§12).
  */
 export function effectivePolicyVisibilityFilter(userId: string): Prisma.PolicyWhereInput {
   return {
@@ -208,6 +211,11 @@ export function effectivePolicyVisibilityFilter(userId: string): Prisma.PolicyWh
               userDepartments: { some: { userId } },
             },
           },
+        },
+      },
+      {
+        accessGrants: {
+          some: { userId, revokedAt: null },
         },
       },
     ],

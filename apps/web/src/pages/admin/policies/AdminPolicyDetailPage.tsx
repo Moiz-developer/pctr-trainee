@@ -7,6 +7,8 @@ import { Card } from "../../../components/ui/Card";
 import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
+import { ConfirmDialog } from "../../../components/shared/ConfirmDialog";
+import { Can } from "../../../authorization/Can";
 import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { getMediaAccessUrl } from "../../../services/api/media";
@@ -18,6 +20,7 @@ import {
 import { PolicyFormModal } from "./PolicyFormModal";
 import { PolicyVersionFormModal } from "./PolicyVersionFormModal";
 import { PolicyDepartmentsPanel } from "./PolicyDepartmentsPanel";
+import { PolicyAccessPanel } from "./PolicyAccessPanel";
 
 function versionStatus(version: PolicyVersionResponse): { label: string; tone: BadgeTone } {
   if (version.is_active) return { label: "Active", tone: "success" };
@@ -68,6 +71,10 @@ export function AdminPolicyDetailPage() {
   const [versionModal, setVersionModal] = useState<
     { mode: "create" } | { mode: "edit"; version: PolicyVersionResponse } | null
   >(null);
+  const [confirmVersion, setConfirmVersion] = useState<{
+    action: "activate" | "archive";
+    version: PolicyVersionResponse;
+  } | null>(null);
 
   const detailQuery = useQuery({
     queryKey: ["admin-policy", id],
@@ -80,6 +87,7 @@ export function AdminPolicyDetailPage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-policy", id] });
       await queryClient.invalidateQueries({ queryKey: ["admin-policies"] });
+      setConfirmVersion(null);
       toast.success("Version activated.");
     },
     onError: (error) => {
@@ -94,6 +102,7 @@ export function AdminPolicyDetailPage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-policy", id] });
       await queryClient.invalidateQueries({ queryKey: ["admin-policies"] });
+      setConfirmVersion(null);
       toast.success("Version archived.");
     },
     onError: (error) => {
@@ -153,10 +162,7 @@ export function AdminPolicyDetailPage() {
             <Card>
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-slate-900">Versions</h3>
-                <Button
-                  className="gap-1.5"
-                  onClick={() => setVersionModal({ mode: "create" })}
-                >
+                <Button className="gap-1.5" onClick={() => setVersionModal({ mode: "create" })}>
                   <Plus className="h-3.5 w-3.5" aria-hidden="true" />
                   New Version
                 </Button>
@@ -212,7 +218,7 @@ export function AdminPolicyDetailPage() {
                                     activateMutation.isPending &&
                                     activateMutation.variables === version.id
                                   }
-                                  onClick={() => activateMutation.mutate(version.id)}
+                                  onClick={() => setConfirmVersion({ action: "activate", version })}
                                 >
                                   <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
                                   Activate
@@ -226,7 +232,7 @@ export function AdminPolicyDetailPage() {
                                     archiveMutation.isPending &&
                                     archiveMutation.variables === version.id
                                   }
-                                  onClick={() => archiveMutation.mutate(version.id)}
+                                  onClick={() => setConfirmVersion({ action: "archive", version })}
                                 >
                                   <Archive className="h-3.5 w-3.5" aria-hidden="true" />
                                   Archive
@@ -248,6 +254,9 @@ export function AdminPolicyDetailPage() {
             </Card>
 
             <PolicyDepartmentsPanel policyId={detail.id} />
+            <Can permission="policy.manage">
+              <PolicyAccessPanel policyId={detail.id} />
+            </Can>
           </>
         )}
       </RemoteDataView>
@@ -269,6 +278,25 @@ export function AdminPolicyDetailPage() {
           />
         </>
       )}
+      <ConfirmDialog
+        open={!!confirmVersion}
+        title={confirmVersion?.action === "activate" ? "Activate version" : "Archive version"}
+        description={
+          confirmVersion?.action === "activate"
+            ? `Version ${confirmVersion.version.version_label} will become the version trainees see, and the current active version will be archived.`
+            : `Version ${confirmVersion?.version.version_label ?? ""} is the active version. Archiving it hides this policy from trainees until another version is activated.`
+        }
+        confirmLabel={confirmVersion?.action === "activate" ? "Activate" : "Archive"}
+        destructive={confirmVersion?.action === "archive"}
+        isPending={activateMutation.isPending || archiveMutation.isPending}
+        onConfirm={() => {
+          if (!confirmVersion) return;
+          if (confirmVersion.action === "activate")
+            activateMutation.mutate(confirmVersion.version.id);
+          else archiveMutation.mutate(confirmVersion.version.id);
+        }}
+        onCancel={() => setConfirmVersion(null)}
+      />
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
 import { Badge } from "../../../components/ui/Badge";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
+import { ConfirmDialog } from "../../../components/shared/ConfirmDialog";
 import { Can } from "../../../authorization/Can";
 import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
@@ -25,6 +26,7 @@ export function AdminDepartmentsPage() {
   const toast = useToast();
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<DepartmentResponse | null>(null);
+  const [confirmDeactivate, setConfirmDeactivate] = useState<DepartmentResponse | null>(null);
 
   const query = useQuery({
     queryKey: ["admin-departments"],
@@ -36,6 +38,7 @@ export function AdminDepartmentsPage() {
       updateDepartment(target.id, { is_active: !target.is_active }),
     onSuccess: async (_data, target) => {
       await queryClient.invalidateQueries({ queryKey: ["admin-departments"] });
+      setConfirmDeactivate(null);
       toast.success(target.is_active ? "Department deactivated." : "Department activated.");
     },
     onError: (error) => {
@@ -117,7 +120,11 @@ export function AdminDepartmentsPage() {
                                 toggleActive.isPending &&
                                 toggleActive.variables?.id === department.id
                               }
-                              onClick={() => toggleActive.mutate(department)}
+                              onClick={() =>
+                                department.is_active
+                                  ? setConfirmDeactivate(department)
+                                  : toggleActive.mutate(department)
+                              }
                             >
                               {department.is_active ? "Deactivate" : "Activate"}
                             </Button>
@@ -143,6 +150,15 @@ export function AdminDepartmentsPage() {
         onClose={() => setEditing(null)}
         department={editing ?? undefined}
         onSuccess={() => setEditing(null)}
+      />
+      <ConfirmDialog
+        open={!!confirmDeactivate}
+        title="Deactivate department"
+        description={`Members of "${confirmDeactivate?.name ?? ""}" will lose access to content that is assigned to this department. Explicit per-user access is not affected. You can reactivate it later.`}
+        confirmLabel="Deactivate"
+        isPending={toggleActive.isPending}
+        onConfirm={() => confirmDeactivate && toggleActive.mutate(confirmDeactivate)}
+        onCancel={() => setConfirmDeactivate(null)}
       />
     </div>
   );

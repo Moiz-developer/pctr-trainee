@@ -28,6 +28,7 @@ export * from "./api/queries.js";
 export * from "./api/resources.js";
 export * from "./api/resource-access.js";
 export * from "./api/policies.js";
+export * from "./api/policy-access.js";
 export * from "./api/announcements.js";
 export * from "./api/announcement-access.js";
 export * from "./api/roles.js";
