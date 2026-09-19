@@ -4,6 +4,7 @@ import type {
   SubmitAssessmentAttemptRequest,
   PaginationMeta,
   MyAssessmentSummary,
+  MyAssessmentHistoryItem,
 } from "@internal-training/shared";
 import { prisma, LONG_TRANSACTION_OPTIONS } from "../../lib/prisma.js";
 import type {
@@ -238,23 +239,124 @@ export async function listOwnAssessments(
       totalMarks: true,
       passingMarks: true,
       maxAttempts: true,
+      dueDate: true,
+      createdAt: true,
       course: { select: { id: true, title: true } },
-      attempts: { where: { userId }, select: { result: true } },
+      attempts: {
+        where: { userId },
+        select: {
+          status: true,
+          result: true,
+          score: true,
+          percentage: true,
+          submittedAt: true,
+        },
+      },
     },
     orderBy: [{ createdAt: "desc" }, { id: "asc" }],
   });
 
-  const items: MyAssessmentSummary[] = rows.map((assessment) => ({
-    id: assessment.id,
-    course_id: assessment.course.id,
-    course_title: assessment.course.title,
-    title: assessment.title,
-    type: assessment.type,
-    total_marks: assessment.totalMarks,
-    passing_marks: assessment.passingMarks,
-    max_attempts: assessment.maxAttempts,
-    my_attempts_used: assessment.attempts.length,
-    my_best_result: computeBestAssessmentResult(assessment.attempts),
+  const items: MyAssessmentSummary[] = rows.map((assessment) => {
+    // Completed = submitted (auto-graded) or graded; an EXPIRED/IN_PROGRESS attempt has no result to show.
+    const completed = assessment.attempts.filter(
+      (a) => a.status === "SUBMITTED" || a.status === "GRADED",
+    );
+    // The best attempt by percentage (which is also the passing one whenever any attempt passed).
+    const best = completed
+      .filter((a) => a.percentage !== null)
+      .sort((a, b) => Number(b.percentage) - Number(a.percentage))[0];
+    const lastSubmittedAt = completed
+      .map((a) => a.submittedAt)
+      .filter((d): d is Date => d !== null)
+      .sort((a, b) => b.getTime() - a.getTime())[0];
+
+    return {
+      id: assessment.id,
+      course_id: assessment.course.id,
+      course_title: assessment.course.title,
+      title: assessment.title,
+      type: assessment.type,
+      total_marks: assessment.totalMarks,
+      passing_marks: assessment.passingMarks,
+      max_attempts: assessment.maxAttempts,
+      due_date: assessment.dueDate ? assessment.dueDate.toISOString() : null,
+      assigned_at: assessment.createdAt.toISOString(),
+      my_attempts_used: assessment.attempts.length,
+      my_status: assessment.attempts.some((a) => a.status === "IN_PROGRESS")
+        ? "IN_PROGRESS"
+        : completed.length > 0
+          ? "COMPLETED"
+          : "NOT_STARTED",
+      my_best_result: computeBestAssessmentResult(assessment.attempts),
+      my_best_score: best?.score != null ? Number(best.score) : null,
+      my_best_percentage: best?.percentage != null ? Number(best.percentage) : null,
+      my_last_submitted_at: lastSubmittedAt ? lastSubmittedAt.toISOString() : null,
+    };
+  });
+
+  return {
+    items,
+    meta: { page: 1, pageSize: items.length || 1, totalItems: items.length, totalPages: 1 },
+  };
+}
+
+/**
+ * GET /api/v1/assessments/history — the caller's own completed (SUBMITTED/
+ * GRADED) attempts, newest first, so past performance can be reviewed in one
+ * place. Self-scoped (`userId`) AND limited to the same assessments
+ * `listOwnAssessments` shows — PUBLISHED, in a PUBLISHED course the caller
+ * still has effective access to — so no row can expose an assessment the
+ * caller could not otherwise open, and every row's "View" link resolves.
+ */
+export async function listOwnAssessmentHistory(
+  userId: string,
+): Promise<{ items: MyAssessmentHistoryItem[]; meta: PaginationMeta }> {
+  const rows = await prisma.assessmentAttempt.findMany({
+    where: {
+      userId,
+      status: { in: ["SUBMITTED", "GRADED"] },
+      assessment: {
+        status: "PUBLISHED",
+        course: { status: "PUBLISHED", ...effectiveCourseAccessFilter(userId) },
+      },
+    },
+    select: {
+      id: true,
+      attemptNumber: true,
+      submittedAt: true,
+      startedAt: true,
+      score: true,
+      percentage: true,
+      result: true,
+      assessment: {
+        select: {
+          id: true,
+          title: true,
+          type: true,
+          totalMarks: true,
+          passingMarks: true,
+          course: { select: { id: true, title: true } },
+        },
+      },
+    },
+    orderBy: [{ submittedAt: "desc" }, { startedAt: "desc" }, { id: "asc" }],
+    take: 500,
+  });
+
+  const items: MyAssessmentHistoryItem[] = rows.map((row) => ({
+    attempt_id: row.id,
+    assessment_id: row.assessment.id,
+    assessment_title: row.assessment.title,
+    course_id: row.assessment.course.id,
+    course_title: row.assessment.course.title,
+    type: row.assessment.type,
+    attempt_number: row.attemptNumber,
+    submitted_at: row.submittedAt ? row.submittedAt.toISOString() : null,
+    score: row.score !== null ? Number(row.score) : null,
+    percentage: row.percentage !== null ? Number(row.percentage) : null,
+    total_marks: row.assessment.totalMarks,
+    passing_marks: row.assessment.passingMarks,
+    result: row.result,
   }));
 
   return {

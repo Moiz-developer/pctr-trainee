@@ -107,12 +107,24 @@ export const assessmentAttemptListResponseSchema = apiPaginatedSchema(
 export type AssessmentAttemptListResponse = z.infer<typeof assessmentAttemptListResponseSchema>;
 
 /**
+ * The trainee's own standing on one assessment, derived server-side from their
+ * attempts (never stored): NOT_STARTED = no attempt; IN_PROGRESS = an attempt is
+ * open (even if an earlier one was submitted); COMPLETED = at least one attempt
+ * submitted and none open. Pass/fail is `my_best_result`, kept separate.
+ */
+export const myAssessmentStatusSchema = z.enum(["NOT_STARTED", "IN_PROGRESS", "COMPLETED"]);
+export type MyAssessmentStatus = z.infer<typeof myAssessmentStatusSchema>;
+
+/**
  * GET /api/v1/assessments — trainee-facing Assessments section (Assessments
  * unit): this caller's own PUBLISHED assessments across every course they
- * have effective access to. Deliberately the same lightweight per-assessment
- * shape `courseDetailAssessmentSchema` already uses (title/type/marks/
- * attempts/best-result), plus `course_id`/`course_title` since this list
- * spans multiple courses — no new fields, no due-date/status redesign.
+ * have effective access to. The same lightweight per-assessment shape
+ * `courseDetailAssessmentSchema` uses (title/type/marks/attempts/best-result),
+ * plus `course_id`/`course_title` since this list spans multiple courses, and
+ * the fields the Assessments cards show: due date, when it became available
+ * (`assigned_at` = the assessment's creation time; assignment itself is
+ * course access and has no date of its own), the derived status, and the best
+ * completed attempt's score.
  */
 export const myAssessmentSummarySchema = z.object({
   id: idSchema,
@@ -123,13 +135,46 @@ export const myAssessmentSummarySchema = z.object({
   total_marks: z.number().int(),
   passing_marks: z.number().int(),
   max_attempts: z.number().int(),
+  due_date: z.string().nullable(),
+  assigned_at: isoDateStringSchema,
   my_attempts_used: z.number().int(),
+  my_status: myAssessmentStatusSchema,
   my_best_result: assessmentAttemptResultSchema.nullable(),
+  my_best_score: z.number().nullable(),
+  my_best_percentage: z.number().nullable(),
+  my_last_submitted_at: z.string().nullable(),
 });
 export type MyAssessmentSummary = z.infer<typeof myAssessmentSummarySchema>;
 
 export const myAssessmentListResponseSchema = apiPaginatedSchema(myAssessmentSummarySchema);
 export type MyAssessmentListResponse = z.infer<typeof myAssessmentListResponseSchema>;
+
+/**
+ * GET /api/v1/assessments/history — one row per SUBMITTED/GRADED attempt the
+ * caller has made, newest first, across every assessment they can still access
+ * (the same visibility as the list above, so a row's "View" link always works).
+ */
+export const myAssessmentHistoryItemSchema = z.object({
+  attempt_id: idSchema,
+  assessment_id: idSchema,
+  assessment_title: z.string(),
+  course_id: idSchema,
+  course_title: z.string(),
+  type: assessmentTypeSchema,
+  attempt_number: z.number().int(),
+  submitted_at: z.string().nullable(),
+  score: z.number().nullable(),
+  percentage: z.number().nullable(),
+  total_marks: z.number().int(),
+  passing_marks: z.number().int(),
+  result: assessmentAttemptResultSchema,
+});
+export type MyAssessmentHistoryItem = z.infer<typeof myAssessmentHistoryItemSchema>;
+
+export const myAssessmentHistoryListResponseSchema = apiPaginatedSchema(
+  myAssessmentHistoryItemSchema,
+);
+export type MyAssessmentHistoryListResponse = z.infer<typeof myAssessmentHistoryListResponseSchema>;
 
 /**
  * POST /api/v1/assessments/attempts/:id/submit. One answer per question the

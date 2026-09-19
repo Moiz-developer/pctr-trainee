@@ -6,6 +6,7 @@ import { ValidationError } from "../../lib/errors.js";
 import {
   getAssessmentDetail,
   getOwnAttempt,
+  listOwnAssessmentHistory,
   listOwnAssessments,
   listOwnAttempts,
   startAssessmentAttempt,
@@ -41,6 +42,25 @@ assessmentAttemptsRoutes.get("/", requireAuth, async (req, res, next) => {
       throw new Error("Missing authenticated identity.");
     }
     const { items, meta } = await listOwnAssessments(identity.id);
+    res.json({ data: items, meta });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/v1/assessments/history — this caller's own completed attempts across
+ * every assessment they can access. Registered BEFORE `GET /:id` so "history"
+ * is never captured as an assessment id. Self-scoped, same auth-only shape as
+ * `GET /` above.
+ */
+assessmentAttemptsRoutes.get("/history", requireAuth, async (req, res, next) => {
+  try {
+    const identity = req.identity;
+    if (!identity) {
+      throw new Error("Missing authenticated identity.");
+    }
+    const { items, meta } = await listOwnAssessmentHistory(identity.id);
     res.json({ data: items, meta });
   } catch (error) {
     next(error);

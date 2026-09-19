@@ -4,10 +4,12 @@ import {
   assessmentAttemptResponseSchema,
   assessmentAttemptListResponseSchema,
   myAssessmentListResponseSchema,
+  myAssessmentHistoryListResponseSchema,
   type AssessmentDetail,
   type AssessmentAttemptResponse,
   type SubmitAssessmentAttemptRequest,
   type MyAssessmentSummary,
+  type MyAssessmentHistoryItem,
 } from "@internal-training/shared";
 import { apiFetch } from "./client";
 
@@ -23,6 +25,12 @@ export async function getAssessmentDetail(assessmentId: string): Promise<Assessm
 export async function listOwnAssessments(): Promise<MyAssessmentSummary[]> {
   const body = await apiFetch<unknown>("/assessments");
   return myAssessmentListResponseSchema.parse(body).data;
+}
+
+/** GET /api/v1/assessments/history — this caller's completed attempts across every accessible assessment, newest first. */
+export async function listAssessmentHistory(): Promise<MyAssessmentHistoryItem[]> {
+  const body = await apiFetch<unknown>("/assessments/history");
+  return myAssessmentHistoryListResponseSchema.parse(body).data;
 }
 
 export async function startAssessmentAttempt(
