@@ -34,7 +34,7 @@ export function RemoteDataView<T>({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500">
-        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+        <Loader2 className="h-4 w-4 animate-spin text-indigo-900" aria-hidden="true" />
         Loading…
       </div>
     );
@@ -64,8 +64,10 @@ export function RemoteDataView<T>({
   if (isEmpty?.(data)) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
-        <Inbox className="h-8 w-8 text-slate-300" aria-hidden="true" />
-        <p className="text-sm font-medium text-slate-500">{emptyTitle}</p>
+        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50">
+          <Inbox className="h-6 w-6 text-indigo-300" aria-hidden="true" />
+        </span>
+        <p className="text-sm font-medium text-slate-600">{emptyTitle}</p>
         {emptyDescription && <p className="text-xs text-slate-400">{emptyDescription}</p>}
       </div>
     );

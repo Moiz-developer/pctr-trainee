@@ -19,6 +19,7 @@ export const mediaPurposeSchema = z.enum([
   "resource-files",
   "policy-documents",
   "announcement-media",
+  "branding-assets",
 ]);
 export type MediaPurpose = z.infer<typeof mediaPurposeSchema>;
 

@@ -36,3 +36,23 @@ export const POLICY_DOCUMENTS_BUCKET = "policy-documents";
 
 /** SYSTEM_PLAN.md §16: private bucket for an announcement's optional attachment/banner image (Phase 5.3.2). */
 export const ANNOUNCEMENT_MEDIA_BUCKET = "announcement-media";
+
+/**
+ * Private bucket for admin-managed branding images (platform logo, favicon,
+ * login logo — Admin Settings: General + Branding, permission `system.manage`).
+ * Stays private like every other bucket (SYSTEM_PLAN.md §16); the public
+ * `GET /settings/branding` endpoint mints short-lived signed URLs for these.
+ */
+export const BRANDING_ASSETS_BUCKET = "branding-assets";
+
+/** Branding images are small; a fixed limit/allowlist (not `system_settings`-tunable) is enough. */
+export const BRANDING_ASSETS_MAX_BYTES = 2 * 1024 * 1024;
+export const BRANDING_ASSETS_MIME_ALLOWLIST: ReadonlySet<string> = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+  "image/svg+xml",
+  "image/x-icon",
+  "image/vnd.microsoft.icon",
+]);

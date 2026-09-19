@@ -48,3 +48,11 @@ desktop.ini
 # ---- Misc ----
 *.local
 .cache/
+
+# ---- Design reference images (local only, never committed) ----
+/announcements-current.png
+/redesign-dashboard.png
+/redesign-courses.png
+/redesign-ui.png
+/redsign-ui.jpeg
+/announcements-updated.png

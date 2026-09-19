@@ -2,9 +2,10 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { signInWithPassword } from "../../services/supabase/auth";
 import { Button } from "../../components/ui/Button";
+import { useBranding } from "../../components/shared/useBranding";
 
 const loginSchema = z.object({
   email: z.email(),
@@ -15,6 +16,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 /** SYSTEM_PLAN.md §9: Supabase email/password sign-in. */
 export function LoginPage() {
   const navigate = useNavigate();
+  const { platformName } = useBranding();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const {
     register,
@@ -36,8 +38,8 @@ export function LoginPage() {
 
   return (
     <div>
-      <h1 className="text-lg font-semibold text-slate-900">Sign in</h1>
-      <p className="mt-1 text-sm text-slate-500">Internal Training Platform</p>
+      <h1 className="text-lg font-semibold text-indigo-950">Sign in</h1>
+      <p className="mt-1 text-sm text-slate-500">{platformName ?? "Internal Training Platform"}</p>
       <form className="mt-6 space-y-4" onSubmit={(e) => void handleSubmit(onSubmit)(e)}>
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-slate-700">
@@ -47,7 +49,7 @@ export function LoginPage() {
             id="email"
             type="email"
             autoComplete="email"
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-indigo-900 focus:outline-none focus:ring-1 focus:ring-indigo-900"
             {...register("email")}
           />
           {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>}
@@ -60,12 +62,20 @@ export function LoginPage() {
             id="password"
             type="password"
             autoComplete="current-password"
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-indigo-900 focus:outline-none focus:ring-1 focus:ring-indigo-900"
             {...register("password")}
           />
           {errors.password && (
             <p className="mt-1 text-xs text-red-600">{errors.password.message}</p>
           )}
+        </div>
+        <div className="-mt-2 text-right">
+          <Link
+            to="/forgot-password"
+            className="text-sm font-medium text-indigo-800 hover:underline"
+          >
+            Forgot password?
+          </Link>
         </div>
         {submitError && <p className="text-sm text-red-600">{submitError}</p>}
         <Button type="submit" disabled={isSubmitting} className="w-full">

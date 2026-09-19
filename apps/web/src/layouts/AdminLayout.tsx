@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import {
   BookOpen,
@@ -15,7 +14,10 @@ import {
   Users,
 } from "lucide-react";
 import { Sidebar, type SidebarNavItem } from "../components/shared/Sidebar";
+import { useSidebarState } from "../components/shared/useSidebarState";
 import { TopBar } from "../components/shared/TopBar";
+import { PageBreadcrumb } from "../components/shared/PageBreadcrumb";
+import { useBranding } from "../components/shared/useBranding";
 
 // Only routes that actually exist — Assessments/Settings nav entries are
 // added by the units that build those pages (SYSTEM_PLAN.md §4/§24 names
@@ -58,21 +60,27 @@ const NAV_ITEMS: SidebarNavItem[] = [
 
 /** Admin Portal shell (SYSTEM_PLAN.md §24): distinct layout/navigation, shared component library. */
 export function AdminLayout() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const sidebar = useSidebarState();
+  const { platformName } = useBranding();
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex min-h-screen bg-page">
       <Sidebar
         brand="Admin Portal"
         items={NAV_ITEMS}
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
+        isOpen={sidebar.isOpen}
+        collapsed={sidebar.collapsed}
+        onClose={sidebar.close}
       />
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar title="Dashboard" onMenuClick={() => setSidebarOpen(true)} />
-        <main className="flex-1 p-4 sm:p-6">
+        <TopBar onMenuClick={sidebar.toggle} />
+        <main className="portal-main flex-1 p-4 sm:p-6 lg:px-8">
+          <PageBreadcrumb items={NAV_ITEMS} />
           <Outlet />
         </main>
+        <footer className="border-t border-slate-200 px-4 py-4 text-center text-xs text-slate-500">
+          © {new Date().getFullYear()} {platformName ?? "PCTR Training"}. All Rights Reserved.
+        </footer>
       </div>
     </div>
   );

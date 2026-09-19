@@ -1,11 +1,11 @@
+import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { BookOpen, Clock } from "lucide-react";
+import { BookOpen, Building2, Clock, Tag } from "lucide-react";
 import type { CourseCatalogueItem, CourseProgressStatus } from "@internal-training/shared";
 import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
-import { Badge } from "../../../components/ui/Badge";
-import { CourseProgressInline } from "../../../components/shared/CourseProgressSummary";
+import { CourseStatusBadge, ProgressBar } from "../../../components/shared/CourseProgressSummary";
 import { getMediaAccessUrl } from "../../../services/api/media";
 
 const ACTION_LABEL: Record<CourseProgressStatus, string> = {
@@ -15,13 +15,13 @@ const ACTION_LABEL: Record<CourseProgressStatus, string> = {
 };
 
 const THUMBNAIL_BOX_CLASS =
-  "flex h-32 items-center justify-center overflow-hidden rounded-lg bg-indigo-50 text-indigo-300";
+  "flex h-44 items-center justify-center overflow-hidden bg-gradient-to-br from-indigo-900 to-indigo-700 text-white/30";
 
 /**
  * Resolves and renders one course's thumbnail on demand via the existing
  * signed-URL flow, mirroring VideoLessonPlayer.tsx's own
  * `["media-access-url", id]` query exactly — no new media architecture.
- * Falls back to the original `BookOpen` placeholder box whenever there's no
+ * Falls back to the branded `BookOpen` placeholder whenever there's no
  * `thumbnailMediaId`, the fetch is still loading, or it fails (a course the
  * caller is otherwise authorized to see should never show a broken image).
  */
@@ -42,27 +42,33 @@ function CourseThumbnail({ thumbnailMediaId }: { thumbnailMediaId: string | null
 
   return (
     <div className={THUMBNAIL_BOX_CLASS}>
-      <BookOpen className="h-10 w-10" aria-hidden="true" />
+      <BookOpen className="h-14 w-14" aria-hidden="true" />
     </div>
   );
 }
 
+/** Small grey tag chip (the "Presentation / Video / Notes" chips in the reference course cards). */
+function Chip({ icon, children }: { icon: ReactNode; children: ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-1 text-xs text-slate-600">
+      {icon}
+      {children}
+    </span>
+  );
+}
+
 /**
- * One course card — the exact rendering CourseCataloguePage.tsx originally
- * inlined, extracted unchanged so CompletedCoursesPage.tsx (Completed
- * Courses unit) can reuse the identical card UI/primitives rather than a
- * second, independently-maintained copy. Behavior/markup is byte-for-byte
- * the same as before this extraction.
+ * One course card, shared by CourseCataloguePage.tsx and
+ * CompletedCoursesPage.tsx so both render the identical card UI.
  *
  * `showCompletionDate` (Completion Date unit) is opt-in and defaults to
  * unset so CourseCataloguePage.tsx's rendering (including its own
- * in-page "Completed" tab) stays pixel-identical to before — only
+ * in-page "Completed" tab) stays as before — only
  * CompletedCoursesPage.tsx passes it. When set, `course.progress.completed_at`
  * is rendered exactly the way CourseProgressSummary.tsx's own
  * `CourseProgressCard` already displays it ("Completed on <date>",
- * `toLocaleDateString()`) — the project's existing convention for this
- * exact field, reused rather than reinvented. No fallback date: absent
- * `completed_at` renders nothing.
+ * `toLocaleDateString()`). No fallback date: absent `completed_at` renders
+ * nothing.
  */
 export function CourseCard({
   course,
@@ -74,43 +80,45 @@ export function CourseCard({
   const navigate = useNavigate();
 
   return (
-    <Card className="flex flex-col">
+    <Card flush className="flex flex-col">
       <CourseThumbnail thumbnailMediaId={course.thumbnail_media_id} />
 
-      <div className="mt-4 flex flex-1 flex-col">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="text-sm font-semibold text-slate-900">{course.title}</h3>
-          <Badge tone="success">Published</Badge>
-        </div>
+      <div className="flex flex-1 flex-col p-5">
+        <h3 className="text-sm font-semibold leading-snug text-indigo-950">{course.title}</h3>
         {course.description && (
           <p className="mt-1 line-clamp-2 text-xs text-slate-500">{course.description}</p>
         )}
 
-        <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500">
-          {course.category && <Badge tone="neutral">{course.category}</Badge>}
+        <div className="mt-3">
+          <CourseStatusBadge status={course.progress.status} />
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {course.category && (
+            <Chip icon={<Tag className="h-3 w-3" aria-hidden="true" />}>{course.category}</Chip>
+          )}
           {/* Department visibility in the Trainer Portal UI unit: the
               department(s) this course is assigned to (empty = globally
               visible — no restriction, so nothing is rendered, same as the
-              category badge above when there's no category). */}
+              category chip above when there's no category). */}
           {course.departments.map((department) => (
-            <Badge key={department.id} tone="info">
+            <Chip key={department.id} icon={<Building2 className="h-3 w-3" aria-hidden="true" />}>
               {department.name}
-            </Badge>
+            </Chip>
           ))}
           {course.duration_minutes !== null && (
-            <span className="flex items-center gap-1">
-              <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+            <Chip icon={<Clock className="h-3 w-3" aria-hidden="true" />}>
               {course.duration_minutes} min
-            </span>
+            </Chip>
           )}
         </div>
 
-        <div className="mt-3">
-          <CourseProgressInline progress={course.progress} />
+        <div className="mt-4">
+          <ProgressBar label="Progress" pct={course.progress.overall_progress_pct} />
         </div>
 
         {showCompletionDate && course.progress.completed_at && (
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-2 text-xs text-slate-500">
             Completed on {new Date(course.progress.completed_at).toLocaleDateString()}
           </p>
         )}

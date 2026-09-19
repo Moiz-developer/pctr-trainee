@@ -22,6 +22,9 @@ import {
   RESOURCE_FILES_BUCKET,
   POLICY_DOCUMENTS_BUCKET,
   ANNOUNCEMENT_MEDIA_BUCKET,
+  BRANDING_ASSETS_BUCKET,
+  BRANDING_ASSETS_MAX_BYTES,
+  BRANDING_ASSETS_MIME_ALLOWLIST,
 } from "./media.constants.js";
 import { getMediaSettings } from "../settings/settings.service.js";
 import {
@@ -83,6 +86,13 @@ function resolvePurposeConfig(
       bucket: ANNOUNCEMENT_MEDIA_BUCKET,
       maxBytes: settings.announcementMediaMaxBytes,
       mimeAllowlist: settings.announcementMediaMimeAllowlist,
+    };
+  }
+  if (purpose === "branding-assets") {
+    return {
+      bucket: BRANDING_ASSETS_BUCKET,
+      maxBytes: BRANDING_ASSETS_MAX_BYTES,
+      mimeAllowlist: BRANDING_ASSETS_MIME_ALLOWLIST,
     };
   }
   return {

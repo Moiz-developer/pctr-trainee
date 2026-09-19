@@ -210,8 +210,8 @@ export function VideoLessonPlayer({
       />
       {watchPct !== null && progress.status !== "COMPLETED" && (
         <div className="space-y-1">
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-            <div className="h-full rounded-full bg-indigo-500" style={{ width: `${watchPct}%` }} />
+          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200/80">
+            <div className="h-full rounded-full bg-indigo-900" style={{ width: `${watchPct}%` }} />
           </div>
           <p className="text-xs text-slate-500">
             {watchPct}% watched — completes automatically at{" "}

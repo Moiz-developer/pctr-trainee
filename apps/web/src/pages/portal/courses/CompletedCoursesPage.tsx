@@ -48,7 +48,7 @@ export function CompletedCoursesPage() {
         emptyDescription="Courses you finish will appear here."
       >
         {(courses) => (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
             {courses.map((course) => (
               <CourseCard key={course.id} course={course} showCompletionDate />
             ))}

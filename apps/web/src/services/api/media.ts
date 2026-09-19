@@ -29,6 +29,8 @@ const MIME_BY_EXTENSION: Record<string, string> = {
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   ppt: "application/vnd.ms-powerpoint",
   pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  ico: "image/x-icon",
+  svg: "image/svg+xml",
 };
 
 function resolveMimeType(file: File): string {
@@ -97,6 +99,11 @@ export async function uploadPolicyDocument(file: File): Promise<MediaAssetRespon
 /** An admin-authored announcement's banner image or attachment (Phase 5.3.2, SYSTEM_PLAN.md §16 `announcement-media` bucket, permission `announcement.manage`). */
 export async function uploadAnnouncementMedia(file: File): Promise<MediaAssetResponse> {
   return uploadMedia(file, "announcement-media");
+}
+
+/** An admin-managed branding image — platform logo, favicon or login logo (Admin Settings, permission `system.manage`, `branding-assets` bucket). */
+export async function uploadBrandingAsset(file: File): Promise<MediaAssetResponse> {
+  return uploadMedia(file, "branding-assets");
 }
 
 export async function getMediaAccessUrl(mediaAssetId: string): Promise<MediaAccessUrlResponse> {

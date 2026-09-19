@@ -408,6 +408,9 @@ model MediaAsset {
   policyVersions          PolicyVersion[]
   announcementAttachments Announcement[]    @relation("AnnouncementAttachment")
   announcementImages      Announcement[]    @relation("AnnouncementImage")
+  settingsPlatformLogos   SystemSettings[]  @relation("SettingsPlatformLogo")
+  settingsFavicons        SystemSettings[]  @relation("SettingsFavicon")
+  settingsLoginLogos      SystemSettings[]  @relation("SettingsLoginLogo")
 
   @@unique([bucket, storagePath])
   @@map("media_assets")
@@ -1222,11 +1225,26 @@ model SystemSettings {
   // auto-complete (§18) — the exact same 0..1 value
   // VideoLessonPlayer.tsx's own VIDEO_COMPLETION_THRESHOLD held.
   videoCompletionThreshold       Decimal  @map("video_completion_threshold") @db.Decimal(3, 2)
+  // Admin Settings: General + Branding. All nullable — NULL means "not
+  // configured", and the frontend falls back to the built-in PCTR defaults.
+  platformName                   String?  @map("platform_name")
+  platformDescription            String?  @map("platform_description")
+  supportEmail                   String?  @map("support_email")
+  timezone                       String?  @map("timezone") // IANA name, e.g. "Europe/London"
+  browserTitle                   String?  @map("browser_title")
+  platformLogoMediaId            String?  @map("platform_logo_media_id") @db.Uuid
+  faviconMediaId                 String?  @map("favicon_media_id") @db.Uuid
+  loginLogoMediaId               String?  @map("login_logo_media_id") @db.Uuid
+  primaryColor                   String?  @map("primary_color") // #RRGGBB
+  accentColor                    String?  @map("accent_color") // #RRGGBB
   updatedBy                      String?  @map("updated_by") @db.Uuid
   createdAt                      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  updatedByProfile Profile? @relation(fields: [updatedBy], references: [id], onDelete: SetNull)
+  updatedByProfile Profile?    @relation(fields: [updatedBy], references: [id], onDelete: SetNull)
+  platformLogoMedia MediaAsset? @relation("SettingsPlatformLogo", fields: [platformLogoMediaId], references: [id], onDelete: SetNull)
+  faviconMedia      MediaAsset? @relation("SettingsFavicon", fields: [faviconMediaId], references: [id], onDelete: SetNull)
+  loginLogoMedia    MediaAsset? @relation("SettingsLoginLogo", fields: [loginLogoMediaId], references: [id], onDelete: SetNull)
 
   @@map("system_settings")
 }

@@ -73,25 +73,22 @@ export function AdminDashboardPage() {
         <p className="mt-1 text-sm text-slate-500">Here's an overview of the training platform.</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard>
-          <TrendingUp className="h-5 w-5 opacity-80" aria-hidden="true" />
-          <p className="mt-3 text-xs uppercase tracking-wide opacity-70">Active Trainees</p>
-          <p className="mt-1 text-2xl font-bold">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+        <StatCard icon={TrendingUp}>
+          <p className="text-xs">Active Trainees</p>
+          <p className="mt-2 text-2xl font-bold sm:text-3xl">
             {activeTraineesQuery.data ? activeTraineesQuery.data.meta.totalItems : "—"}
           </p>
         </StatCard>
-        <StatCard>
-          <Activity className="h-5 w-5 opacity-80" aria-hidden="true" />
-          <p className="mt-3 text-xs uppercase tracking-wide opacity-70">Courses In Progress</p>
-          <p className="mt-1 text-2xl font-bold">
+        <StatCard icon={Activity}>
+          <p className="text-xs">Courses In Progress</p>
+          <p className="mt-2 text-2xl font-bold sm:text-3xl">
             {coursesInProgressQuery.data ? coursesInProgressQuery.data.in_progress_count : "—"}
           </p>
         </StatCard>
-        <StatCard>
-          <Megaphone className="h-5 w-5 opacity-80" aria-hidden="true" />
-          <p className="mt-3 text-xs uppercase tracking-wide opacity-70">Open Queries</p>
-          <p className="mt-1 text-2xl font-bold">
+        <StatCard icon={Megaphone}>
+          <p className="text-xs">Open Queries</p>
+          <p className="mt-2 text-2xl font-bold sm:text-3xl">
             {openQueriesQuery.data ? openQueriesQuery.data.meta.totalItems : "—"}
           </p>
         </StatCard>

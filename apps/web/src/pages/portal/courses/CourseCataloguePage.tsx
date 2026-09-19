@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Card } from "../../../components/ui/Card";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
 import { listUserCourses } from "../../../services/api/userCourses";
 import { CourseCard } from "./CourseCard";
@@ -59,19 +60,35 @@ export function CourseCataloguePage() {
         <p className="mt-1 text-sm text-slate-500">Courses available to you.</p>
       </div>
 
-      <div className="flex items-center gap-1.5 border-b border-slate-200">
+      {query.data && counts.ALL > 0 && (
+        <Card>
+          <h3 className="text-lg font-semibold text-indigo-950">Your Progress</h3>
+          <p className="mt-0.5 text-xs font-medium text-slate-600">
+            Completed {counts.COMPLETED} out of {counts.ALL} courses
+          </p>
+          <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-200/80">
+            <div
+              className="h-full rounded-full bg-indigo-900"
+              style={{ width: `${Math.round((counts.COMPLETED / counts.ALL) * 100)}%` }}
+            />
+          </div>
+        </Card>
+      )}
+
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <span className="text-sm font-semibold text-indigo-950">Filter:</span>
         {TABS.map((t) => (
           <button
             key={t.key}
             type="button"
             onClick={() => setTab(t.key)}
-            className={`-mb-px cursor-pointer border-b-2 px-3 py-2 text-sm font-medium transition ${
+            className={`cursor-pointer rounded border px-3 py-1.5 text-xs font-medium transition-colors ${
               tab === t.key
-                ? "border-indigo-600 text-indigo-700"
-                : "border-transparent text-slate-500 hover:text-slate-700"
+                ? "border-indigo-900 bg-indigo-900 text-white"
+                : "border-slate-300 bg-white text-slate-700 hover:border-indigo-900 hover:text-indigo-900"
             }`}
           >
-            {t.label} <span className="text-xs text-slate-400">({counts[t.key]})</span>
+            {t.label} <span className="opacity-70">({counts[t.key]})</span>
           </button>
         ))}
       </div>
@@ -91,7 +108,7 @@ export function CourseCataloguePage() {
         }
       >
         {(courses) => (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
             {courses.map((course) => (
               <CourseCard key={course.id} course={course} />
             ))}

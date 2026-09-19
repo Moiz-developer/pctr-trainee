@@ -4,6 +4,7 @@ import { requireAuth } from "../auth/auth.middleware.js";
 import { requirePermission } from "../authorization/authorization.middleware.js";
 import { ValidationError } from "../../lib/errors.js";
 import {
+  getPublicBranding,
   getSystemSettings,
   getVideoCompletionThreshold,
   updateSystemSettings,
@@ -59,6 +60,17 @@ adminSettingsRoutes.patch(
     }
   },
 );
+
+// Public (no requireAuth): the login page renders the platform name/logos/
+// colors before sign-in. Returns only public branding values — see
+// getPublicBranding().
+settingsRoutes.get("/branding", async (_req, res, next) => {
+  try {
+    res.json({ data: await getPublicBranding() });
+  } catch (error) {
+    next(error);
+  }
+});
 
 settingsRoutes.get("/video-completion-threshold", requireAuth, async (_req, res, next) => {
   try {

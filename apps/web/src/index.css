@@ -1,17 +1,87 @@
 @import "tailwindcss";
 
+/*
+ * PCTR design tokens (redesign): the brand indigo scale is overridden so every
+ * existing `indigo-*` utility resolves to the PCTR palette (#312C85 primary),
+ * `page` is the soft lavender app background, `accent` the amber corner/star
+ * highlight used on stat cards.
+ */
+@theme {
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --color-indigo-500: #6560d0;
+  --color-indigo-600: #5751c7;
+  --color-indigo-700: #4b45b5;
+  --color-indigo-800: #3f39a3;
+  --color-indigo-900: #312c85;
+  --color-indigo-950: #211d5c;
+  --color-page: #ececf5;
+  --color-accent: #f5a623;
+}
+
 * {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  font-family:
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    Roboto,
-    sans-serif;
+  background-color: var(--color-page);
+  color: #1e1b4b;
+}
+
+/* Page titles inside the portal shells share one treatment (see layouts/). */
+.portal-main h2.text-xl {
+  color: var(--color-indigo-900);
+  font-weight: 500;
+}
+
+/*
+ * Detail-page polish (portal shells): one table, card-header and file-button
+ * treatment for every list/detail screen, applied here so pages that were not
+ * individually redesigned still share the PCTR design system.
+ */
+.portal-main h3.text-sm.font-semibold {
+  color: var(--color-indigo-950);
+}
+
+.portal-main table thead tr {
+  border-bottom-color: #dcdcef;
+}
+
+.portal-main table thead th {
+  color: var(--color-indigo-900);
+  font-weight: 600;
+}
+
+.portal-main table tbody tr {
+  border-bottom-color: #ececf5;
+}
+
+.portal-main table tbody tr:hover {
+  background-color: rgb(49 44 133 / 0.04);
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--color-indigo-600);
+  outline-offset: 2px;
+}
+
+/* Native file inputs (attachments, uploads) get the branded "Choose file" button. */
+input[type="file"]::file-selector-button {
+  margin-right: 0.75rem;
+  cursor: pointer;
+  border: 0;
+  border-radius: 0.375rem;
+  background-color: var(--color-indigo-900);
+  padding: 0.4rem 0.85rem;
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+input[type="file"]:hover::file-selector-button {
+  background-color: var(--color-indigo-800);
 }
 
 /* GlobalProgressBar.tsx's indeterminate loading indicator. */

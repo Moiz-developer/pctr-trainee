@@ -52,6 +52,11 @@ function assertCanUploadForPurpose(identity: RequestIdentity, purpose: MediaPurp
   if (purpose === "announcement-media" && !identity.permissions.includes("announcement.manage")) {
     throw new ForbiddenError();
   }
+  // Admin Settings: General + Branding — logos/favicon are managed with the
+  // same permission that gates every other system setting.
+  if (purpose === "branding-assets" && !identity.permissions.includes("system.manage")) {
+    throw new ForbiddenError();
+  }
 }
 
 mediaRoutes.post("/upload-url", requireAuth, async (req, res, next) => {

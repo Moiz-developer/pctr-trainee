@@ -6,15 +6,18 @@ import { AuthProvider } from "../auth/AuthProvider";
 import { RequireSession } from "../auth/RequireSession";
 import { RequireAdminAccess } from "../authorization/RequireAdminAccess";
 import { ToastProvider } from "../components/ui/Toast";
+import { BrandingProvider } from "../components/shared/BrandingProvider";
 import { GlobalProgressBar } from "../components/ui/GlobalProgressBar";
 import { AuthLayout } from "../layouts/AuthLayout";
 import { AdminLayout } from "../layouts/AdminLayout";
 import { UserPortalLayout } from "../layouts/UserPortalLayout";
 import { LoginPage } from "../pages/auth/LoginPage";
+import { ForgotPasswordPage } from "../pages/auth/ForgotPasswordPage";
+import { ResetPasswordPage } from "../pages/auth/ResetPasswordPage";
 import { AdminDashboardPage } from "../pages/admin/AdminDashboardPage";
 import { AdminUsersPage } from "../pages/admin/users/AdminUsersPage";
 import { AdminRolesPage } from "../pages/admin/roles/AdminRolesPage";
-import { AdminSettingsPage } from "../pages/admin/settings/AdminSettingsPage";
+import { AdminSettingsOverview } from "../pages/admin/settings/AdminSettingsOverview";
 import { AdminDepartmentsPage } from "../pages/admin/departments/AdminDepartmentsPage";
 import { AdminCoursesListPage } from "../pages/admin/courses/AdminCoursesListPage";
 import { AdminCourseDetailPage } from "../pages/admin/courses/AdminCourseDetailPage";
@@ -56,71 +59,90 @@ import { NotFoundPage } from "../pages/NotFoundPage";
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ToastProvider>
-        <GlobalProgressBar />
-        <BrowserRouter>
-          <AuthProvider>
-            <Routes>
-              <Route
-                path="/login"
-                element={
-                  <AuthLayout>
-                    <LoginPage />
-                  </AuthLayout>
-                }
-              />
+      <BrandingProvider>
+        <ToastProvider>
+          <GlobalProgressBar />
+          <BrowserRouter>
+            <AuthProvider>
+              <Routes>
+                <Route
+                  path="/login"
+                  element={
+                    <AuthLayout>
+                      <LoginPage />
+                    </AuthLayout>
+                  }
+                />
 
-              <Route element={<RequireSession />}>
-                <Route path="/" element={<RootRedirect />} />
+                <Route
+                  path="/forgot-password"
+                  element={
+                    <AuthLayout>
+                      <ForgotPasswordPage />
+                    </AuthLayout>
+                  }
+                />
+                <Route
+                  path="/reset-password"
+                  element={
+                    <AuthLayout>
+                      <ResetPasswordPage />
+                    </AuthLayout>
+                  }
+                />
 
-                <Route element={<RequireAdminAccess />}>
-                  <Route path="/admin" element={<AdminLayout />}>
-                    <Route index element={<AdminDashboardPage />} />
-                    <Route path="users" element={<AdminUsersPage />} />
-                    <Route path="roles" element={<AdminRolesPage />} />
-                    <Route path="departments" element={<AdminDepartmentsPage />} />
-                    <Route path="courses" element={<AdminCoursesListPage />} />
-                    <Route path="courses/:id" element={<AdminCourseDetailPage />} />
-                    <Route path="course-categories" element={<CourseCategoriesPage />} />
-                    <Route
-                      path="training-hour-requirements"
-                      element={<AdminTrainingHourRequirementsPage />}
-                    />
-                    <Route path="queries" element={<AdminQueriesPage />} />
-                    <Route path="queries/categories" element={<AdminQueryCategoriesPage />} />
-                    <Route path="queries/:id" element={<AdminQueryDetailPage />} />
-                    <Route path="resources" element={<AdminResourcesPage />} />
-                    <Route
-                      path="resources/categories"
-                      element={<AdminResourceCategoriesPage />}
-                    />
-                    <Route path="policies" element={<AdminPoliciesPage />} />
-                    <Route path="policies/:id" element={<AdminPolicyDetailPage />} />
-                    <Route path="announcements" element={<AdminAnnouncementsPage />} />
-                    <Route path="settings" element={<AdminSettingsPage />} />
+                <Route element={<RequireSession />}>
+                  <Route path="/" element={<RootRedirect />} />
+
+                  <Route element={<RequireAdminAccess />}>
+                    <Route path="/admin" element={<AdminLayout />}>
+                      <Route index element={<AdminDashboardPage />} />
+                      <Route path="users" element={<AdminUsersPage />} />
+                      <Route path="roles" element={<AdminRolesPage />} />
+                      <Route path="departments" element={<AdminDepartmentsPage />} />
+                      <Route path="courses" element={<AdminCoursesListPage />} />
+                      <Route path="courses/:id" element={<AdminCourseDetailPage />} />
+                      <Route path="course-categories" element={<CourseCategoriesPage />} />
+                      <Route
+                        path="training-hour-requirements"
+                        element={<AdminTrainingHourRequirementsPage />}
+                      />
+                      <Route path="queries" element={<AdminQueriesPage />} />
+                      <Route path="queries/categories" element={<AdminQueryCategoriesPage />} />
+                      <Route path="queries/:id" element={<AdminQueryDetailPage />} />
+                      <Route path="resources" element={<AdminResourcesPage />} />
+                      <Route
+                        path="resources/categories"
+                        element={<AdminResourceCategoriesPage />}
+                      />
+                      <Route path="policies" element={<AdminPoliciesPage />} />
+                      <Route path="policies/:id" element={<AdminPolicyDetailPage />} />
+                      <Route path="announcements" element={<AdminAnnouncementsPage />} />
+                      <Route path="settings" element={<AdminSettingsOverview />} />
+                    </Route>
+                  </Route>
+
+                  <Route path="/app" element={<UserPortalLayout />}>
+                    <Route index element={<UserDashboardPage />} />
+                    <Route path="courses" element={<CourseCataloguePage />} />
+                    <Route path="courses/completed" element={<CompletedCoursesPage />} />
+                    <Route path="courses/:id" element={<CourseDetailPage />} />
+                    <Route path="assessments" element={<AssessmentsPage />} />
+                    <Route path="assessments/:id" element={<TakeAssessmentPage />} />
+                    <Route path="queries" element={<MyQueriesPage />} />
+                    <Route path="queries/:id" element={<QueryDetailPage />} />
+                    <Route path="resources" element={<ResourcesPage />} />
+                    <Route path="policies" element={<PoliciesPage />} />
+                    <Route path="announcements" element={<AnnouncementsPage />} />
                   </Route>
                 </Route>
 
-                <Route path="/app" element={<UserPortalLayout />}>
-                  <Route index element={<UserDashboardPage />} />
-                  <Route path="courses" element={<CourseCataloguePage />} />
-                  <Route path="courses/completed" element={<CompletedCoursesPage />} />
-                  <Route path="courses/:id" element={<CourseDetailPage />} />
-                  <Route path="assessments" element={<AssessmentsPage />} />
-                  <Route path="assessments/:id" element={<TakeAssessmentPage />} />
-                  <Route path="queries" element={<MyQueriesPage />} />
-                  <Route path="queries/:id" element={<QueryDetailPage />} />
-                  <Route path="resources" element={<ResourcesPage />} />
-                  <Route path="policies" element={<PoliciesPage />} />
-                  <Route path="announcements" element={<AnnouncementsPage />} />
-                </Route>
-              </Route>
-
-              <Route path="*" element={<NotFoundPage />} />
-            </Routes>
-          </AuthProvider>
-        </BrowserRouter>
-      </ToastProvider>
+                <Route path="*" element={<NotFoundPage />} />
+              </Routes>
+            </AuthProvider>
+          </BrowserRouter>
+        </ToastProvider>
+      </BrandingProvider>
     </QueryClientProvider>
   );
 }
