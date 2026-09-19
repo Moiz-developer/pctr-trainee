@@ -4,8 +4,9 @@ import { UploadCloud } from "lucide-react";
 import type { CourseLessonResponse, MediaAssetResponse } from "@internal-training/shared";
 import { Modal } from "../../../components/ui/Modal";
 import { Button } from "../../../components/ui/Button";
+import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
-import { uploadCourseMedia } from "../../../services/api/media";
+import { getMediaAccessUrl, uploadCourseMedia } from "../../../services/api/media";
 import { setCourseLessonMedia, updateCourseLesson } from "../../../services/api/courseLessons";
 
 function formatBytes(bytes: number): string {
@@ -78,6 +79,7 @@ export function LessonMediaModal({
   lesson: CourseLessonResponse;
 }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [file, setFile] = useState<File | null>(null);
   const [uploaded, setUploaded] = useState<MediaAssetResponse | null>(null);
   // Automatic video duration extraction unit — detected once per file
@@ -113,11 +115,20 @@ export function LessonMediaModal({
       }
       return asset;
     },
-    onSuccess: async (asset) => {
-      setUploaded(asset);
-      setFile(null);
-      setDetectedDurationSeconds(null);
-      await invalidate();
+    onSuccess: () => {
+      // Not awaited: the list refetch is slow and must not delay the
+      // success feedback or keep the modal (and its stale `lesson` prop) open.
+      void invalidate();
+      toast.success("Media uploaded.");
+      handleClose();
+    },
+    onError: (error) => {
+      const fieldMessage =
+        error instanceof ApiClientError ? Object.values(error.fields ?? {})[0]?.[0] : undefined;
+      toast.error(
+        fieldMessage ??
+          (error instanceof ApiClientError ? error.message : "Upload failed. Please try again."),
+      );
     },
   });
 
@@ -126,6 +137,20 @@ export function LessonMediaModal({
     onSuccess: async () => {
       setUploaded(null);
       await invalidate();
+      toast.success("Media removed.");
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to remove media.");
+    },
+  });
+
+  const viewMutation = useMutation({
+    mutationFn: () => getMediaAccessUrl(lesson.media_asset_id!),
+    onSuccess: (result) => {
+      window.open(result.url, "_blank", "noopener");
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to open the media.");
     },
   });
 
@@ -148,6 +173,15 @@ export function LessonMediaModal({
                 {formatBytes(uploaded.size_bytes)}
               </p>
             )}
+            <Button
+              type="button"
+              variant="secondary"
+              className="mr-2 mt-2"
+              disabled={viewMutation.isPending}
+              onClick={() => viewMutation.mutate()}
+            >
+              {viewMutation.isPending ? "Opening…" : "View media"}
+            </Button>
             <Button
               type="button"
               variant="destructive"
@@ -180,15 +214,6 @@ export function LessonMediaModal({
             </p>
           )}
         </div>
-
-        {uploadMutation.isError && (
-          <p className="text-sm text-red-600">
-            {uploadMutation.error instanceof ApiClientError
-              ? uploadMutation.error.message
-              : "Upload failed. Please try again."}
-          </p>
-        )}
-        {removeMutation.isError && <p className="text-sm text-red-600">Failed to remove media.</p>}
 
         <div className="flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={handleClose}>

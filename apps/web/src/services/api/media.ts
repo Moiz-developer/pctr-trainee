@@ -20,11 +20,28 @@ const uploadUrlEnvelope = apiSuccessSchema(mediaUploadUrlResponseSchema);
  * over `purpose` (Phase 6.2) so `uploadCourseMedia`/`uploadQueryAttachment`
  * below share one implementation rather than duplicating this flow.
  */
+// Browsers often report an empty `file.type` for Office documents (and
+// sometimes PDFs) when the OS has no MIME association for the extension; the
+// API allowlist rejects the resulting "application/octet-stream".
+const MIME_BY_EXTENSION: Record<string, string> = {
+  pdf: "application/pdf",
+  doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ppt: "application/vnd.ms-powerpoint",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+};
+
+function resolveMimeType(file: File): string {
+  if (file.type) return file.type;
+  const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+  return MIME_BY_EXTENSION[extension] ?? "application/octet-stream";
+}
+
 async function uploadMedia(file: File, purpose: MediaPurpose): Promise<MediaAssetResponse> {
   const uploadReq = createMediaUploadUrlRequestSchema.parse({
     purpose,
     filename: file.name,
-    mime_type: file.type || "application/octet-stream",
+    mime_type: resolveMimeType(file),
     size_bytes: file.size,
   });
 

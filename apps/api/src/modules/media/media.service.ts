@@ -283,6 +283,7 @@ export async function getMediaAccessUrl(
 
   const canManageQueries = permissions.includes("query.manage");
   const canManageResources = permissions.includes("resource.manage");
+  const canManageCourseContent = permissions.includes("course.content.manage");
 
   const reachableViaLesson = await prisma.courseLesson.findFirst({
     where: {
@@ -291,8 +292,14 @@ export async function getMediaAccessUrl(
       module: {
         isActive: true,
         course: {
-          status: "PUBLISHED",
-          ...effectiveCourseAccessFilter(userId),
+          // A course.content.manage holder may view any lesson's media
+          // regardless of the course's publish status or the caller's own
+          // department/grant-based access (mirrors the course-thumbnail
+          // branch below); everyone else only a PUBLISHED course they have
+          // effective access to.
+          ...(canManageCourseContent
+            ? {}
+            : { status: "PUBLISHED", ...effectiveCourseAccessFilter(userId) }),
         },
       },
     },

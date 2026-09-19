@@ -53,10 +53,18 @@ function createPrismaClient() {
           if (!userId) {
             return query(args);
           }
-          const [, result] = await base.$transaction([
-            base.$executeRaw`SELECT set_config('request.jwt.claim.sub', ${userId}, TRUE)`,
-            query(args),
-          ]);
+          const [, result] = await base.$transaction(
+            [
+              base.$executeRaw`SELECT set_config('request.jwt.claim.sub', ${userId}, TRUE)`,
+              query(args),
+            ],
+            // Prisma's default maxWait (2s) is too short when the pooled remote
+            // Postgres connection must be (re)established: the first request
+            // after a cold start/idle period failed with P2028 ("Unable to
+            // start a transaction in the given time") and surfaced as a
+            // generic 500.
+            { maxWait: 10_000, timeout: 15_000 },
+          );
           return result;
         },
       },
