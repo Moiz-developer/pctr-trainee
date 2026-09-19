@@ -1,142 +1,34 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  AlertTriangle,
-  AlignLeft,
-  ArrowLeft,
-  CheckCircle2,
-  Circle,
-  ClipboardList,
-  Clock,
-  ExternalLink,
-  File,
-  FileText,
-  Folder,
-  Loader2,
-  PlayCircle,
-  Presentation,
-  Video,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { ArrowLeft, ClipboardList, Clock } from "lucide-react";
 import type {
   CourseDetailAssessment,
   CourseDetailLesson,
-  LessonContentType,
+  LessonClassification,
   LessonProgressResponse,
-  LessonProgressStatus,
 } from "@internal-training/shared";
 import { Card } from "../../../components/ui/Card";
-import { Badge, type BadgeTone } from "../../../components/ui/Badge";
+import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
 import { CourseProgressCard } from "../../../components/shared/CourseProgressSummary";
 import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
-import { getSafeHttpsUrl } from "../../../lib/safeUrl";
 import { getUserCourseDetail } from "../../../services/api/userCourses";
 import { getLessonProgress, updateLessonProgress } from "../../../services/api/lessonProgress";
-import { VideoLessonPlayer } from "./VideoLessonPlayer";
-import { PdfLessonViewer } from "./PdfLessonViewer";
-import { DocumentLessonViewer } from "./DocumentLessonViewer";
-import { ExternalVideoPlayer, getEmbeddableVideoUrl } from "./ExternalVideoPlayer";
-import { PresentationLessonViewer } from "./PresentationLessonViewer";
+import { CourseChapterCard } from "./CourseChapterCard";
+import { PracticalTaskCard } from "./PracticalTaskCard";
+import { LessonViewerModal } from "./LessonViewerModal";
+import { isGroupCompleted, type LessonEntry, type ModuleGroup } from "./courseLessonMeta";
 
-const STATUS_LABEL: Record<LessonProgressStatus, string> = {
-  NOT_STARTED: "Not Started",
-  IN_PROGRESS: "In Progress",
-  COMPLETED: "Completed",
-};
+type ChapterFilter = "ALL" | "COMPLETED" | "INCOMPLETE";
 
-const STATUS_TONE: Record<LessonProgressStatus, BadgeTone> = {
-  NOT_STARTED: "neutral",
-  IN_PROGRESS: "info",
-  COMPLETED: "success",
-};
-
-/**
- * Visual distinction between lesson content types unit: an icon + a
- * human-readable label per `LessonContentType`, replacing the raw enum
- * value (e.g. "EXTERNAL_LINK") the content-type Badge used to show
- * verbatim. Purely presentational — content types/behavior are unchanged.
- */
-const CONTENT_TYPE_META: Record<LessonContentType, { label: string; icon: LucideIcon }> = {
-  VIDEO: { label: "Video", icon: Video },
-  PDF: { label: "PDF", icon: FileText },
-  DOCUMENT: { label: "Document", icon: File },
-  PRESENTATION: { label: "Presentation", icon: Presentation },
-  EXTERNAL_LINK: { label: "External Link", icon: ExternalLink },
-  TEXT: { label: "Text", icon: AlignLeft },
-};
-
-function ContentTypeBadge({ contentType }: { contentType: LessonContentType }) {
-  const { label, icon: Icon } = CONTENT_TYPE_META[contentType];
-  return (
-    <Badge tone="info">
-      <Icon className="mr-1 h-3 w-3" aria-hidden="true" />
-      {label}
-    </Badge>
-  );
-}
-
-function StatusIcon({ status, loading }: { status: LessonProgressStatus; loading?: boolean }) {
-  if (loading) {
-    return <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-300" aria-hidden="true" />;
-  }
-  if (status === "COMPLETED") {
-    return <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" aria-hidden="true" />;
-  }
-  if (status === "IN_PROGRESS") {
-    return <PlayCircle className="h-4 w-4 shrink-0 text-indigo-500" aria-hidden="true" />;
-  }
-  return <Circle className="h-4 w-4 shrink-0 text-slate-300" aria-hidden="true" />;
-}
-
-/**
- * Renders a lesson's actual content for the two content types that have
- * always just been inline data (TEXT/EXTERNAL_LINK). VIDEO/PDF/DOCUMENT/
- * PRESENTATION each have their own dedicated player/viewer component
- * (rendered directly by the caller below, not through this function) — see
- * VideoLessonPlayer.tsx, PdfLessonViewer.tsx, DocumentLessonViewer.tsx,
- * PresentationLessonViewer.tsx.
- */
-function LessonContent({ lesson }: { lesson: CourseDetailLesson }) {
-  if (lesson.content_type === "TEXT") {
-    return (
-      <p className="whitespace-pre-wrap text-sm text-slate-700">
-        {lesson.text_content ?? "This lesson has no content yet."}
-      </p>
-    );
-  }
-  if (lesson.content_type === "EXTERNAL_LINK" && lesson.external_url) {
-    // External video playback unit: a recognized YouTube/Vimeo link renders
-    // as an embedded player (ExternalVideoPlayer.tsx); anything else keeps
-    // the existing plain "Open Resource" link, unchanged.
-    const embedUrl = getEmbeddableVideoUrl(lesson.external_url);
-    if (embedUrl) {
-      return <ExternalVideoPlayer embedUrl={embedUrl} title={lesson.title} />;
-    }
-    // Only https links are ever rendered as a link (legacy rows may hold other schemes).
-    const safeUrl = getSafeHttpsUrl(lesson.external_url);
-    if (!safeUrl) {
-      return <p className="text-sm text-slate-400">This link is unavailable.</p>;
-    }
-    return (
-      <a
-        href={safeUrl}
-        target="_blank"
-        rel="noreferrer"
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-700 hover:underline"
-      >
-        Open Resource
-        <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-      </a>
-    );
-  }
-  return (
-    <p className="text-sm text-slate-400">This lesson has no content yet.</p>
-  );
-}
+const CHAPTER_FILTERS: { key: ChapterFilter; label: string }[] = [
+  { key: "ALL", label: "All" },
+  { key: "COMPLETED", label: "Completed" },
+  { key: "INCOMPLETE", label: "Incomplete" },
+];
 
 /**
  * Phase 4: the course's PUBLISHED assessments (embedded in `GET
@@ -217,20 +109,25 @@ function AssessmentsSection({ assessments }: { assessments: CourseDetailAssessme
  * `useQueries`, exactly mirroring what a real client would need to do
  * against the actual API surface that exists today.
  *
- * Expanding a lesson is the "open/consume a lesson" action (§18: progress
- * is driven by real interaction, not a separate hidden "start" control) —
- * it calls `PATCH .../progress/lessons/:id` with an empty body the first
- * time a NOT_STARTED lesson is opened. The resulting server response
- * directly replaces that lesson's query-cache entry — the query cache (fed
- * by the API) is the only source of truth for status; no locally-computed
- * "started"/"completed" flag exists anywhere in this component.
+ * Theory vs Practical is a per-lesson `classification`, not a course type,
+ * so one course can hold both. This page therefore renders one section per
+ * classification present: theoretical lessons as chapter cards (per
+ * theory.png), practical lessons as task cards (per practical.png), each
+ * grouped by their module. Opening a lesson is the "open/consume a lesson"
+ * action (§18: progress is driven by real interaction, not a separate hidden
+ * "start" control) — it calls `PATCH .../progress/lessons/:id` with an empty
+ * body the first time a NOT_STARTED lesson is opened. The resulting server
+ * response directly replaces that lesson's query-cache entry — the query
+ * cache (fed by the API) is the only source of truth for status; no
+ * locally-computed "started"/"completed" flag is stored anywhere.
  */
 export function CourseDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const toast = useToast();
-  const [expandedLessonId, setExpandedLessonId] = useState<string | null>(null);
+  const [openLessonId, setOpenLessonId] = useState<string | null>(null);
+  const [chapterFilter, setChapterFilter] = useState<ChapterFilter>("ALL");
 
   const courseQuery = useQuery({
     queryKey: ["user-course-detail", id],
@@ -238,10 +135,8 @@ export function CourseDetailPage() {
     enabled: !!id,
   });
 
-  const lessons = useMemo(
-    () => courseQuery.data?.modules.flatMap((module) => module.lessons) ?? [],
-    [courseQuery.data],
-  );
+  const modules = courseQuery.data?.modules ?? [];
+  const lessons = modules.flatMap((module) => module.lessons);
 
   const progressQueries = useQueries({
     queries: lessons.map((lesson) => ({
@@ -251,24 +146,21 @@ export function CourseDetailPage() {
     })),
   });
 
-  const progressByLessonId = useMemo(() => {
-    const map = new Map<string, LessonProgressResponse>();
-    lessons.forEach((lesson, index) => {
-      const data = progressQueries[index]?.data;
-      if (data) map.set(lesson.id, data);
-    });
-    return map;
-  }, [lessons, progressQueries]);
+  const progressByLessonId = new Map<string, LessonProgressResponse>();
+  const progressIndexByLessonId = new Map<string, number>();
+  lessons.forEach((lesson, index) => {
+    progressIndexByLessonId.set(lesson.id, index);
+    const data = progressQueries[index]?.data;
+    if (data) progressByLessonId.set(lesson.id, data);
+  });
 
   // The next lesson the trainee hasn't completed yet — a plain per-lesson-status
   // navigation aid, not a course-level completion percentage (explicitly out of
   // scope until course_progress exists).
-  const currentLessonId = useMemo(() => {
-    const next = lessons.find(
+  const currentLessonId =
+    lessons.find(
       (lesson) => (progressByLessonId.get(lesson.id)?.status ?? "NOT_STARTED") !== "COMPLETED",
-    );
-    return next?.id ?? null;
-  }, [lessons, progressByLessonId]);
+    )?.id ?? null;
 
   const startMutation = useMutation({
     mutationFn: (lessonId: string) => updateLessonProgress(lessonId, {}),
@@ -280,9 +172,7 @@ export function CourseDetailPage() {
       void queryClient.invalidateQueries({ queryKey: ["user-course-detail", id] });
     },
     onError: (error) => {
-      toast.error(
-        error instanceof ApiClientError ? error.message : "Failed to start this lesson.",
-      );
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to start this lesson.");
     },
   });
 
@@ -300,16 +190,54 @@ export function CourseDetailPage() {
     },
   });
 
-  function handleToggleLesson(lesson: CourseDetailLesson) {
-    const isExpanding = expandedLessonId !== lesson.id;
-    setExpandedLessonId(isExpanding ? lesson.id : null);
-    if (isExpanding) {
-      const current = progressByLessonId.get(lesson.id);
-      if (!current || current.status === "NOT_STARTED") {
-        startMutation.mutate(lesson.id);
-      }
+  function buildEntry(lesson: CourseDetailLesson): LessonEntry {
+    const index = progressIndexByLessonId.get(lesson.id);
+    return {
+      lesson,
+      status: progressByLessonId.get(lesson.id)?.status ?? "NOT_STARTED",
+      loading:
+        (index !== undefined && !!progressQueries[index]?.isLoading) ||
+        (startMutation.isPending && startMutation.variables === lesson.id),
+      isCurrent: lesson.id === currentLessonId,
+    };
+  }
+
+  function buildGroups(classification: LessonClassification): ModuleGroup[] {
+    return modules
+      .map((module) => ({
+        moduleId: module.id,
+        title: module.title,
+        description: module.description,
+        entries: module.lessons
+          .filter((lesson) => lesson.classification === classification)
+          .map(buildEntry),
+      }))
+      .filter((group) => group.entries.length > 0);
+  }
+
+  function handleOpenLesson(lessonId: string) {
+    setOpenLessonId(lessonId);
+    const current = progressByLessonId.get(lessonId);
+    if (!current || current.status === "NOT_STARTED") {
+      startMutation.mutate(lessonId);
     }
   }
+
+  const theoryGroups = buildGroups("THEORETICAL");
+  const practicalGroups = buildGroups("PRACTICAL");
+  const progressReady = progressQueries.every((query) => !query.isLoading);
+  const completedChapters = theoryGroups.filter(isGroupCompleted).length;
+  const visibleChapters = theoryGroups.filter((group) =>
+    chapterFilter === "ALL"
+      ? true
+      : chapterFilter === "COMPLETED"
+        ? isGroupCompleted(group)
+        : !isGroupCompleted(group),
+  );
+
+  const openLesson = lessons.find((lesson) => lesson.id === openLessonId);
+  const openIndex = openLessonId ? progressIndexByLessonId.get(openLessonId) : undefined;
+  const openProgressQuery = openIndex !== undefined ? progressQueries[openIndex] : undefined;
 
   if (!id) return null;
 
@@ -353,225 +281,108 @@ export function CourseDetailPage() {
 
             <CourseProgressCard progress={course.progress} />
 
-            <Card>
-              <h3 className="mb-3 text-sm font-semibold text-slate-900">Course Content</h3>
-              {course.modules.length === 0 ? (
+            {theoryGroups.length === 0 && practicalGroups.length === 0 && (
+              <Card>
                 <p className="py-6 text-center text-sm text-slate-500">
-                  Content for this course hasn't been added yet.
+                  Content for this course hasn&apos;t been added yet.
                 </p>
-              ) : (
-                <ul className="space-y-3">
-                  {course.modules.map((module) => (
-                    <li key={module.id} className="rounded-lg border border-slate-200 p-3">
-                      <div className="flex items-center gap-2">
-                        <Folder className="h-4 w-4 text-slate-400" aria-hidden="true" />
-                        <p className="text-sm font-medium text-slate-900">{module.title}</p>
+              </Card>
+            )}
+
+            {theoryGroups.length > 0 && (
+              <section aria-labelledby="theory-heading" className="space-y-5">
+                <h3 id="theory-heading" className="text-lg font-semibold text-indigo-950">
+                  Theoretical Training Chapters
+                </h3>
+
+                <Card>
+                  <h4 className="text-lg font-semibold text-indigo-950">Chapter Progress</h4>
+                  {progressReady && (
+                    <>
+                      <p className="mt-0.5 text-xs font-medium text-slate-600">
+                        Completed {completedChapters} out of {theoryGroups.length} chapters
+                      </p>
+                      <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-200/80">
+                        <div
+                          className="h-full rounded-full bg-indigo-900"
+                          style={{
+                            width: `${Math.round((completedChapters / theoryGroups.length) * 100)}%`,
+                          }}
+                        />
                       </div>
-                      {module.description && (
-                        <p className="mt-1 pl-6 text-xs text-slate-500">{module.description}</p>
-                      )}
-                      {module.lessons.length > 0 && (
-                        <ul className="mt-2 space-y-2 pl-6">
-                          {module.lessons.map((lesson) => {
-                            const progressIndex = lessons.findIndex((l) => l.id === lesson.id);
-                            const progressResult = progressQueries[progressIndex];
-                            const status =
-                              progressByLessonId.get(lesson.id)?.status ?? "NOT_STARTED";
-                            const isCurrent = lesson.id === currentLessonId;
-                            const isExpanded = expandedLessonId === lesson.id;
-                            const isStarting =
-                              startMutation.isPending && startMutation.variables === lesson.id;
-                            const isCompleting =
-                              completeMutation.isPending &&
-                              completeMutation.variables === lesson.id;
-                            const completedAt = progressByLessonId.get(lesson.id)?.completed_at;
+                    </>
+                  )}
+                </Card>
 
-                            return (
-                              <li
-                                key={lesson.id}
-                                className={`rounded-lg border p-3 ${
-                                  isCurrent
-                                    ? "border-indigo-300 bg-indigo-50/60 ring-1 ring-indigo-200"
-                                    : "border-slate-200"
-                                }`}
-                              >
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleLesson(lesson)}
-                                  className="flex w-full cursor-pointer items-center justify-between gap-2 text-left"
-                                >
-                                  <div className="flex min-w-0 items-center gap-2">
-                                    <StatusIcon
-                                      status={status}
-                                      loading={progressResult?.isLoading || isStarting}
-                                    />
-                                    <span className="truncate text-sm text-slate-800">
-                                      {lesson.title}
-                                    </span>
-                                    {isCurrent && <Badge tone="info">Continue here</Badge>}
-                                  </div>
-                                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-                                    <ContentTypeBadge contentType={lesson.content_type} />
-                                    <Badge tone={lesson.is_required ? "warning" : "neutral"}>
-                                      {lesson.is_required ? "Required" : "Optional"}
-                                    </Badge>
-                                    <Badge tone={STATUS_TONE[status]}>{STATUS_LABEL[status]}</Badge>
-                                  </div>
-                                </button>
-
-                                {progressResult?.isError && (
-                                  <div className="mt-2 flex items-center gap-2 text-xs text-red-600">
-                                    <AlertTriangle
-                                      className="h-3.5 w-3.5 shrink-0"
-                                      aria-hidden="true"
-                                    />
-                                    {progressResult.error instanceof ApiClientError
-                                      ? progressResult.error.message
-                                      : "Couldn't load progress for this lesson."}
-                                    <button
-                                      type="button"
-                                      className="cursor-pointer font-medium underline"
-                                      onClick={() => void progressResult.refetch()}
-                                    >
-                                      Retry
-                                    </button>
-                                  </div>
-                                )}
-
-                                {isExpanded && (
-                                  <div className="mt-3 border-t border-slate-100 pt-3">
-                                    {lesson.content_type === "VIDEO" ? (
-                                      lesson.media_asset_id ? (
-                                        progressByLessonId.get(lesson.id) ? (
-                                          <VideoLessonPlayer
-                                            lessonId={lesson.id}
-                                            mediaAssetId={lesson.media_asset_id}
-                                            authoritativeDurationSeconds={lesson.duration_seconds}
-                                            progress={progressByLessonId.get(lesson.id)!}
-                                          />
-                                        ) : (
-                                          <div className="flex items-center gap-2 py-4 text-sm text-slate-500">
-                                            <Loader2
-                                              className="h-4 w-4 animate-spin"
-                                              aria-hidden="true"
-                                            />
-                                            Loading…
-                                          </div>
-                                        )
-                                      ) : (
-                                        <p className="text-sm text-slate-400">
-                                          This lesson's video hasn't been uploaded yet.
-                                        </p>
-                                      )
-                                    ) : lesson.content_type === "PDF" ? (
-                                      lesson.media_asset_id ? (
-                                        <PdfLessonViewer mediaAssetId={lesson.media_asset_id} />
-                                      ) : (
-                                        <p className="text-sm text-slate-400">
-                                          This lesson's PDF hasn't been uploaded yet.
-                                        </p>
-                                      )
-                                    ) : lesson.content_type === "DOCUMENT" ? (
-                                      lesson.media_asset_id ? (
-                                        <DocumentLessonViewer
-                                          mediaAssetId={lesson.media_asset_id}
-                                          mimeType={lesson.media_mime_type}
-                                        />
-                                      ) : (
-                                        <p className="text-sm text-slate-400">
-                                          This lesson's document hasn't been uploaded yet.
-                                        </p>
-                                      )
-                                    ) : lesson.content_type === "PRESENTATION" ? (
-                                      lesson.media_asset_id ? (
-                                        <PresentationLessonViewer
-                                          mediaAssetId={lesson.media_asset_id}
-                                        />
-                                      ) : (
-                                        <p className="text-sm text-slate-400">
-                                          This lesson's presentation hasn't been uploaded yet.
-                                        </p>
-                                      )
-                                    ) : (
-                                      <LessonContent lesson={lesson} />
-                                    )}
-
-                                    {/*
-                                      VIDEO lessons never get the manual button — per
-                                      SYSTEM_PLAN.md §18, video completion is driven by
-                                      watch-through percentage (VideoLessonPlayer, above),
-                                      not a user action. The "Completed" confirmation still
-                                      applies uniformly once that auto-completion lands.
-                                    */}
-                                    {lesson.content_type !== "VIDEO" && (
-                                      <div className="mt-3 flex items-center gap-3">
-                                        {status !== "COMPLETED" ? (
-                                          <Button
-                                            type="button"
-                                            variant="primary"
-                                            className="gap-1.5 px-3 py-1.5 text-xs"
-                                            disabled={isCompleting}
-                                            onClick={() => completeMutation.mutate(lesson.id)}
-                                          >
-                                            {isCompleting ? (
-                                              <Loader2
-                                                className="h-3.5 w-3.5 animate-spin"
-                                                aria-hidden="true"
-                                              />
-                                            ) : (
-                                              <CheckCircle2
-                                                className="h-3.5 w-3.5"
-                                                aria-hidden="true"
-                                              />
-                                            )}
-                                            Mark Complete
-                                          </Button>
-                                        ) : (
-                                          <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-700">
-                                            <CheckCircle2
-                                              className="h-3.5 w-3.5"
-                                              aria-hidden="true"
-                                            />
-                                            Completed
-                                            {completedAt
-                                              ? ` on ${new Date(completedAt).toLocaleDateString()}`
-                                              : ""}
-                                          </p>
-                                        )}
-                                      </div>
-                                    )}
-                                    {lesson.content_type === "VIDEO" && status === "COMPLETED" && (
-                                      <div className="mt-3 flex items-center gap-3">
-                                        <p className="flex items-center gap-1.5 text-xs font-medium text-emerald-700">
-                                          <CheckCircle2
-                                            className="h-3.5 w-3.5"
-                                            aria-hidden="true"
-                                          />
-                                          Completed
-                                          {completedAt
-                                            ? ` on ${new Date(completedAt).toLocaleDateString()}`
-                                            : ""}
-                                        </p>
-                                      </div>
-                                    )}
-
-                                  </div>
-                                )}
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      )}
-                    </li>
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <span className="text-sm font-semibold text-indigo-950">Filter:</span>
+                  {CHAPTER_FILTERS.map((filter) => (
+                    <button
+                      key={filter.key}
+                      type="button"
+                      onClick={() => setChapterFilter(filter.key)}
+                      className={`cursor-pointer rounded border px-3 py-1.5 text-xs font-medium transition-colors ${
+                        chapterFilter === filter.key
+                          ? "border-indigo-900 bg-indigo-900 text-white"
+                          : "border-slate-300 bg-white text-slate-700 hover:border-indigo-900 hover:text-indigo-900"
+                      }`}
+                    >
+                      {filter.label}
+                    </button>
                   ))}
-                </ul>
-              )}
-            </Card>
+                </div>
+
+                {visibleChapters.length === 0 ? (
+                  <Card>
+                    <p className="py-6 text-center text-sm text-slate-500">
+                      No chapters match this filter.
+                    </p>
+                  </Card>
+                ) : (
+                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                    {visibleChapters.map((group) => (
+                      <CourseChapterCard
+                        key={group.moduleId}
+                        group={group}
+                        onOpenLesson={handleOpenLesson}
+                      />
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {practicalGroups.length > 0 && (
+              <section aria-labelledby="practical-heading" className="space-y-5">
+                <h3 id="practical-heading" className="text-lg font-semibold text-indigo-950">
+                  Practical Training
+                </h3>
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+                  {practicalGroups.map((group) => (
+                    <PracticalTaskCard
+                      key={group.moduleId}
+                      group={group}
+                      onOpenLesson={handleOpenLesson}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
 
             <AssessmentsSection assessments={course.assessments} />
           </>
         )}
       </RemoteDataView>
+
+      <LessonViewerModal
+        entry={openLesson ? buildEntry(openLesson) : null}
+        progress={openLessonId ? progressByLessonId.get(openLessonId) : undefined}
+        progressError={openProgressQuery?.isError ? openProgressQuery.error : null}
+        isCompleting={completeMutation.isPending && completeMutation.variables === openLessonId}
+        onComplete={(lessonId) => completeMutation.mutate(lessonId)}
+        onRetryProgress={() => void openProgressQuery?.refetch()}
+        onClose={() => setOpenLessonId(null)}
+      />
     </div>
   );
 }
