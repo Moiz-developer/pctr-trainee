@@ -54,9 +54,20 @@ export interface ModuleGroup {
   entries: LessonEntry[];
 }
 
-/** A chapter/task is complete only when every lesson in it is. Derived from real per-lesson status. */
+/**
+ * The lessons that decide whether a chapter/task counts as done: its required
+ * lessons, matching how the server computes course progress (§18 counts required
+ * lessons only), or all of them when none is marked required.
+ */
+function getCountedEntries(group: ModuleGroup): LessonEntry[] {
+  const required = group.entries.filter((e) => e.lesson.is_required);
+  return required.length > 0 ? required : group.entries;
+}
+
+/** A chapter/task is complete once every counted lesson is. Derived from real per-lesson status. */
 export function isGroupCompleted(group: ModuleGroup): boolean {
-  return group.entries.length > 0 && group.entries.every((e) => e.status === "COMPLETED");
+  const counted = getCountedEntries(group);
+  return counted.length > 0 && counted.every((e) => e.status === "COMPLETED");
 }
 
 export function getGroupStatus(group: ModuleGroup): LessonProgressStatus {
@@ -130,9 +141,10 @@ export function getLessonCategory(lesson: CourseDetailLesson): LessonCategory {
   return "NOTES";
 }
 
-/** Whole-number percentage of a chapter's lessons that are completed (real per-lesson status). */
+/** Whole-number percentage of a chapter's counted lessons that are completed (real per-lesson status). */
 export function getGroupCompletionPct(group: ModuleGroup): number {
-  if (group.entries.length === 0) return 0;
-  const done = group.entries.filter((e) => e.status === "COMPLETED").length;
-  return Math.round((done / group.entries.length) * 100);
+  const counted = getCountedEntries(group);
+  if (counted.length === 0) return 0;
+  const done = counted.filter((e) => e.status === "COMPLETED").length;
+  return Math.round((done / counted.length) * 100);
 }

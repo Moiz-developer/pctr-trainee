@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ClipboardList, Clock } from "lucide-react";
+import { ArrowLeft, BookOpen, ClipboardList, Clock, Wrench } from "lucide-react";
 import type {
   CourseDetailAssessment,
   CourseDetailLesson,
@@ -12,17 +12,19 @@ import { Card } from "../../../components/ui/Card";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
-import { CourseProgressCard } from "../../../components/shared/CourseProgressSummary";
+import { CourseStatusBadge, ProgressBar } from "../../../components/shared/CourseProgressSummary";
 import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { getUserCourseDetail } from "../../../services/api/userCourses";
 import { getLessonProgress, updateLessonProgress } from "../../../services/api/lessonProgress";
 import { CourseChapterCard } from "./CourseChapterCard";
 import { PracticalTaskCard } from "./PracticalTaskCard";
+import { CourseChapterTabs } from "./CourseChapterTabs";
 import { LessonViewerModal } from "./LessonViewerModal";
 import { isGroupCompleted, type LessonEntry, type ModuleGroup } from "./courseLessonMeta";
 
 type ChapterFilter = "ALL" | "COMPLETED" | "INCOMPLETE";
+type CourseTab = "training" | "practical";
 
 const CHAPTER_FILTERS: { key: ChapterFilter; label: string }[] = [
   { key: "ALL", label: "All" },
@@ -128,6 +130,7 @@ export function CourseDetailPage() {
   const toast = useToast();
   const [openLessonId, setOpenLessonId] = useState<string | null>(null);
   const [chapterFilter, setChapterFilter] = useState<ChapterFilter>("ALL");
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const courseQuery = useQuery({
     queryKey: ["user-course-detail", id],
@@ -240,6 +243,26 @@ export function CourseDetailPage() {
     [...theoryGroups, ...practicalGroups].find((group) =>
       group.entries.some((e) => e.lesson.id === openLessonId),
     ) ?? null;
+  // Training vs Practical: kept in the URL (?tab=) so refresh/back keep the tab. With no
+  // choice yet, open Training unless the course only has practical content.
+  const requestedTab = searchParams.get("tab");
+  const activeTab: CourseTab =
+    requestedTab === "training" || requestedTab === "practical"
+      ? requestedTab
+      : theoryGroups.length === 0 && practicalGroups.length > 0
+        ? "practical"
+        : "training";
+  function selectTab(tab: CourseTab) {
+    setSearchParams(
+      (previous) => {
+        const next = new URLSearchParams(previous);
+        next.set("tab", tab);
+        return next;
+      },
+      { replace: true },
+    );
+  }
+
   const openIndex = openLessonId ? progressIndexByLessonId.get(openLessonId) : undefined;
   const openProgressQuery = openIndex !== undefined ? progressQueries[openIndex] : undefined;
 
@@ -283,94 +306,155 @@ export function CourseDetailPage() {
               )}
             </div>
 
-            <CourseProgressCard progress={course.progress} />
+            <Card>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-base font-semibold text-indigo-950">Course Progress</h3>
+                <CourseStatusBadge status={course.progress.status} />
+              </div>
+              <div className="mt-3">
+                <ProgressBar label="Overall" pct={course.progress.overall_progress_pct} />
+              </div>
+              {course.progress.completed_at && (
+                <p className="mt-2 text-xs text-slate-500">
+                  Completed on {new Date(course.progress.completed_at).toLocaleDateString()}
+                </p>
+              )}
+            </Card>
 
-            {theoryGroups.length === 0 && practicalGroups.length === 0 && (
+            {theoryGroups.length === 0 && practicalGroups.length === 0 ? (
               <Card>
                 <p className="py-6 text-center text-sm text-slate-500">
                   Content for this course hasn&apos;t been added yet.
                 </p>
               </Card>
-            )}
+            ) : (
+              <>
+                <CourseChapterTabs<CourseTab>
+                  active={activeTab}
+                  onChange={selectTab}
+                  tabs={[
+                    {
+                      key: "training",
+                      label: "Training",
+                      icon: BookOpen,
+                      caption: `${theoryGroups.length} ${theoryGroups.length === 1 ? "chapter" : "chapters"}${
+                        theoryGroups.length > 0
+                          ? ` · ${Math.round(course.progress.theoretical_progress_pct)}%`
+                          : ""
+                      }`,
+                    },
+                    {
+                      key: "practical",
+                      label: "Practical",
+                      icon: Wrench,
+                      caption: `${practicalGroups.length} ${practicalGroups.length === 1 ? "task" : "tasks"}${
+                        practicalGroups.length > 0
+                          ? ` · ${Math.round(course.progress.practical_progress_pct)}%`
+                          : ""
+                      }`,
+                    },
+                  ]}
+                />
 
-            {theoryGroups.length > 0 && (
-              <section aria-labelledby="theory-heading" className="space-y-5">
-                <h3 id="theory-heading" className="text-lg font-semibold text-indigo-950">
-                  Theoretical Training Chapters
-                </h3>
+                {activeTab === "training" ? (
+                  <div
+                    role="tabpanel"
+                    id="course-panel-training"
+                    aria-labelledby="course-tab-training"
+                    className="space-y-5"
+                  >
+                    {theoryGroups.length === 0 ? (
+                      <Card>
+                        <p className="py-6 text-center text-sm text-slate-500">
+                          This course has no training chapters yet.
+                        </p>
+                      </Card>
+                    ) : (
+                      <>
+                        <Card>
+                          <h4 className="text-lg font-semibold text-indigo-950">Your Progress</h4>
+                          {progressReady && (
+                            <>
+                              <p className="mt-0.5 text-xs font-medium text-slate-600">
+                                Completed {completedChapters} out of {theoryGroups.length} chapters
+                              </p>
+                              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-200/80">
+                                <div
+                                  className="h-full rounded-full bg-indigo-900"
+                                  style={{
+                                    width: `${Math.round((completedChapters / theoryGroups.length) * 100)}%`,
+                                  }}
+                                />
+                              </div>
+                            </>
+                          )}
+                        </Card>
 
-                <Card>
-                  <h4 className="text-lg font-semibold text-indigo-950">Chapter Progress</h4>
-                  {progressReady && (
-                    <>
-                      <p className="mt-0.5 text-xs font-medium text-slate-600">
-                        Completed {completedChapters} out of {theoryGroups.length} chapters
-                      </p>
-                      <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-200/80">
-                        <div
-                          className="h-full rounded-full bg-indigo-900"
-                          style={{
-                            width: `${Math.round((completedChapters / theoryGroups.length) * 100)}%`,
-                          }}
-                        />
-                      </div>
-                    </>
-                  )}
-                </Card>
+                        <div className="flex flex-wrap items-center justify-center gap-2">
+                          <span className="text-sm font-semibold text-indigo-950">Filter:</span>
+                          {CHAPTER_FILTERS.map((filter) => (
+                            <button
+                              key={filter.key}
+                              type="button"
+                              onClick={() => setChapterFilter(filter.key)}
+                              className={`cursor-pointer rounded border px-3 py-1.5 text-xs font-medium transition-colors ${
+                                chapterFilter === filter.key
+                                  ? "border-indigo-900 bg-indigo-900 text-white"
+                                  : "border-slate-300 bg-white text-slate-700 hover:border-indigo-900 hover:text-indigo-900"
+                              }`}
+                            >
+                              {filter.label}
+                            </button>
+                          ))}
+                        </div>
 
-                <div className="flex flex-wrap items-center justify-center gap-2">
-                  <span className="text-sm font-semibold text-indigo-950">Filter:</span>
-                  {CHAPTER_FILTERS.map((filter) => (
-                    <button
-                      key={filter.key}
-                      type="button"
-                      onClick={() => setChapterFilter(filter.key)}
-                      className={`cursor-pointer rounded border px-3 py-1.5 text-xs font-medium transition-colors ${
-                        chapterFilter === filter.key
-                          ? "border-indigo-900 bg-indigo-900 text-white"
-                          : "border-slate-300 bg-white text-slate-700 hover:border-indigo-900 hover:text-indigo-900"
-                      }`}
-                    >
-                      {filter.label}
-                    </button>
-                  ))}
-                </div>
-
-                {visibleChapters.length === 0 ? (
-                  <Card>
-                    <p className="py-6 text-center text-sm text-slate-500">
-                      No chapters match this filter.
-                    </p>
-                  </Card>
+                        {visibleChapters.length === 0 ? (
+                          <Card>
+                            <p className="py-6 text-center text-sm text-slate-500">
+                              No chapters match this filter.
+                            </p>
+                          </Card>
+                        ) : (
+                          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                            {visibleChapters.map((group) => (
+                              <CourseChapterCard
+                                key={group.moduleId}
+                                group={group}
+                                onOpenLesson={handleOpenLesson}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
                 ) : (
-                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-                    {visibleChapters.map((group) => (
-                      <CourseChapterCard
-                        key={group.moduleId}
-                        group={group}
-                        onOpenLesson={handleOpenLesson}
-                      />
-                    ))}
+                  <div
+                    role="tabpanel"
+                    id="course-panel-practical"
+                    aria-labelledby="course-tab-practical"
+                    className="space-y-5"
+                  >
+                    {practicalGroups.length === 0 ? (
+                      <Card>
+                        <p className="py-6 text-center text-sm text-slate-500">
+                          This course has no practical tasks yet.
+                        </p>
+                      </Card>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+                        {practicalGroups.map((group) => (
+                          <PracticalTaskCard
+                            key={group.moduleId}
+                            group={group}
+                            onOpenLesson={handleOpenLesson}
+                          />
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
-              </section>
-            )}
-
-            {practicalGroups.length > 0 && (
-              <section aria-labelledby="practical-heading" className="space-y-5">
-                <h3 id="practical-heading" className="text-lg font-semibold text-indigo-950">
-                  Practical Training
-                </h3>
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-                  {practicalGroups.map((group) => (
-                    <PracticalTaskCard
-                      key={group.moduleId}
-                      group={group}
-                      onOpenLesson={handleOpenLesson}
-                    />
-                  ))}
-                </div>
-              </section>
+              </>
             )}
 
             <AssessmentsSection assessments={course.assessments} />
