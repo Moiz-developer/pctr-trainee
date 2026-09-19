@@ -10,6 +10,7 @@ import {
 import { Modal } from "../../../components/ui/Modal";
 import { Button } from "../../../components/ui/Button";
 import { TextField, TextAreaField } from "../../../components/ui/FormField";
+import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { createDepartment, updateDepartment } from "../../../services/api/departments";
 
@@ -33,6 +34,7 @@ export function DepartmentFormModal({
   onSuccess: (department: DepartmentResponse) => void;
 }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const isEdit = !!department;
 
   const {
@@ -66,6 +68,7 @@ export function DepartmentFormModal({
     },
     onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: ["admin-departments"] });
+      toast.success(isEdit ? "Department updated." : "Department created.");
       onSuccess(result);
       onClose();
     },
@@ -74,14 +77,13 @@ export function DepartmentFormModal({
         for (const [field, messages] of Object.entries(error.fields)) {
           setError(field as keyof CreateDepartmentRequest, { message: messages[0] });
         }
+        return;
       }
+      toast.error(
+        error instanceof ApiClientError ? error.message : "Failed to save the department.",
+      );
     },
   });
-
-  const submitError =
-    mutation.error instanceof ApiClientError && !mutation.error.fields
-      ? mutation.error.message
-      : null;
 
   return (
     <Modal open={open} onClose={onClose} title={isEdit ? "Edit Department" : "New Department"}>
@@ -103,8 +105,6 @@ export function DepartmentFormModal({
           error={errors.description?.message}
           {...register("description")}
         />
-
-        {submitError && <p className="text-sm text-red-600">{submitError}</p>}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>

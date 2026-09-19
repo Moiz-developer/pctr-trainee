@@ -9,6 +9,8 @@ import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
 import { ConfirmDialog } from "../../../components/shared/ConfirmDialog";
 import { Can } from "../../../authorization/Can";
+import { useToast } from "../../../components/ui/Toast";
+import { ApiClientError } from "../../../services/api/client";
 import { archiveCourse, getCourse, updateCourse } from "../../../services/api/courses";
 import { CourseFormModal } from "./CourseFormModal";
 import { CourseDepartmentsPanel } from "./CourseDepartmentsPanel";
@@ -35,6 +37,7 @@ export function AdminCourseDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [tab, setTab] = useState<Tab>("details");
   const [editOpen, setEditOpen] = useState(false);
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
@@ -52,13 +55,23 @@ export function AdminCourseDetailPage() {
 
   const setStatus = useMutation({
     mutationFn: (status: "DRAFT" | "PUBLISHED") => updateCourse(id!, { status }),
-    onSuccess: invalidate,
+    onSuccess: async (_data, status) => {
+      await invalidate();
+      toast.success(status === "PUBLISHED" ? "Course published." : "Course reverted to draft.");
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Something went wrong.");
+    },
   });
   const archive = useMutation({
     mutationFn: () => archiveCourse(id!),
     onSuccess: async () => {
       await invalidate();
       setArchiveConfirmOpen(false);
+      toast.success("Course archived.");
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to archive the course.");
     },
   });
 

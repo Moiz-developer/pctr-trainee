@@ -8,6 +8,7 @@ import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { SelectField } from "../../../components/ui/FormField";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
 import { Can } from "../../../authorization/Can";
+import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import {
   archiveAnnouncement,
@@ -43,6 +44,7 @@ const PRIORITY_TONE: Record<AnnouncementPriority, BadgeTone> = {
  */
 export function AdminAnnouncementsPage() {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<AnnouncementStatus | "">("");
   const [priority, setPriority] = useState<AnnouncementPriority | "">("");
@@ -65,20 +67,22 @@ export function AdminAnnouncementsPage() {
     mutationFn: (id: string) => publishAnnouncement(id),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-announcements"] });
+      toast.success("Announcement published.");
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to publish the announcement.");
     },
   });
   const archiveMutation = useMutation({
     mutationFn: (id: string) => archiveAnnouncement(id),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-announcements"] });
+      toast.success("Announcement archived.");
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to archive the announcement.");
     },
   });
-  const lifecycleError =
-    publishMutation.error instanceof ApiClientError
-      ? publishMutation.error.message
-      : archiveMutation.error instanceof ApiClientError
-        ? archiveMutation.error.message
-        : null;
 
   function resetToFirstPage<T>(setter: (value: T) => void) {
     return (value: T) => {
@@ -129,8 +133,6 @@ export function AdminAnnouncementsPage() {
             <option value="HIGH">High</option>
           </SelectField>
         </div>
-
-        {lifecycleError && <p className="mb-3 text-sm text-red-600">{lifecycleError}</p>}
 
         <RemoteDataView
           isLoading={query.isLoading}

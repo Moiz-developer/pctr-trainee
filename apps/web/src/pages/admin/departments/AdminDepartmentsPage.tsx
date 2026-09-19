@@ -7,6 +7,8 @@ import { Button } from "../../../components/ui/Button";
 import { Badge } from "../../../components/ui/Badge";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
 import { Can } from "../../../authorization/Can";
+import { useToast } from "../../../components/ui/Toast";
+import { ApiClientError } from "../../../services/api/client";
 import { listDepartments, updateDepartment } from "../../../services/api/departments";
 import { DepartmentFormModal } from "./DepartmentFormModal";
 
@@ -20,6 +22,7 @@ import { DepartmentFormModal } from "./DepartmentFormModal";
  */
 export function AdminDepartmentsPage() {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<DepartmentResponse | null>(null);
 
@@ -31,8 +34,12 @@ export function AdminDepartmentsPage() {
   const toggleActive = useMutation({
     mutationFn: (target: DepartmentResponse) =>
       updateDepartment(target.id, { is_active: !target.is_active }),
-    onSuccess: async () => {
+    onSuccess: async (_data, target) => {
       await queryClient.invalidateQueries({ queryKey: ["admin-departments"] });
+      toast.success(target.is_active ? "Department deactivated." : "Department activated.");
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Something went wrong.");
     },
   });
 

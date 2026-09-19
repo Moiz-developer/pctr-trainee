@@ -7,6 +7,7 @@ import { Button } from "../../../components/ui/Button";
 import { Badge } from "../../../components/ui/Badge";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
 import { ConfirmDialog } from "../../../components/shared/ConfirmDialog";
+import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { searchUsers } from "../../../services/api/users";
 import {
@@ -37,6 +38,7 @@ export function ResourceAccessModal({
   resourceTitle: string;
 }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [term, setTerm] = useState("");
   const [submittedTerm, setSubmittedTerm] = useState("");
   const [revokeTarget, setRevokeTarget] = useState<ResourceAccessResponse | null>(null);
@@ -72,11 +74,23 @@ export function ResourceAccessModal({
 
   const grant = useMutation({
     mutationFn: (userId: string) => grantResourceAccess(resourceId, userId),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      toast.success("Access granted.");
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to grant access.");
+    },
   });
   const revoke = useMutation({
     mutationFn: (userId: string) => revokeResourceAccess(resourceId, userId),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      toast.success("Access revoked.");
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to revoke access.");
+    },
   });
 
   const activeUserIds = useMemo(
@@ -111,12 +125,6 @@ export function ResourceAccessModal({
             Search
           </Button>
         </form>
-
-        {grant.isError && (
-          <p className="mt-2 text-sm text-red-600">
-            {grant.error instanceof ApiClientError ? grant.error.message : "Failed to grant access."}
-          </p>
-        )}
 
         {submittedTerm && (
           <div className="mt-3 max-h-48 overflow-y-auto rounded-lg border border-slate-100">

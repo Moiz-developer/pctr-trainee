@@ -9,6 +9,7 @@ import {
 import { Modal } from "../../../components/ui/Modal";
 import { Button } from "../../../components/ui/Button";
 import { TextField, SelectField } from "../../../components/ui/FormField";
+import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { createTrainingHourRequirement } from "../../../services/api/trainingHourRequirements";
 import { listAllDepartments } from "../../../services/api/departments";
@@ -31,6 +32,7 @@ export function TrainingHourRequirementFormModal({
   onSuccess: () => void;
 }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
 
   const departmentsQuery = useQuery({
     queryKey: ["active-departments"],
@@ -67,6 +69,7 @@ export function TrainingHourRequirementFormModal({
       createTrainingHourRequirement(values),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-training-hour-requirements"] });
+      toast.success("Training hour requirement created.");
       onSuccess();
       onClose();
     },
@@ -75,14 +78,13 @@ export function TrainingHourRequirementFormModal({
         for (const [field, messages] of Object.entries(error.fields)) {
           setError(field as keyof CreateTrainingHourRequirementRequest, { message: messages[0] });
         }
+        return;
       }
+      toast.error(
+        error instanceof ApiClientError ? error.message : "Failed to save the requirement.",
+      );
     },
   });
-
-  const submitError =
-    mutation.error instanceof ApiClientError && !mutation.error.fields
-      ? mutation.error.message
-      : null;
 
   return (
     <Modal open={open} onClose={onClose} title="New Training Hour Requirement">
@@ -142,8 +144,6 @@ export function TrainingHourRequirementFormModal({
           error={errors.effective_from?.message}
           {...register("effective_from")}
         />
-
-        {submitError && <p className="text-sm text-red-600">{submitError}</p>}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>

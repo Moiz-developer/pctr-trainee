@@ -15,6 +15,7 @@ import {
   SelectField,
   CheckboxField,
 } from "../../../components/ui/FormField";
+import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { createCourseLesson, updateCourseLesson } from "../../../services/api/courseLessons";
 
@@ -43,6 +44,7 @@ export function LessonFormModal({
   nextSortOrder: number;
 }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const isEdit = !!lesson;
 
   const {
@@ -51,8 +53,7 @@ export function LessonFormModal({
     reset,
     watch,
     setValue,
-    getValues,
-    formState: { errors, isSubmitting, isValid },
+    formState: { errors, isSubmitting },
   } = useForm<CreateCourseLessonRequest>({
     resolver: zodResolver(createCourseLessonRequestSchema),
     defaultValues: {
@@ -76,34 +77,24 @@ export function LessonFormModal({
 
   const mutation = useMutation({
     mutationFn: (values: CreateCourseLessonRequest) => {
-      // eslint-disable-next-line no-console
-      console.log("[DIAG-9] mutationFn ENTERED with values:", values);
       const payload: CreateCourseLessonRequest = {
         ...values,
         description: values.description || null,
         duration_seconds: values.duration_seconds || undefined,
         external_url: values.content_type === "EXTERNAL_LINK" ? values.external_url : null,
         text_content: values.content_type === "TEXT" ? values.text_content : null,
-
       };
-      // eslint-disable-next-line no-console
-      console.log("[DIAG-9] mutationFn computed payload:", payload, "isEdit:", isEdit);
-      const promise = isEdit
+      return isEdit
         ? updateCourseLesson(courseId, moduleId, lesson!.id, payload)
-        : createCourseLesson(courseId, moduleId, { ...payload, sort_order: nextSortOrder });
-      // eslint-disable-next-line no-console
-      console.log("[DIAG-9] mutationFn about to return the API-call promise (network request initiated)");
-      return promise;
+        : createCourseLesson(courseId, moduleId, payload);
     },
     onSuccess: async () => {
-      // eslint-disable-next-line no-console
-      console.log("[DIAG] mutation onSuccess fired");
       await queryClient.invalidateQueries({ queryKey: ["course-lessons", moduleId] });
+      toast.success(isEdit ? "Lesson updated." : "Lesson created.");
       onClose();
     },
-    onError: (err) => {
-      // eslint-disable-next-line no-console
-      console.log("[DIAG] mutation onError fired:", err);
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to save the lesson.");
     },
   });
 
@@ -136,63 +127,13 @@ export function LessonFormModal({
             sort_order: nextSortOrder,
           },
     );
-  }, [open, lesson,nextSortOrder, reset]);
-
-  const submitError =
-    mutation.error instanceof ApiClientError
-      ? mutation.error.message
-      : mutation.isError
-        ? "Failed to save."
-        : null;
+  }, [open, lesson, nextSortOrder, reset]);
 
   return (
     <Modal open={open} onClose={onClose} title={isEdit ? "Edit Lesson" : "New Lesson"} wide>
       <form
         className="space-y-4"
-        onSubmit={(event) => {
-          // eslint-disable-next-line no-console
-          console.log("[DIAG-1] native form submit event reached <form>", {
-            defaultPrevented: event.defaultPrevented,
-          });
-          // eslint-disable-next-line no-console
-          console.log("[DIAG-5] formState snapshot before handleSubmit:", {
-            isValid,
-            isSubmitting,
-            errors,
-          });
-          const currentValues = getValues();
-          // eslint-disable-next-line no-console
-          console.log("[DIAG-6] contentType at click time:", currentValues.content_type);
-          // eslint-disable-next-line no-console
-          console.log("[DIAG-7] full field values at click time:", {
-            title: currentValues.title,
-            description: currentValues.description,
-            content_type: currentValues.content_type,
-            text_content: currentValues.text_content,
-            external_url: currentValues.external_url,
-            duration_seconds: currentValues.duration_seconds,
-            classification: currentValues.classification,
-            is_required: currentValues.is_required,
-            sort_order: (currentValues as { sort_order?: number }).sort_order,
-          });
-          // eslint-disable-next-line no-console
-          console.log("[DIAG-2] calling handleSubmit(onValid, onInvalid) now");
-          void handleSubmit(
-            (values) => {
-              // eslint-disable-next-line no-console
-              console.log("[DIAG-3] onValid FIRED — complete submitted values:", values);
-              // eslint-disable-next-line no-console
-              console.log("[DIAG-8] calling mutation.mutate(values) now");
-              mutation.mutate(values);
-              // eslint-disable-next-line no-console
-              console.log("[DIAG-8] mutation.mutate(values) call returned (fire-and-forget, does not await)");
-            },
-            (invalidErrors) => {
-              // eslint-disable-next-line no-console
-              console.log("[DIAG-4] onInvalid FIRED — complete RHF errors object:", invalidErrors);
-            },
-          )(event);
-        }}
+        onSubmit={(event) => void handleSubmit((values) => mutation.mutate(values))(event)}
       >
         <TextField
           label="Title"
@@ -281,8 +222,6 @@ export function LessonFormModal({
           id="lesson-required"
           {...register("is_required")}
         />
-
-        {submitError && <p className="text-sm text-red-600">{submitError}</p>}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>

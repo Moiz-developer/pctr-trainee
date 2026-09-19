@@ -9,6 +9,8 @@ import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { SelectField } from "../../../components/ui/FormField";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
 import { Can } from "../../../authorization/Can";
+import { useToast } from "../../../components/ui/Toast";
+import { ApiClientError } from "../../../services/api/client";
 import { listAdminResources, updateResource } from "../../../services/api/adminResources";
 import { listActiveResourceCategories } from "../../../services/api/resourceCategories";
 import { ResourceFormModal } from "./ResourceFormModal";
@@ -33,6 +35,7 @@ const STATUS_TONE: Record<ResourceStatus, BadgeTone> = {
 export function AdminResourcesPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<ResourceStatus | "">("");
   const [categoryId, setCategoryId] = useState("");
@@ -59,8 +62,12 @@ export function AdminResourcesPage() {
   const toggleStatus = useMutation({
     mutationFn: (target: ResourceResponse) =>
       updateResource(target.id, { status: target.status === "PUBLISHED" ? "ARCHIVED" : "PUBLISHED" }),
-    onSuccess: async () => {
+    onSuccess: async (_data, target) => {
       await queryClient.invalidateQueries({ queryKey: ["admin-resources"] });
+      toast.success(target.status === "PUBLISHED" ? "Resource archived." : "Resource published.");
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Something went wrong.");
     },
   });
 

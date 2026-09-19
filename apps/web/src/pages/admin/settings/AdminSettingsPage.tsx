@@ -9,6 +9,7 @@ import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
 import { TextField, TextAreaField } from "../../../components/ui/FormField";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
+import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { getSystemSettings, updateSystemSettings } from "../../../services/api/adminSettings";
 
@@ -101,6 +102,7 @@ function toUpdateRequest(values: SettingsFormValues): UpdateSystemSettingsReques
 
 export function AdminSettingsPage() {
   const queryClient = useQueryClient();
+  const toast = useToast();
 
   const query = useQuery({
     queryKey: ["admin-settings"],
@@ -126,11 +128,12 @@ export function AdminSettingsPage() {
     onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
       reset(toFormValues(result));
+      toast.success("Settings saved.");
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to save settings.");
     },
   });
-
-  const submitError =
-    mutation.error instanceof ApiClientError ? mutation.error.message : null;
 
   return (
     <div className="space-y-6">
@@ -277,11 +280,6 @@ export function AdminSettingsPage() {
                 />
               </div>
             </Card>
-
-            {submitError && <p className="text-sm text-red-600">{submitError}</p>}
-            {mutation.isSuccess && (
-              <p className="text-sm text-emerald-600">Settings saved.</p>
-            )}
 
             <div className="flex justify-end">
               <Button type="submit" className="gap-2" disabled={isSubmitting || mutation.isPending}>

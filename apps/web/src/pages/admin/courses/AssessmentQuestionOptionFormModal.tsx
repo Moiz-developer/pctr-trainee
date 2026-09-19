@@ -5,6 +5,7 @@ import type { AssessmentQuestionOptionResponse } from "@internal-training/shared
 import { Modal } from "../../../components/ui/Modal";
 import { Button } from "../../../components/ui/Button";
 import { TextField, CheckboxField } from "../../../components/ui/FormField";
+import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import {
   createAssessmentQuestionOption,
@@ -34,6 +35,7 @@ export function AssessmentQuestionOptionFormModal({
   nextSortOrder: number;
 }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const isEdit = !!option;
 
   const {
@@ -64,11 +66,13 @@ export function AssessmentQuestionOptionFormModal({
       await queryClient.invalidateQueries({
         queryKey: ["assessment-question-options", questionId],
       });
+      toast.success(isEdit ? "Option updated." : "Option added.");
       onClose();
     },
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to save the option.");
+    },
   });
-
-  const submitError = mutation.error instanceof ApiClientError ? mutation.error.message : null;
 
   return (
     <Modal open={open} onClose={onClose} title={isEdit ? "Edit Option" : "New Option"}>
@@ -87,8 +91,6 @@ export function AssessmentQuestionOptionFormModal({
           id="o-correct"
           {...register("is_correct")}
         />
-
-        {submitError && <p className="text-sm text-red-600">{submitError}</p>}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>

@@ -4,6 +4,7 @@ import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
 import { CheckboxField } from "../../../components/ui/FormField";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
+import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { listAllDepartments } from "../../../services/api/departments";
 import {
@@ -19,6 +20,7 @@ import {
  */
 export function PolicyDepartmentsPanel({ policyId }: { policyId: string }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [pendingSelection, setPendingSelection] = useState<Set<string> | null>(null);
 
   const allDepartments = useQuery({
@@ -42,6 +44,10 @@ export function PolicyDepartmentsPanel({ policyId }: { policyId: string }) {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["policy-departments", policyId] });
       setPendingSelection(null);
+      toast.success("Department assignments saved.");
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to save.");
     },
   });
 
@@ -66,15 +72,6 @@ export function PolicyDepartmentsPanel({ policyId }: { policyId: string }) {
           {mutation.isPending ? "Saving…" : "Save"}
         </Button>
       </div>
-
-      {mutation.isError && (
-        <p className="mt-3 text-sm text-red-600">
-          {mutation.error instanceof ApiClientError ? mutation.error.message : "Failed to save."}
-        </p>
-      )}
-      {mutation.isSuccess && !dirty && (
-        <p className="mt-3 text-sm text-emerald-600">Department assignments saved.</p>
-      )}
 
       <div className="mt-4">
         <RemoteDataView

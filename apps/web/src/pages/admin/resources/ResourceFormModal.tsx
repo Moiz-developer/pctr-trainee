@@ -8,6 +8,7 @@ import type { CreateResourceRequest, ResourceResponse } from "@internal-training
 import { Modal } from "../../../components/ui/Modal";
 import { Button } from "../../../components/ui/Button";
 import { TextField, TextAreaField, SelectField, CheckboxField } from "../../../components/ui/FormField";
+import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { uploadResourceFile } from "../../../services/api/media";
 import { listActiveResourceCategories } from "../../../services/api/resourceCategories";
@@ -70,6 +71,7 @@ export function ResourceFormModal({
   onSuccess: () => void;
 }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const isEdit = !!resource;
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -197,6 +199,7 @@ export function ResourceFormModal({
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-resources"] });
+      toast.success(isEdit ? "Resource updated." : "Resource created.");
       onSuccess();
       handleClose();
     },
@@ -209,14 +212,11 @@ export function ResourceFormModal({
           }
           setError(field as keyof ResourceFormValues, { message: messages[0] });
         }
+        return;
       }
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to save the resource.");
     },
   });
-
-  const submitError =
-    mutation.error instanceof ApiClientError && !mutation.error.fields
-      ? mutation.error.message
-      : null;
 
   const departments = useMemo(() => allDepartments.data ?? [], [allDepartments.data]);
 
@@ -336,8 +336,6 @@ export function ResourceFormModal({
             ))}
           </div>
         </div>
-
-        {submitError && <p className="text-sm text-red-600">{submitError}</p>}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={handleClose} disabled={isSubmitting}>

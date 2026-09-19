@@ -3,6 +3,7 @@ import type { AdminUserResponse } from "@internal-training/shared";
 import { Modal } from "../../../components/ui/Modal";
 import { Button } from "../../../components/ui/Button";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
+import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { listDepartments } from "../../../services/api/departments";
 import { assignUserDepartment, removeUserDepartment } from "../../../services/api/users";
@@ -34,6 +35,7 @@ export function ManageUserDepartmentsModal({
   user: AdminUserResponse;
 }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
 
   const departmentsQuery = useQuery({
     queryKey: ["admin-departments"],
@@ -41,30 +43,30 @@ export function ManageUserDepartmentsModal({
     enabled: open,
   });
 
+  const onMutationError = (error: unknown) => {
+    toast.error(error instanceof ApiClientError ? error.message : "Something went wrong.");
+  };
+
   const assign = useMutation({
     mutationFn: (departmentId: string) =>
       assignUserDepartment(user.id, { department_id: departmentId }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      toast.success("Department added.");
     },
+    onError: onMutationError,
   });
   const remove = useMutation({
     mutationFn: (departmentId: string) => removeUserDepartment(user.id, departmentId),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      toast.success("Department removed.");
     },
+    onError: onMutationError,
   });
-
-  const pendingError = assign.error ?? remove.error;
 
   return (
     <Modal open={open} onClose={onClose} title={`Departments — ${user.full_name}`}>
-      {pendingError && (
-        <p className="mb-3 text-sm text-red-600">
-          {pendingError instanceof ApiClientError ? pendingError.message : "Something went wrong."}
-        </p>
-      )}
-
       <RemoteDataView
         isLoading={departmentsQuery.isLoading}
         isError={departmentsQuery.isError}

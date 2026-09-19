@@ -5,6 +5,7 @@ import type { AssessmentQuestionResponse } from "@internal-training/shared";
 import { Modal } from "../../../components/ui/Modal";
 import { Button } from "../../../components/ui/Button";
 import { TextAreaField, SelectField, TextField } from "../../../components/ui/FormField";
+import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import {
   createAssessmentQuestion,
@@ -35,6 +36,7 @@ export function AssessmentQuestionFormModal({
   nextSortOrder: number;
 }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const isEdit = !!question;
 
   const {
@@ -69,11 +71,15 @@ export function AssessmentQuestionFormModal({
           }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["assessment-questions", assessmentId] });
+      toast.success(isEdit ? "Question updated." : "Question added.");
       onClose();
     },
+    onError: (error) => {
+      toast.error(
+        error instanceof ApiClientError ? error.message : "Failed to save the question.",
+      );
+    },
   });
-
-  const submitError = mutation.error instanceof ApiClientError ? mutation.error.message : null;
 
   return (
     <Modal open={open} onClose={onClose} title={isEdit ? "Edit Question" : "New Question"}>
@@ -109,8 +115,6 @@ export function AssessmentQuestionFormModal({
             {...register("marks", { valueAsNumber: true, required: true, min: 1 })}
           />
         </div>
-
-        {submitError && <p className="text-sm text-red-600">{submitError}</p>}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>

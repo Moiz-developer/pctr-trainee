@@ -8,6 +8,7 @@ import type { PolicyVersionResponse } from "@internal-training/shared";
 import { Modal } from "../../../components/ui/Modal";
 import { Button } from "../../../components/ui/Button";
 import { TextField, TextAreaField } from "../../../components/ui/FormField";
+import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { uploadPolicyDocument } from "../../../services/api/media";
 import { createPolicyVersion, updatePolicyVersion } from "../../../services/api/adminPolicies";
@@ -56,6 +57,7 @@ export function PolicyVersionFormModal({
   onSuccess: () => void;
 }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const isEdit = !!version;
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -111,6 +113,7 @@ export function PolicyVersionFormModal({
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-policy", policyId] });
+      toast.success(isEdit ? "Version updated." : "Version created.");
       onSuccess();
       handleClose();
     },
@@ -123,14 +126,11 @@ export function PolicyVersionFormModal({
           }
           setError(field as keyof VersionFormValues, { message: messages[0] });
         }
+        return;
       }
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to save the version.");
     },
   });
-
-  const submitError =
-    mutation.error instanceof ApiClientError && !mutation.error.fields
-      ? mutation.error.message
-      : null;
 
   return (
     <Modal open={open} onClose={handleClose} title={isEdit ? "Edit Version" : "New Version"} wide>
@@ -198,7 +198,6 @@ export function PolicyVersionFormModal({
         />
 
         {fileError && <p className="text-sm text-red-600">{fileError}</p>}
-        {submitError && <p className="text-sm text-red-600">{submitError}</p>}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={handleClose} disabled={isSubmitting}>

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ArrowLeft, Loader2, Paperclip, Send } from "lucide-react";
+import { ArrowLeft, Loader2, Paperclip, Send } from "lucide-react";
 import type { QueryPriority, QueryStatus } from "@internal-training/shared";
 import { Card } from "../../../components/ui/Card";
 import { Badge, type BadgeTone } from "../../../components/ui/Badge";
@@ -9,6 +9,7 @@ import { Button } from "../../../components/ui/Button";
 import { TextAreaField } from "../../../components/ui/FormField";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
 import { QueryMessageThread } from "../../../components/shared/QueryMessageThread";
+import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { createQueryMessage, getQueryDetail } from "../../../services/api/queries";
 import { uploadQueryAttachment } from "../../../services/api/media";
@@ -49,6 +50,7 @@ export function QueryDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [reply, setReply] = useState("");
   const [attachment, setAttachment] = useState<File | null>(null);
 
@@ -67,6 +69,10 @@ export function QueryDetailPage() {
       setReply("");
       setAttachment(null);
       await queryClient.invalidateQueries({ queryKey: ["query-detail", id] });
+      toast.success("Reply sent.");
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to send your reply.");
     },
   });
 
@@ -172,14 +178,6 @@ export function QueryDetailPage() {
                     Send
                   </Button>
                 </div>
-                {replyMutation.isError && (
-                  <p className="mt-2 flex items-center gap-1.5 text-sm text-red-600">
-                    <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
-                    {replyMutation.error instanceof ApiClientError
-                      ? replyMutation.error.message
-                      : "Failed to send your reply."}
-                  </p>
-                )}
               </div>
             </Card>
           </>

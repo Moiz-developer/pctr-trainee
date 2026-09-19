@@ -7,6 +7,8 @@ import { Badge } from "../../../components/ui/Badge";
 import { Modal } from "../../../components/ui/Modal";
 import { SelectField } from "../../../components/ui/FormField";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
+import { useToast } from "../../../components/ui/Toast";
+import { ApiClientError } from "../../../services/api/client";
 import { listResourceCategories, listResources } from "../../../services/api/resources";
 import { getMediaAccessUrl } from "../../../services/api/media";
 import { PdfLessonViewer } from "../courses/PdfLessonViewer";
@@ -34,10 +36,14 @@ const DOC_MIME = "application/msword";
  * a new document-conversion system.
  */
 function DownloadButton({ mediaAssetId }: { mediaAssetId: string }) {
+  const toast = useToast();
   const mutation = useMutation({
     mutationFn: () => getMediaAccessUrl(mediaAssetId),
     onSuccess: (result) => {
       window.open(result.url, "_blank", "noopener");
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to open the file.");
     },
   });
 

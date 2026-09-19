@@ -10,6 +10,7 @@ import {
 import { Modal } from "../../../components/ui/Modal";
 import { Button } from "../../../components/ui/Button";
 import { TextField, TextAreaField } from "../../../components/ui/FormField";
+import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { createRole, updateRole } from "../../../services/api/roles";
 
@@ -34,6 +35,7 @@ export function RoleFormModal({
   onSuccess: (role: RoleResponse) => void;
 }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const isEdit = !!role;
 
   const {
@@ -65,6 +67,7 @@ export function RoleFormModal({
     },
     onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: ["admin-roles"] });
+      toast.success(isEdit ? "Role updated." : "Role created.");
       onSuccess(result);
       onClose();
     },
@@ -73,14 +76,11 @@ export function RoleFormModal({
         for (const [field, messages] of Object.entries(error.fields)) {
           setError(field as keyof CreateRoleRequest, { message: messages[0] });
         }
+        return;
       }
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to save the role.");
     },
   });
-
-  const submitError =
-    mutation.error instanceof ApiClientError && !mutation.error.fields
-      ? mutation.error.message
-      : null;
 
   return (
     <Modal open={open} onClose={onClose} title={isEdit ? "Edit Role" : "New Role"}>
@@ -104,8 +104,6 @@ export function RoleFormModal({
           error={errors.description?.message}
           {...register("description")}
         />
-
-        {submitError && <p className="text-sm text-red-600">{submitError}</p>}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>

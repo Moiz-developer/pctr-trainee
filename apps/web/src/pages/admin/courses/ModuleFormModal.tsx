@@ -5,6 +5,7 @@ import type { CourseModuleResponse } from "@internal-training/shared";
 import { Modal } from "../../../components/ui/Modal";
 import { Button } from "../../../components/ui/Button";
 import { TextField, TextAreaField } from "../../../components/ui/FormField";
+import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { createCourseModule, updateCourseModule } from "../../../services/api/courseModules";
 
@@ -32,6 +33,7 @@ export function ModuleFormModal({
   nextSortOrder: number;
 }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const isEdit = !!module;
 
   const {
@@ -55,7 +57,13 @@ export function ModuleFormModal({
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["course-modules", courseId] });
+      toast.success(isEdit ? "Module updated." : "Module created.");
       onClose();
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof ApiClientError ? error.message : "Failed to save the module.",
+      );
     },
   });
 
@@ -72,12 +80,6 @@ export function ModuleFormModal({
           {...register("title", { required: "Title is required." })}
         />
         <TextAreaField label="Description" id="module-description" {...register("description")} />
-
-        {mutation.isError && (
-          <p className="text-sm text-red-600">
-            {mutation.error instanceof ApiClientError ? mutation.error.message : "Failed to save."}
-          </p>
-        )}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>

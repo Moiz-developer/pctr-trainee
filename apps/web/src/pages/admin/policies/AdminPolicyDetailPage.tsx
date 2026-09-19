@@ -7,6 +7,8 @@ import { Card } from "../../../components/ui/Card";
 import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
+import { useToast } from "../../../components/ui/Toast";
+import { ApiClientError } from "../../../services/api/client";
 import { getMediaAccessUrl } from "../../../services/api/media";
 import {
   activatePolicyVersion,
@@ -24,9 +26,13 @@ function versionStatus(version: PolicyVersionResponse): { label: string; tone: B
 }
 
 function VersionDocumentButton({ version }: { version: PolicyVersionResponse }) {
+  const toast = useToast();
   const mutation = useMutation({
     mutationFn: () => getMediaAccessUrl(version.media_asset_id!),
     onSuccess: (result) => window.open(result.url, "_blank", "noopener"),
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to open the document.");
+    },
   });
 
   if (!version.media_asset_id) return <span className="text-xs text-slate-400">No document</span>;
@@ -57,6 +63,7 @@ export function AdminPolicyDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [editPolicyOpen, setEditPolicyOpen] = useState(false);
   const [versionModal, setVersionModal] = useState<
     { mode: "create" } | { mode: "edit"; version: PolicyVersionResponse } | null
@@ -73,6 +80,12 @@ export function AdminPolicyDetailPage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-policy", id] });
       await queryClient.invalidateQueries({ queryKey: ["admin-policies"] });
+      toast.success("Version activated.");
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof ApiClientError ? error.message : "Failed to activate that version.",
+      );
     },
   });
 
@@ -81,6 +94,12 @@ export function AdminPolicyDetailPage() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-policy", id] });
       await queryClient.invalidateQueries({ queryKey: ["admin-policies"] });
+      toast.success("Version archived.");
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof ApiClientError ? error.message : "Failed to archive that version.",
+      );
     },
   });
 
@@ -142,13 +161,6 @@ export function AdminPolicyDetailPage() {
                   New Version
                 </Button>
               </div>
-
-              {activateMutation.isError && (
-                <p className="mt-3 text-sm text-red-600">Failed to activate that version.</p>
-              )}
-              {archiveMutation.isError && (
-                <p className="mt-3 text-sm text-red-600">Failed to archive that version.</p>
-              )}
 
               <div className="mt-4 overflow-x-auto">
                 <table className="w-full text-left text-sm">

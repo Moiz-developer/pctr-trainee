@@ -6,6 +6,7 @@ import { Modal } from "../../../components/ui/Modal";
 import { Button } from "../../../components/ui/Button";
 import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
+import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import {
   gradeAssessmentAttempt,
@@ -37,6 +38,7 @@ function GradeAttemptForm({
   attempt: AdminAssessmentAttempt;
   onDone: () => void;
 }) {
+  const toast = useToast();
   const pending = attempt.answers.filter((a) => a.is_correct === null);
   const [marks, setMarks] = useState<Record<string, number>>(
     Object.fromEntries(pending.map((a) => [a.question_id, 0])),
@@ -50,7 +52,13 @@ function GradeAttemptForm({
           marks_awarded: marks[a.question_id] ?? 0,
         })),
       }),
-    onSuccess: onDone,
+    onSuccess: () => {
+      toast.success("Grades submitted.");
+      onDone();
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to grade.");
+    },
   });
 
   if (pending.length === 0) return null;
@@ -79,11 +87,6 @@ function GradeAttemptForm({
           </label>
         </div>
       ))}
-      {mutation.isError && (
-        <p className="text-xs text-red-600">
-          {mutation.error instanceof ApiClientError ? mutation.error.message : "Failed to grade."}
-        </p>
-      )}
       <Button
         type="button"
         className="px-3 py-1.5 text-xs"

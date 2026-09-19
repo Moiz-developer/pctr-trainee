@@ -10,6 +10,7 @@ import {
 import { Modal } from "../../../components/ui/Modal";
 import { Button } from "../../../components/ui/Button";
 import { TextField, SelectField } from "../../../components/ui/FormField";
+import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { updateUser } from "../../../services/api/users";
 
@@ -35,6 +36,7 @@ export function EditUserModal({
   onSuccess: (user: AdminUserResponse) => void;
 }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
 
   const {
     register,
@@ -63,6 +65,7 @@ export function EditUserModal({
       updateUser(user.id, { ...values, phone: values.phone || null }),
     onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      toast.success("User updated.");
       onSuccess(result);
       onClose();
     },
@@ -71,14 +74,11 @@ export function EditUserModal({
         for (const [field, messages] of Object.entries(error.fields)) {
           setError(field as keyof UpdateUserRequest, { message: messages[0] });
         }
+        return;
       }
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to save the user.");
     },
   });
-
-  const submitError =
-    mutation.error instanceof ApiClientError && !mutation.error.fields
-      ? mutation.error.message
-      : null;
 
   return (
     <Modal open={open} onClose={onClose} title={`Edit User — ${user.full_name}`} wide>
@@ -140,8 +140,6 @@ export function EditUserModal({
             <option value="SUSPENDED">Suspended</option>
           </SelectField>
         </div>
-
-        {submitError && <p className="text-sm text-red-600">{submitError}</p>}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>

@@ -15,6 +15,7 @@ import {
   CheckboxField,
   SelectField,
 } from "../../../components/ui/FormField";
+import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { createCourse, updateCourse } from "../../../services/api/courses";
 import { listActiveCourseCategories } from "../../../services/api/courseCategories";
@@ -37,6 +38,7 @@ export function CourseFormModal({
   onSuccess: (course: CourseResponse) => void;
 }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const isEdit = !!course;
 
   const categoriesQuery = useQuery({
@@ -96,6 +98,7 @@ export function CourseFormModal({
     },
     onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: ["admin-courses"] });
+      toast.success(isEdit ? "Course updated." : "Course created.");
       onSuccess(result);
       onClose();
     },
@@ -104,14 +107,11 @@ export function CourseFormModal({
         for (const [field, messages] of Object.entries(error.fields)) {
           setError(field as keyof CreateCourseRequest, { message: messages[0] });
         }
+        return;
       }
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to save the course.");
     },
   });
-
-  const submitError =
-    mutation.error instanceof ApiClientError && !mutation.error.fields
-      ? mutation.error.message
-      : null;
 
   return (
     <Modal open={open} onClose={onClose} title={isEdit ? "Edit Course" : "New Course"} wide>
@@ -209,8 +209,6 @@ export function CourseFormModal({
             />
           </div>
         </div>
-
-        {submitError && <p className="text-sm text-red-600">{submitError}</p>}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>

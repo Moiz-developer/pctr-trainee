@@ -10,6 +10,7 @@ import {
 import { Modal } from "../../../components/ui/Modal";
 import { Button } from "../../../components/ui/Button";
 import { TextField, TextAreaField, SelectField } from "../../../components/ui/FormField";
+import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import {
   createResourceCategory,
@@ -40,6 +41,7 @@ export function ResourceCategoryFormModal({
   onSuccess: (category: ResourceCategoryResponse) => void;
 }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const isEdit = !!category;
 
   const departmentsQuery = useQuery({
@@ -86,6 +88,7 @@ export function ResourceCategoryFormModal({
     },
     onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: ["admin-resource-categories"] });
+      toast.success(isEdit ? "Category updated." : "Category created.");
       onSuccess(result);
       onClose();
     },
@@ -94,14 +97,13 @@ export function ResourceCategoryFormModal({
         for (const [field, messages] of Object.entries(error.fields)) {
           setError(field as keyof CreateResourceCategoryRequest, { message: messages[0] });
         }
+        return;
       }
+      toast.error(
+        error instanceof ApiClientError ? error.message : "Failed to save the category.",
+      );
     },
   });
-
-  const submitError =
-    mutation.error instanceof ApiClientError && !mutation.error.fields
-      ? mutation.error.message
-      : null;
 
   return (
     <Modal open={open} onClose={onClose} title={isEdit ? "Edit Category" : "New Category"}>
@@ -136,8 +138,6 @@ export function ResourceCategoryFormModal({
             </option>
           ))}
         </SelectField>
-
-        {submitError && <p className="text-sm text-red-600">{submitError}</p>}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>

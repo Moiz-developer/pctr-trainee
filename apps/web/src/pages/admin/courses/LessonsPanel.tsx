@@ -19,6 +19,8 @@ import { Button } from "../../../components/ui/Button";
 import { Badge } from "../../../components/ui/Badge";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
 import { ConfirmDialog } from "../../../components/shared/ConfirmDialog";
+import { useToast } from "../../../components/ui/Toast";
+import { ApiClientError } from "../../../services/api/client";
 import { listCourseLessons, updateCourseLesson } from "../../../services/api/courseLessons";
 import { LessonFormModal } from "./LessonFormModal";
 import { LessonMediaModal } from "./LessonMediaModal";
@@ -43,6 +45,7 @@ const CONTENT_TYPE_META: Record<LessonContentType, { label: string; icon: Lucide
 /** Lessons within one module — mirrors CourseModulesPanel's reorder/retire pattern one level down. */
 export function LessonsPanel({ courseId, moduleId }: { courseId: string; moduleId: string }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [formState, setFormState] = useState<{ open: boolean; lesson?: CourseLessonResponse }>({
     open: false,
   });
@@ -57,10 +60,18 @@ export function LessonsPanel({ courseId, moduleId }: { courseId: string; moduleI
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ["course-lessons", moduleId] });
 
+  const onMutationError = (error: unknown) => {
+    toast.error(error instanceof ApiClientError ? error.message : "Something went wrong.");
+  };
+
   const toggleActive = useMutation({
     mutationFn: (lesson: CourseLessonResponse) =>
       updateCourseLesson(courseId, moduleId, lesson.id, { is_active: !lesson.is_active }),
-    onSuccess: invalidate,
+    onSuccess: (_data, lesson) => {
+      invalidate();
+      toast.success(lesson.is_active ? "Lesson retired." : "Lesson reactivated.");
+    },
+    onError: onMutationError,
   });
 
   const reorder = useMutation({
@@ -70,6 +81,7 @@ export function LessonsPanel({ courseId, moduleId }: { courseId: string; moduleI
         updateCourseLesson(courseId, moduleId, b.id, { sort_order: a.sort_order }),
       ]),
     onSuccess: invalidate,
+    onError: onMutationError,
   });
 
   function move(lessons: CourseLessonResponse[], index: number, direction: -1 | 1) {

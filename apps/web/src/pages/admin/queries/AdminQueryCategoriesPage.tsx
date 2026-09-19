@@ -7,6 +7,8 @@ import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
 import { Badge } from "../../../components/ui/Badge";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
+import { useToast } from "../../../components/ui/Toast";
+import { ApiClientError } from "../../../services/api/client";
 import { listQueryCategories, updateQueryCategory } from "../../../services/api/queryCategories";
 import { listAllDepartments } from "../../../services/api/departments";
 import { QueryCategoryFormModal } from "./QueryCategoryFormModal";
@@ -24,6 +26,7 @@ import { QueryCategoryFormModal } from "./QueryCategoryFormModal";
 export function AdminQueryCategoriesPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<QueryCategoryResponse | null>(null);
 
@@ -47,8 +50,12 @@ export function AdminQueryCategoriesPage() {
   const toggleActive = useMutation({
     mutationFn: (target: QueryCategoryResponse) =>
       updateQueryCategory(target.id, { is_active: !target.is_active }),
-    onSuccess: async () => {
+    onSuccess: async (_data, target) => {
       await queryClient.invalidateQueries({ queryKey: ["admin-query-category-records"] });
+      toast.success(target.is_active ? "Category deactivated." : "Category activated.");
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Something went wrong.");
     },
   });
 

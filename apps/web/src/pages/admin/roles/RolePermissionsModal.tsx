@@ -5,6 +5,7 @@ import { Modal } from "../../../components/ui/Modal";
 import { Button } from "../../../components/ui/Button";
 import { CheckboxField } from "../../../components/ui/FormField";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
+import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { listAllPermissions, setRolePermissions } from "../../../services/api/roles";
 
@@ -28,6 +29,7 @@ export function RolePermissionsModal({
   role: RoleResponse;
 }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [pendingSelection, setPendingSelection] = useState<Set<string> | null>(null);
 
   const allPermissions = useQuery({
@@ -45,6 +47,10 @@ export function RolePermissionsModal({
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-roles"] });
       setPendingSelection(null);
+      toast.success("Permissions saved.");
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to save.");
     },
   });
 
@@ -71,15 +77,6 @@ export function RolePermissionsModal({
             {mutation.isPending ? "Saving…" : "Save"}
           </Button>
         </div>
-
-        {mutation.isError && (
-          <p className="text-sm text-red-600">
-            {mutation.error instanceof ApiClientError ? mutation.error.message : "Failed to save."}
-          </p>
-        )}
-        {mutation.isSuccess && !dirty && (
-          <p className="text-sm text-emerald-600">Permissions saved.</p>
-        )}
 
         <RemoteDataView
           isLoading={allPermissions.isLoading}

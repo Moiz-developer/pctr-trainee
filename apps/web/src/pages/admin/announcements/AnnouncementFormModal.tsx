@@ -13,6 +13,7 @@ import {
   SelectField,
   CheckboxField,
 } from "../../../components/ui/FormField";
+import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { uploadAnnouncementMedia } from "../../../services/api/media";
 import { createAnnouncement, updateAnnouncement } from "../../../services/api/adminAnnouncements";
@@ -68,6 +69,7 @@ export function AnnouncementFormModal({
   onSuccess: () => void;
 }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const isEdit = !!announcement;
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
@@ -159,6 +161,7 @@ export function AnnouncementFormModal({
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["admin-announcements"] });
+      toast.success(isEdit ? "Announcement updated." : "Announcement created.");
       onSuccess();
       handleClose();
     },
@@ -167,14 +170,11 @@ export function AnnouncementFormModal({
         for (const [field, messages] of Object.entries(error.fields)) {
           setError(field as keyof AnnouncementFormValues, { message: messages[0] });
         }
+        return;
       }
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to save the announcement.");
     },
   });
-
-  const submitError =
-    mutation.error instanceof ApiClientError && !mutation.error.fields
-      ? mutation.error.message
-      : null;
 
   const departments = useMemo(() => allDepartments.data ?? [], [allDepartments.data]);
 
@@ -299,8 +299,6 @@ export function AnnouncementFormModal({
             ))}
           </div>
         </div>
-
-        {submitError && <p className="text-sm text-red-600">{submitError}</p>}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={handleClose} disabled={isSubmitting}>

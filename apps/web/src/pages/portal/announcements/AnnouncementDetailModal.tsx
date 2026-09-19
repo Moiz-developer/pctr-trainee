@@ -5,6 +5,8 @@ import { Modal } from "../../../components/ui/Modal";
 import { Button } from "../../../components/ui/Button";
 import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
+import { useToast } from "../../../components/ui/Toast";
+import { ApiClientError } from "../../../services/api/client";
 import { getMediaAccessUrl } from "../../../services/api/media";
 import {
   acknowledgeAnnouncement,
@@ -32,9 +34,13 @@ function MediaLink({
   label: string;
   icon: typeof Download;
 }) {
+  const toast = useToast();
   const mutation = useMutation({
     mutationFn: () => getMediaAccessUrl(mediaAssetId),
     onSuccess: (result) => window.open(result.url, "_blank", "noopener"),
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to open the file.");
+    },
   });
 
   return (
@@ -67,6 +73,7 @@ export function AnnouncementDetailModal({
   announcementId: string | null;
 }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
 
   const detailQuery = useQuery({
     queryKey: ["announcement-detail", announcementId],
@@ -90,11 +97,23 @@ export function AnnouncementDetailModal({
 
   const ackMutation = useMutation({
     mutationFn: () => acknowledgeAnnouncement(announcementId!),
-    onSuccess: invalidate,
+    onSuccess: async () => {
+      await invalidate();
+      toast.success("Announcement acknowledged.");
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to acknowledge.");
+    },
   });
   const dismissMutation = useMutation({
     mutationFn: () => dismissAnnouncement(announcementId!),
-    onSuccess: invalidate,
+    onSuccess: async () => {
+      await invalidate();
+      toast.success("Announcement dismissed.");
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to dismiss.");
+    },
   });
 
   if (!announcementId) return null;

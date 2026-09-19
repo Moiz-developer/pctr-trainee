@@ -7,6 +7,8 @@ import { Button } from "../../../components/ui/Button";
 import { Badge } from "../../../components/ui/Badge";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
 import { ConfirmDialog } from "../../../components/shared/ConfirmDialog";
+import { useToast } from "../../../components/ui/Toast";
+import { ApiClientError } from "../../../services/api/client";
 import { listCourseModules, updateCourseModule } from "../../../services/api/courseModules";
 import { ModuleFormModal } from "./ModuleFormModal";
 import { LessonsPanel } from "./LessonsPanel";
@@ -19,6 +21,7 @@ import { LessonsPanel } from "./LessonsPanel";
  */
 export function CourseModulesPanel({ courseId }: { courseId: string }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [formState, setFormState] = useState<{ open: boolean; module?: CourseModuleResponse }>({
     open: false,
@@ -33,10 +36,18 @@ export function CourseModulesPanel({ courseId }: { courseId: string }) {
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ["course-modules", courseId] });
 
+  const onMutationError = (error: unknown) => {
+    toast.error(error instanceof ApiClientError ? error.message : "Something went wrong.");
+  };
+
   const toggleActive = useMutation({
     mutationFn: (module: CourseModuleResponse) =>
       updateCourseModule(courseId, module.id, { is_active: !module.is_active }),
-    onSuccess: invalidate,
+    onSuccess: (_data, module) => {
+      invalidate();
+      toast.success(module.is_active ? "Module retired." : "Module reactivated.");
+    },
+    onError: onMutationError,
   });
 
   const reorder = useMutation({
@@ -46,6 +57,7 @@ export function CourseModulesPanel({ courseId }: { courseId: string }) {
         updateCourseModule(courseId, b.id, { sort_order: a.sort_order }),
       ]),
     onSuccess: invalidate,
+    onError: onMutationError,
   });
 
   function move(modules: CourseModuleResponse[], index: number, direction: -1 | 1) {

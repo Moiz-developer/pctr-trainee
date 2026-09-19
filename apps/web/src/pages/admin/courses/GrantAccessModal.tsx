@@ -4,6 +4,7 @@ import { Search, UserPlus } from "lucide-react";
 import { Modal } from "../../../components/ui/Modal";
 import { Button } from "../../../components/ui/Button";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
+import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { searchUsers } from "../../../services/api/users";
 import { grantCourseAccess } from "../../../services/api/courseAccess";
@@ -21,6 +22,7 @@ export function GrantAccessModal({
   alreadyGrantedUserIds: Set<string>;
 }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [term, setTerm] = useState("");
   const [submittedTerm, setSubmittedTerm] = useState("");
 
@@ -32,7 +34,13 @@ export function GrantAccessModal({
 
   const grant = useMutation({
     mutationFn: (userId: string) => grantCourseAccess(courseId, userId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["course-access", courseId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["course-access", courseId] });
+      toast.success("Access granted.");
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to grant access.");
+    },
   });
 
   return (
@@ -60,12 +68,6 @@ export function GrantAccessModal({
           Search
         </Button>
       </form>
-
-      {grant.isError && (
-        <p className="mt-3 text-sm text-red-600">
-          {grant.error instanceof ApiClientError ? grant.error.message : "Failed to grant access."}
-        </p>
-      )}
 
       <div className="mt-4 max-h-72 overflow-y-auto">
         <RemoteDataView

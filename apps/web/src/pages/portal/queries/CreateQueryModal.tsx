@@ -7,6 +7,7 @@ import { createQueryRequestSchema, type CreateQueryRequest } from "@internal-tra
 import { Modal } from "../../../components/ui/Modal";
 import { Button } from "../../../components/ui/Button";
 import { TextField, TextAreaField, SelectField } from "../../../components/ui/FormField";
+import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { createQuery, listQueryCategories } from "../../../services/api/queries";
 import { listUserCourses } from "../../../services/api/userCourses";
@@ -44,6 +45,7 @@ export function CreateQueryModal({
   onSuccess: () => void;
 }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [attachment, setAttachment] = useState<File | null>(null);
 
   const coursesQuery = useQuery({
@@ -89,6 +91,7 @@ export function CreateQueryModal({
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["my-queries"] });
+      toast.success("Query submitted.");
       onSuccess();
       handleClose();
     },
@@ -97,7 +100,9 @@ export function CreateQueryModal({
         for (const [field, messages] of Object.entries(error.fields)) {
           setError(field as keyof CreateQueryRequest, { message: messages[0] });
         }
+        return;
       }
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to submit the query.");
     },
   });
 
@@ -110,11 +115,6 @@ export function CreateQueryModal({
     mutation.reset();
     reset({ subject: "", category_id: "", description: "", priority: "NORMAL", course_id: "" });
   }, [open, reset]);
-
-  const submitError =
-    mutation.error instanceof ApiClientError && !mutation.error.fields
-      ? mutation.error.message
-      : null;
 
   return (
     <Modal open={open} onClose={handleClose} title="New Query" wide>
@@ -195,8 +195,6 @@ export function CreateQueryModal({
             <p className="mt-1 text-xs text-red-600">{errors.media_asset_id.message}</p>
           )}
         </div>
-
-        {submitError && <p className="text-sm text-red-600">{submitError}</p>}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={handleClose} disabled={isSubmitting}>

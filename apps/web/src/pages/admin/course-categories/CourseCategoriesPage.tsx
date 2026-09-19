@@ -7,6 +7,8 @@ import { Button } from "../../../components/ui/Button";
 import { Badge } from "../../../components/ui/Badge";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
 import { Can } from "../../../authorization/Can";
+import { useToast } from "../../../components/ui/Toast";
+import { ApiClientError } from "../../../services/api/client";
 import { listCourseCategories, updateCourseCategory } from "../../../services/api/courseCategories";
 import { listAllDepartments } from "../../../services/api/departments";
 import { CourseCategoryFormModal } from "./CourseCategoryFormModal";
@@ -28,6 +30,7 @@ import { CourseCategoryFormModal } from "./CourseCategoryFormModal";
  */
 export function CourseCategoriesPage() {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<CourseCategoryResponse | null>(null);
 
@@ -51,8 +54,12 @@ export function CourseCategoriesPage() {
   const toggleActive = useMutation({
     mutationFn: (target: CourseCategoryResponse) =>
       updateCourseCategory(target.id, { is_active: !target.is_active }),
-    onSuccess: async () => {
+    onSuccess: async (_data, target) => {
       await queryClient.invalidateQueries({ queryKey: ["admin-course-categories"] });
+      toast.success(target.is_active ? "Category deactivated." : "Category activated.");
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Something went wrong.");
     },
   });
 

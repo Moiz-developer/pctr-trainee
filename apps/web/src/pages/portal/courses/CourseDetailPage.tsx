@@ -31,6 +31,7 @@ import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
 import { CourseProgressCard } from "../../../components/shared/CourseProgressSummary";
+import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { getUserCourseDetail } from "../../../services/api/userCourses";
 import { getLessonProgress, updateLessonProgress } from "../../../services/api/lessonProgress";
@@ -222,6 +223,7 @@ export function CourseDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [expandedLessonId, setExpandedLessonId] = useState<string | null>(null);
 
   const courseQuery = useQuery({
@@ -271,6 +273,11 @@ export function CourseDetailPage() {
       // the progress bar below reflects the new state, not a stale one.
       void queryClient.invalidateQueries({ queryKey: ["user-course-detail", id] });
     },
+    onError: (error) => {
+      toast.error(
+        error instanceof ApiClientError ? error.message : "Failed to start this lesson.",
+      );
+    },
   });
 
   const completeMutation = useMutation({
@@ -278,6 +285,12 @@ export function CourseDetailPage() {
     onSuccess: (data, lessonId) => {
       queryClient.setQueryData(["lesson-progress", lessonId], data);
       void queryClient.invalidateQueries({ queryKey: ["user-course-detail", id] });
+      toast.success("Lesson marked complete.");
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof ApiClientError ? error.message : "Failed to mark this lesson complete.",
+      );
     },
   });
 
@@ -477,26 +490,6 @@ export function CourseDetailPage() {
                                       <LessonContent lesson={lesson} />
                                     )}
 
-                                    {startMutation.isError &&
-                                      startMutation.variables === lesson.id && (
-                                        <div className="mt-2 flex items-center gap-2 text-xs text-red-600">
-                                          <AlertTriangle
-                                            className="h-3.5 w-3.5 shrink-0"
-                                            aria-hidden="true"
-                                          />
-                                          {startMutation.error instanceof ApiClientError
-                                            ? startMutation.error.message
-                                            : "Failed to start this lesson."}
-                                          <button
-                                            type="button"
-                                            className="cursor-pointer font-medium underline"
-                                            onClick={() => startMutation.mutate(lesson.id)}
-                                          >
-                                            Retry
-                                          </button>
-                                        </div>
-                                      )}
-
                                     {/*
                                       VIDEO lessons never get the manual button — per
                                       SYSTEM_PLAN.md §18, video completion is driven by
@@ -556,26 +549,6 @@ export function CourseDetailPage() {
                                       </div>
                                     )}
 
-                                    {lesson.content_type !== "VIDEO" &&
-                                      completeMutation.isError &&
-                                      completeMutation.variables === lesson.id && (
-                                        <div className="mt-2 flex items-center gap-2 text-xs text-red-600">
-                                          <AlertTriangle
-                                            className="h-3.5 w-3.5 shrink-0"
-                                            aria-hidden="true"
-                                          />
-                                          {completeMutation.error instanceof ApiClientError
-                                            ? completeMutation.error.message
-                                            : "Failed to mark this lesson complete."}
-                                          <button
-                                            type="button"
-                                            className="cursor-pointer font-medium underline"
-                                            onClick={() => completeMutation.mutate(lesson.id)}
-                                          >
-                                            Retry
-                                          </button>
-                                        </div>
-                                      )}
                                   </div>
                                 )}
                               </li>

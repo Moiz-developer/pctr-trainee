@@ -5,6 +5,8 @@ import type { AnnouncementPriority } from "@internal-training/shared";
 import { Modal } from "../../../components/ui/Modal";
 import { Button } from "../../../components/ui/Button";
 import { Badge, type BadgeTone } from "../../../components/ui/Badge";
+import { useToast } from "../../../components/ui/Toast";
+import { ApiClientError } from "../../../services/api/client";
 import { getMediaAccessUrl } from "../../../services/api/media";
 import { getDashboard } from "../../../services/api/dashboard";
 import { acknowledgeAnnouncement, dismissAnnouncement } from "../../../services/api/announcements";
@@ -39,6 +41,7 @@ const PRIORITY_TONE: Record<AnnouncementPriority, BadgeTone> = {
  */
 export function PortalAnnouncementPopup() {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [queueIndex, setQueueIndex] = useState(0);
   const [dismissedLocally, setDismissedLocally] = useState(false);
 
@@ -69,19 +72,30 @@ export function PortalAnnouncementPopup() {
     mutationFn: (id: string) => acknowledgeAnnouncement(id),
     onSuccess: async () => {
       await invalidate();
+      toast.success("Announcement acknowledged.");
       advance();
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to acknowledge.");
     },
   });
   const dismissMutation = useMutation({
     mutationFn: (id: string) => dismissAnnouncement(id),
     onSuccess: async () => {
       await invalidate();
+      toast.success("Announcement dismissed.");
       advance();
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to dismiss.");
     },
   });
   const imageUrlMutation = useMutation({
     mutationFn: (mediaAssetId: string) => getMediaAccessUrl(mediaAssetId),
     onSuccess: (result) => window.open(result.url, "_blank", "noopener"),
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to open the file.");
+    },
   });
 
   function advance() {

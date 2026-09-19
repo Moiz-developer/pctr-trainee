@@ -8,6 +8,7 @@ import { Badge } from "../../../components/ui/Badge";
 import { SelectField } from "../../../components/ui/FormField";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
 import { ConfirmDialog } from "../../../components/shared/ConfirmDialog";
+import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { listCourses } from "../../../services/api/courses";
 import {
@@ -52,6 +53,7 @@ export function UserTrainingAccessModal({
   user: AdminUserResponse;
 }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [selectedCourseId, setSelectedCourseId] = useState("");
   const [revokeTarget, setRevokeTarget] = useState<CourseAccessResponse | null>(null);
 
@@ -82,11 +84,21 @@ export function UserTrainingAccessModal({
     onSuccess: () => {
       invalidate();
       setSelectedCourseId("");
+      toast.success("Access granted.");
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to grant access.");
     },
   });
   const revoke = useMutation({
     mutationFn: (courseId: string) => revokeUserCourseAccess(user.id, courseId),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      toast.success("Access revoked.");
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to revoke access.");
+    },
   });
 
   const activeCourseIds = new Set(
@@ -128,11 +140,6 @@ export function UserTrainingAccessModal({
           </Button>
         </div>
 
-        {grant.isError && (
-          <p className="mt-2 text-sm text-red-600">
-            {grant.error instanceof ApiClientError ? grant.error.message : "Failed to grant access."}
-          </p>
-        )}
       </div>
 
       <div className="mt-6">

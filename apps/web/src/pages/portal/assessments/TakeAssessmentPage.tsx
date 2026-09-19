@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ArrowLeft, CheckCircle2, Clock, Loader2, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, Loader2, XCircle } from "lucide-react";
 import type {
   AssessmentAttemptResponse,
   SubmitAssessmentAttemptAnswer,
@@ -10,6 +10,7 @@ import { Card } from "../../../components/ui/Card";
 import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
+import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import {
   getAssessmentDetail,
@@ -81,6 +82,7 @@ export function TakeAssessmentPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [activeAttempt, setActiveAttempt] = useState<AssessmentAttemptResponse | null>(null);
   const [answers, setAnswers] = useState<Record<string, SubmitAssessmentAttemptAnswer>>({});
 
@@ -102,6 +104,9 @@ export function TakeAssessmentPage() {
       setActiveAttempt(attempt);
       setAnswers({});
     },
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to start attempt.");
+    },
   });
 
   const submitMutation = useMutation({
@@ -111,6 +116,10 @@ export function TakeAssessmentPage() {
       setActiveAttempt(attempt);
       await queryClient.invalidateQueries({ queryKey: ["assessment-own-attempts", id] });
       await queryClient.invalidateQueries({ queryKey: ["user-course-detail"] });
+      toast.success("Assessment submitted.");
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to submit.");
     },
   });
 
@@ -178,14 +187,6 @@ export function TakeAssessmentPage() {
                       This assessment has {questions.length} question(s). Once you start, your time
                       begins counting toward your training hours.
                     </p>
-                    {startMutation.isError && (
-                      <p className="mb-2 flex items-center gap-1.5 text-sm text-red-600">
-                        <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
-                        {startMutation.error instanceof ApiClientError
-                          ? startMutation.error.message
-                          : "Failed to start attempt."}
-                      </p>
-                    )}
                     <Button
                       type="button"
                       disabled={startMutation.isPending}
@@ -245,14 +246,6 @@ export function TakeAssessmentPage() {
                   </ul>
                 </Card>
 
-                {submitMutation.isError && (
-                  <p className="flex items-center gap-1.5 text-sm text-red-600">
-                    <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
-                    {submitMutation.error instanceof ApiClientError
-                      ? submitMutation.error.message
-                      : "Failed to submit."}
-                  </p>
-                )}
                 <div className="flex items-center gap-3">
                   <Button
                     type="button"

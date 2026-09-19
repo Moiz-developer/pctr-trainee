@@ -10,6 +10,7 @@ import {
 import { Modal } from "../../../components/ui/Modal";
 import { Button } from "../../../components/ui/Button";
 import { TextField, TextAreaField, SelectField } from "../../../components/ui/FormField";
+import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { createCourseCategory, updateCourseCategory } from "../../../services/api/courseCategories";
 import { listAllDepartments } from "../../../services/api/departments";
@@ -42,6 +43,7 @@ export function CourseCategoryFormModal({
   onSuccess: (category: CourseCategoryResponse) => void;
 }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const isEdit = !!category;
 
   const departmentsQuery = useQuery({
@@ -88,6 +90,7 @@ export function CourseCategoryFormModal({
     },
     onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: ["admin-course-categories"] });
+      toast.success(isEdit ? "Category updated." : "Category created.");
       onSuccess(result);
       onClose();
     },
@@ -96,14 +99,13 @@ export function CourseCategoryFormModal({
         for (const [field, messages] of Object.entries(error.fields)) {
           setError(field as keyof CreateCourseCategoryRequest, { message: messages[0] });
         }
+        return;
       }
+      toast.error(
+        error instanceof ApiClientError ? error.message : "Failed to save the category.",
+      );
     },
   });
-
-  const submitError =
-    mutation.error instanceof ApiClientError && !mutation.error.fields
-      ? mutation.error.message
-      : null;
 
   return (
     <Modal open={open} onClose={onClose} title={isEdit ? "Edit Category" : "New Category"}>
@@ -138,8 +140,6 @@ export function CourseCategoryFormModal({
             </option>
           ))}
         </SelectField>
-
-        {submitError && <p className="text-sm text-red-600">{submitError}</p>}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>

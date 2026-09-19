@@ -7,6 +7,8 @@ import { Button } from "../../../components/ui/Button";
 import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
 import { Can } from "../../../authorization/Can";
+import { useToast } from "../../../components/ui/Toast";
+import { ApiClientError } from "../../../services/api/client";
 import { listUsers, updateUser } from "../../../services/api/users";
 import { listDepartments } from "../../../services/api/departments";
 import { listRoles } from "../../../services/api/roles";
@@ -39,6 +41,7 @@ const STATUS_TONE: Record<AdminUserResponse["status"], BadgeTone> = {
  */
 export function AdminUsersPage() {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [search, setSearch] = useState("");
   const [submittedSearch, setSubmittedSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
@@ -86,8 +89,12 @@ export function AdminUsersPage() {
   const toggleActive = useMutation({
     mutationFn: (target: AdminUserResponse) =>
       updateUser(target.id, { status: target.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" }),
-    onSuccess: async () => {
+    onSuccess: async (_data, target) => {
       await queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      toast.success(target.status === "ACTIVE" ? "User deactivated." : "User activated.");
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Something went wrong.");
     },
   });
 

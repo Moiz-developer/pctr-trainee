@@ -10,6 +10,7 @@ import {
 import { Modal } from "../../../components/ui/Modal";
 import { Button } from "../../../components/ui/Button";
 import { TextField, SelectField, CheckboxField } from "../../../components/ui/FormField";
+import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { createUser } from "../../../services/api/users";
 import { listAllDepartments } from "../../../services/api/departments";
@@ -40,6 +41,7 @@ export function CreateUserModal({
   onSuccess: (user: AdminUserResponse) => void;
 }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
 
   const departmentsQuery = useQuery({
     queryKey: ["active-departments"],
@@ -68,6 +70,7 @@ export function CreateUserModal({
       createUser({ ...values, phone: values.phone || undefined }),
     onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      toast.success("User invited.");
       onSuccess(result);
       onClose();
     },
@@ -76,14 +79,11 @@ export function CreateUserModal({
         for (const [field, messages] of Object.entries(error.fields)) {
           setError(field as keyof CreateUserRequest, { message: messages[0] });
         }
+        return;
       }
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to invite the user.");
     },
   });
-
-  const submitError =
-    mutation.error instanceof ApiClientError && !mutation.error.fields
-      ? mutation.error.message
-      : null;
 
   return (
     <Modal open={open} onClose={onClose} title="New User" wide>
@@ -153,8 +153,6 @@ export function CreateUserModal({
             )}
           </div>
         </div>
-
-        {submitError && <p className="text-sm text-red-600">{submitError}</p>}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>

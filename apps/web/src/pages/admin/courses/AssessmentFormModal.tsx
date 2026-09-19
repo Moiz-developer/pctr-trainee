@@ -9,6 +9,7 @@ import type {
 import { Modal } from "../../../components/ui/Modal";
 import { Button } from "../../../components/ui/Button";
 import { TextField, TextAreaField, SelectField } from "../../../components/ui/FormField";
+import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { createAssessment, updateAssessment } from "../../../services/api/adminAssessments";
 
@@ -60,6 +61,7 @@ export function AssessmentFormModal({
   assessment?: AssessmentResponse;
 }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const isEdit = !!assessment;
 
   const {
@@ -110,6 +112,7 @@ export function AssessmentFormModal({
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["assessments", courseId] });
+      toast.success(isEdit ? "Assessment updated." : "Assessment created.");
       onClose();
     },
     onError: (error) => {
@@ -117,14 +120,13 @@ export function AssessmentFormModal({
         for (const [field, messages] of Object.entries(error.fields)) {
           setError(field as keyof AssessmentFormValues, { message: messages[0] });
         }
+        return;
       }
+      toast.error(
+        error instanceof ApiClientError ? error.message : "Failed to save the assessment.",
+      );
     },
   });
-
-  const submitError =
-    mutation.error instanceof ApiClientError && !mutation.error.fields
-      ? mutation.error.message
-      : null;
 
   return (
     <Modal open={open} onClose={onClose} title={isEdit ? "Edit Assessment" : "New Assessment"} wide>
@@ -197,8 +199,6 @@ export function AssessmentFormModal({
             {...register("due_date")}
           />
         </div>
-
-        {submitError && <p className="text-sm text-red-600">{submitError}</p>}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>

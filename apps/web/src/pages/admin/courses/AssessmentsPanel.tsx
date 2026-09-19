@@ -7,6 +7,8 @@ import { Button } from "../../../components/ui/Button";
 import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
 import { Can } from "../../../authorization/Can";
+import { useToast } from "../../../components/ui/Toast";
+import { ApiClientError } from "../../../services/api/client";
 import { listAssessments, updateAssessment } from "../../../services/api/adminAssessments";
 import { AssessmentFormModal } from "./AssessmentFormModal";
 import { AssessmentQuestionsPanel } from "./AssessmentQuestionsPanel";
@@ -29,6 +31,7 @@ const STATUS_TONE: Record<AssessmentResponse["status"], BadgeTone> = {
  */
 export function AssessmentsPanel({ courseId }: { courseId: string }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [formState, setFormState] = useState<{ open: boolean; assessment?: AssessmentResponse }>({
     open: false,
@@ -50,7 +53,13 @@ export function AssessmentsPanel({ courseId }: { courseId: string }) {
       assessment: AssessmentResponse;
       status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
     }) => updateAssessment(courseId, assessment.id, { status }),
-    onSuccess: invalidate,
+    onSuccess: (_data, { status }) => {
+      invalidate();
+      toast.success(`Assessment ${status === "PUBLISHED" ? "published" : status.toLowerCase()}.`);
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Something went wrong.");
+    },
   });
 
   return (
