@@ -62,9 +62,14 @@ export function PdfLessonViewer({ mediaAssetId }: { mediaAssetId: string }) {
       setNumPages(null);
       setPageNum(1);
       try {
+        // The `legacy` build, not the default one: pdfjs-dist's default build assumes
+        // the very newest JS built-ins (Uint8Array.toHex, Map.getOrInsertComputed,
+        // Promise.try…) and throws on any browser that lacks one — which surfaced
+        // here as "could not be loaded" for perfectly valid PDFs. The legacy build
+        // is the same library with those polyfilled; the API is identical.
         const [pdfjsLib, workerUrlModule] = await Promise.all([
-          import("pdfjs-dist"),
-          import("pdfjs-dist/build/pdf.worker.min.mjs?url"),
+          import("pdfjs-dist/legacy/build/pdf.mjs"),
+          import("pdfjs-dist/legacy/build/pdf.worker.min.mjs?url"),
         ]);
         pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrlModule.default;
 
