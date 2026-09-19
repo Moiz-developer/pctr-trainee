@@ -1,9 +1,22 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Pencil } from "lucide-react";
+import {
+  ArrowLeft,
+  Building2,
+  CalendarClock,
+  CheckCircle2,
+  ClipboardList,
+  Clock,
+  Info,
+  KeyRound,
+  Layers,
+  Pencil,
+  Tag,
+  type LucideIcon,
+} from "lucide-react";
 import type { CourseStatus } from "@internal-training/shared";
-import { Card } from "../../../components/ui/Card";
+import { Card, CardHeader } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
 import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
@@ -17,6 +30,7 @@ import { CourseDepartmentsPanel } from "./CourseDepartmentsPanel";
 import { CourseModulesPanel } from "./CourseModulesPanel";
 import { CourseAccessPanel } from "./CourseAccessPanel";
 import { AssessmentsPanel } from "./AssessmentsPanel";
+import { AdminCourseTabs, type AdminCourseTabDef } from "./AdminCourseTabs";
 
 const STATUS_TONE: Record<CourseStatus, BadgeTone> = {
   DRAFT: "neutral",
@@ -25,13 +39,39 @@ const STATUS_TONE: Record<CourseStatus, BadgeTone> = {
 };
 
 type Tab = "details" | "departments" | "modules" | "assessments" | "access";
-const TABS: { id: Tab; label: string }[] = [
-  { id: "details", label: "Details" },
-  { id: "departments", label: "Departments" },
-  { id: "modules", label: "Modules & Lessons" },
-  { id: "assessments", label: "Assessments" },
-  { id: "access", label: "Access" },
+const TABS: AdminCourseTabDef<Tab>[] = [
+  { id: "details", label: "Details", icon: Info },
+  { id: "departments", label: "Departments", icon: Building2 },
+  { id: "modules", label: "Modules & Lessons", icon: Layers },
+  { id: "assessments", label: "Assessments", icon: ClipboardList },
+  { id: "access", label: "Access", icon: KeyRound },
 ];
+
+/** One labelled fact in the Details tab (icon tile + small caps label + value). */
+function InfoTile({
+  icon: Icon,
+  label,
+  children,
+  caption,
+}: {
+  icon: LucideIcon;
+  label: string;
+  children: ReactNode;
+  caption?: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-lg bg-slate-50 px-4 py-3">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-900">
+        <Icon className="h-4 w-4" aria-hidden="true" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+        <p className="truncate text-sm font-semibold text-indigo-950">{children}</p>
+        {caption && <p className="text-xs text-slate-500">{caption}</p>}
+      </div>
+    </div>
+  );
+}
 
 export function AdminCourseDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -71,7 +111,9 @@ export function AdminCourseDetailPage() {
       toast.success("Course archived.");
     },
     onError: (error) => {
-      toast.error(error instanceof ApiClientError ? error.message : "Failed to archive the course.");
+      toast.error(
+        error instanceof ApiClientError ? error.message : "Failed to archive the course.",
+      );
     },
   });
 
@@ -97,13 +139,15 @@ export function AdminCourseDetailPage() {
       >
         {(course) => (
           <>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <div className="flex items-center gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <h2 className="text-xl font-semibold text-slate-900">{course.title}</h2>
-                  <Badge tone={STATUS_TONE[course.status]}>{course.status}</Badge>
+                  <Badge tone={STATUS_TONE[course.status]} solid>
+                    {course.status}
+                  </Badge>
                 </div>
-                <p className="mt-1 text-sm text-slate-500">/{course.slug}</p>
+                <p className="mt-1 break-all font-mono text-xs text-slate-500">/{course.slug}</p>
               </div>
               <Can permission="course.create">
                 <div className="flex flex-wrap gap-2">
@@ -139,74 +183,90 @@ export function AdminCourseDetailPage() {
               </Can>
             </div>
 
-            <div className="border-b border-slate-200">
-              <nav className="-mb-px flex gap-6">
-                {TABS.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setTab(t.id)}
-                    className={`cursor-pointer border-b-2 px-1 py-3 text-sm font-medium ${
-                      tab === t.id
-                        ? "border-indigo-900 text-indigo-900"
-                        : "border-transparent text-slate-500 hover:text-slate-700"
-                    }`}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </nav>
-            </div>
+            <AdminCourseTabs tabs={TABS} active={tab} onChange={setTab} />
 
-            {tab === "details" && (
-              <Card>
-                <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Category
-                    </dt>
-                    <dd className="mt-1 text-sm text-slate-900">{course.category?.name ?? "—"}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Duration
-                    </dt>
-                    <dd className="mt-1 text-sm text-slate-900">
-                      {course.duration_minutes ? `${course.duration_minutes} min` : "—"}
-                    </dd>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Description
-                    </dt>
-                    <dd className="mt-1 whitespace-pre-wrap text-sm text-slate-900">
-                      {course.description ?? "—"}
-                    </dd>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Completion criteria
-                    </dt>
-                    <dd className="mt-1 flex flex-wrap gap-1.5">
-                      {course.completion_require_all_lessons && <Badge>All lessons</Badge>}
-                      {course.completion_require_practical && <Badge>Practical lessons</Badge>}
-                      {course.completion_require_assessment_pass && (
-                        <Badge>
-                          Assessment pass
-                          {course.completion_min_assessment_score_pct !== null
-                            ? ` (≥${course.completion_min_assessment_score_pct}%)`
-                            : ""}
-                        </Badge>
+            <div
+              role="tabpanel"
+              id={`course-admin-panel-${tab}`}
+              aria-labelledby={`course-admin-tab-${tab}`}
+            >
+              {tab === "details" && (
+                <Card flush>
+                  <CardHeader title="Course Information" />
+                  <div className="space-y-6 p-6">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      <InfoTile icon={Tag} label="Category">
+                        {course.category?.name ?? "—"}
+                      </InfoTile>
+                      <InfoTile icon={Clock} label="Duration">
+                        {course.duration_minutes ? `${course.duration_minutes} min` : "—"}
+                      </InfoTile>
+                      <InfoTile
+                        icon={CalendarClock}
+                        label="Last updated"
+                        caption={`Created ${new Date(course.created_at).toLocaleDateString()}${
+                          course.archived_at
+                            ? ` · Archived ${new Date(course.archived_at).toLocaleDateString()}`
+                            : ""
+                        }`}
+                      >
+                        {new Date(course.updated_at).toLocaleDateString()}
+                      </InfoTile>
+                    </div>
+
+                    <section>
+                      <h4 className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        Description
+                      </h4>
+                      <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
+                        {course.description ?? "No description provided."}
+                      </p>
+                    </section>
+
+                    <section>
+                      <h4 className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        Completion criteria
+                      </h4>
+                      {course.completion_require_all_lessons ||
+                      course.completion_require_practical ||
+                      course.completion_require_assessment_pass ? (
+                        <ul className="mt-2 flex flex-wrap gap-2">
+                          {course.completion_require_all_lessons && (
+                            <li className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-800">
+                              <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                              All lessons
+                            </li>
+                          )}
+                          {course.completion_require_practical && (
+                            <li className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-800">
+                              <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                              Practical lessons
+                            </li>
+                          )}
+                          {course.completion_require_assessment_pass && (
+                            <li className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-800">
+                              <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                              Assessment pass
+                              {course.completion_min_assessment_score_pct !== null
+                                ? ` (≥${course.completion_min_assessment_score_pct}%)`
+                                : ""}
+                            </li>
+                          )}
+                        </ul>
+                      ) : (
+                        <p className="mt-2 text-sm text-slate-500">
+                          No completion criteria are required.
+                        </p>
                       )}
-                    </dd>
+                    </section>
                   </div>
-                </dl>
-              </Card>
-            )}
-            {tab === "departments" && <CourseDepartmentsPanel courseId={course.id} />}
-            {tab === "modules" && <CourseModulesPanel courseId={course.id} />}
-            {tab === "assessments" && <AssessmentsPanel courseId={course.id} />}
-            {tab === "access" && <CourseAccessPanel courseId={course.id} />}
+                </Card>
+              )}
+              {tab === "departments" && <CourseDepartmentsPanel courseId={course.id} />}
+              {tab === "modules" && <CourseModulesPanel courseId={course.id} />}
+              {tab === "assessments" && <AssessmentsPanel courseId={course.id} />}
+              {tab === "access" && <CourseAccessPanel courseId={course.id} />}
+            </div>
 
             <CourseFormModal
               open={editOpen}

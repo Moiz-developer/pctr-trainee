@@ -2,8 +2,6 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlignLeft,
-  ArrowDown,
-  ArrowUp,
   ExternalLink,
   File,
   FileText,
@@ -24,6 +22,7 @@ import { ApiClientError } from "../../../services/api/client";
 import { listCourseLessons, updateCourseLesson } from "../../../services/api/courseLessons";
 import { LessonFormModal } from "./LessonFormModal";
 import { LessonMediaModal } from "./LessonMediaModal";
+import { ReorderControls, RowIconButton } from "./ContentRowControls";
 
 const MEDIA_BACKED_TYPES = new Set(["VIDEO", "PDF", "DOCUMENT", "PRESENTATION"]);
 
@@ -90,10 +89,22 @@ export function LessonsPanel({ courseId, moduleId }: { courseId: string; moduleI
     reorder.mutate({ a: lessons[index]!, b: lessons[target]! });
   }
 
+  const lessonCount = query.data?.length;
+
   return (
-    <div className="border-t border-slate-100 bg-slate-50/60 p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Lessons</h4>
+    <div
+      id={`module-lessons-${moduleId}`}
+      className="border-t border-indigo-100 bg-slate-50/70 p-3 sm:p-4"
+    >
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h4 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Lessons
+          {lessonCount !== undefined && (
+            <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium normal-case tracking-normal text-slate-600 ring-1 ring-slate-200">
+              {lessonCount}
+            </span>
+          )}
+        </h4>
         <Button
           type="button"
           variant="secondary"
@@ -120,81 +131,81 @@ export function LessonsPanel({ courseId, moduleId }: { courseId: string; moduleI
               const contentTypeMeta = CONTENT_TYPE_META[lesson.content_type];
               const ContentTypeIcon = contentTypeMeta.icon;
               return (
-              <li
-                key={lesson.id}
-                className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2"
-              >
-                <div className="flex min-w-0 items-center gap-2">
-                  <ContentTypeIcon className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-slate-900">{lesson.title}</p>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                      <Badge tone="info">
-                        <ContentTypeIcon className="mr-1 h-3 w-3" aria-hidden="true" />
-                        {contentTypeMeta.label}
-                      </Badge>
-                      <Badge tone="neutral">{lesson.classification}</Badge>
-                      {lesson.is_required && <Badge tone="warning">Required</Badge>}
-                      <Badge tone={lesson.is_active ? "success" : "neutral"}>
-                        {lesson.is_active ? "Active" : "Retired"}
-                      </Badge>
-                      {MEDIA_BACKED_TYPES.has(lesson.content_type) && (
-                        <Badge tone={lesson.media_asset_id ? "success" : "neutral"}>
-                          {lesson.media_asset_id ? "Media attached" : "No media"}
+                <li
+                  key={lesson.id}
+                  className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 transition-colors hover:border-indigo-200"
+                >
+                  <div className="flex min-w-0 flex-1 basis-64 items-center gap-3">
+                    <span
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md ${
+                        lesson.is_active ? "bg-sky-100 text-sky-600" : "bg-slate-100 text-slate-400"
+                      }`}
+                      aria-hidden="true"
+                    >
+                      <ContentTypeIcon className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <p
+                          className={`truncate text-sm font-semibold ${
+                            lesson.is_active ? "text-indigo-950" : "text-slate-500"
+                          }`}
+                        >
+                          {lesson.title}
+                        </p>
+                        <Badge tone={lesson.is_active ? "success" : "neutral"}>
+                          {lesson.is_active ? "Active" : "Retired"}
                         </Badge>
-                      )}
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        <Badge tone="neutral">
+                          <ContentTypeIcon className="mr-1 h-3 w-3" aria-hidden="true" />
+                          {contentTypeMeta.label}
+                        </Badge>
+                        <Badge tone="info">
+                          {lesson.classification === "THEORETICAL" ? "Theoretical" : "Practical"}
+                        </Badge>
+                        {lesson.is_required && <Badge tone="warning">Required</Badge>}
+                        {MEDIA_BACKED_TYPES.has(lesson.content_type) && (
+                          <Badge tone={lesson.media_asset_id ? "success" : "neutral"}>
+                            {lesson.media_asset_id ? "Media attached" : "No media"}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  <button
-                    type="button"
-                    className="cursor-pointer rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-30"
-                    disabled={index === 0 || reorder.isPending}
-                    onClick={() => move(lessons, index, -1)}
-                    aria-label="Move up"
-                  >
-                    <ArrowUp className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    className="cursor-pointer rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-30"
-                    disabled={index === lessons.length - 1 || reorder.isPending}
-                    onClick={() => move(lessons, index, 1)}
-                    aria-label="Move down"
-                  >
-                    <ArrowDown className="h-4 w-4" />
-                  </button>
-                  {MEDIA_BACKED_TYPES.has(lesson.content_type) && (
-                    <button
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    <ReorderControls
+                      canMoveUp={index > 0}
+                      canMoveDown={index < lessons.length - 1}
+                      disabled={reorder.isPending}
+                      onMoveUp={() => move(lessons, index, -1)}
+                      onMoveDown={() => move(lessons, index, 1)}
+                    />
+                    {MEDIA_BACKED_TYPES.has(lesson.content_type) && (
+                      <RowIconButton
+                        icon={Paperclip}
+                        label="Manage media"
+                        onClick={() => setMediaLesson(lesson)}
+                      />
+                    )}
+                    <RowIconButton
+                      icon={Pencil}
+                      label="Edit lesson"
+                      onClick={() => setFormState({ open: true, lesson })}
+                    />
+                    <Button
                       type="button"
-                      className="cursor-pointer rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-                      onClick={() => setMediaLesson(lesson)}
-                      aria-label="Manage media"
+                      variant={lesson.is_active ? "secondary" : "primary"}
+                      className="px-3 py-1.5 text-xs"
+                      onClick={() =>
+                        lesson.is_active ? setRetireTarget(lesson) : toggleActive.mutate(lesson)
+                      }
                     >
-                      <Paperclip className="h-4 w-4" />
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    className="cursor-pointer rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-                    onClick={() => setFormState({ open: true, lesson })}
-                    aria-label="Edit lesson"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                  <Button
-                    type="button"
-                    variant={lesson.is_active ? "secondary" : "primary"}
-                    className="px-2 py-1 text-xs"
-                    onClick={() =>
-                      lesson.is_active ? setRetireTarget(lesson) : toggleActive.mutate(lesson)
-                    }
-                  >
-                    {lesson.is_active ? "Retire" : "Reactivate"}
-                  </Button>
-                </div>
-              </li>
+                      {lesson.is_active ? "Retire" : "Reactivate"}
+                    </Button>
+                  </div>
+                </li>
               );
             })}
           </ul>
