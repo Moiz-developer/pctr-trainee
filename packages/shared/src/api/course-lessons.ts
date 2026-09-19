@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { idSchema, isoDateStringSchema } from "../types/common.js";
+import { httpsUrlSchema, idSchema, isoDateStringSchema } from "../types/common.js";
 import { apiPaginatedSchema } from "./common.js";
 
 export const lessonContentTypeSchema = z.enum([
@@ -101,7 +101,7 @@ export const createCourseLessonRequestSchema = z
     title: z.string().min(1),
     description: z.string().min(1).nullable().optional(),
     content_type: lessonContentTypeSchema,
-    external_url: z.url().nullable().optional(),
+    external_url: httpsUrlSchema.nullable().optional(),
     text_content: z.string().min(1).nullable().optional(),
     duration_seconds: z.number().int().nonnegative().nullable().optional(),
     sort_order: z.number().int(),
@@ -131,7 +131,7 @@ export const updateCourseLessonRequestSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().min(1).nullable().optional(),
   content_type: lessonContentTypeSchema.optional(),
-  external_url: z.url().nullable().optional(),
+  external_url: httpsUrlSchema.nullable().optional(),
   text_content: z.string().min(1).nullable().optional(),
   duration_seconds: z.number().int().nonnegative().nullable().optional(),
   sort_order: z.number().int().optional(),

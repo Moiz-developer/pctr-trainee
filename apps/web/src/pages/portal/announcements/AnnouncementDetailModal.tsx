@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Download, ImageIcon, User, X } from "lucide-react";
 import type { AnnouncementPriority } from "@internal-training/shared";
@@ -7,7 +8,7 @@ import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
 import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
-import { getMediaAccessUrl } from "../../../services/api/media";
+import { ProtectedFileViewer } from "../courses/ProtectedFileViewer";
 import {
   acknowledgeAnnouncement,
   dismissAnnouncement,
@@ -21,9 +22,10 @@ const PRIORITY_TONE: Record<AnnouncementPriority, BadgeTone> = {
 };
 
 /**
- * A signed-URL resolve button, mirrors ResourcesPage.tsx's DownloadButton /
- * QueryMessageThread.tsx's AttachmentLink exactly — never a stored/direct
- * link, resolved on demand via the existing GET /media/:id/access-url flow.
+ * Shows an announcement image/attachment inside the portal (toggle), through
+ * the shared protected viewer — never a stored/direct link and never a raw
+ * signed-URL "open in new tab" (which would be a normal download path). The
+ * access-url authorization (GET /media/:id/access-url) is unchanged.
  */
 function MediaLink({
   mediaAssetId,
@@ -34,25 +36,24 @@ function MediaLink({
   label: string;
   icon: typeof Download;
 }) {
-  const toast = useToast();
-  const mutation = useMutation({
-    mutationFn: () => getMediaAccessUrl(mediaAssetId),
-    onSuccess: (result) => window.open(result.url, "_blank", "noopener"),
-    onError: (error) => {
-      toast.error(error instanceof ApiClientError ? error.message : "Failed to open the file.");
-    },
-  });
+  const [open, setOpen] = useState(false);
 
   return (
-    <Button
-      variant="secondary"
-      className="gap-1.5 px-2 py-1 text-xs"
-      disabled={mutation.isPending}
-      onClick={() => mutation.mutate()}
-    >
-      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-      {mutation.isPending ? "Opening…" : label}
-    </Button>
+    <div className={open ? "w-full" : ""}>
+      <Button
+        variant="secondary"
+        className="gap-1.5 px-2 py-1 text-xs"
+        onClick={() => setOpen((current) => !current)}
+      >
+        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+        {open ? "Hide" : label}
+      </Button>
+      {open && (
+        <div className="mt-3">
+          <ProtectedFileViewer mediaAssetId={mediaAssetId} />
+        </div>
+      )}
+    </div>
   );
 }
 

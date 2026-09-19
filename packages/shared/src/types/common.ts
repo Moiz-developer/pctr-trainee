@@ -5,6 +5,13 @@ import { z } from "zod";
  * platform (see SYSTEM_PLAN.md §13, Database Architecture).
  */
 export const idSchema = z.string();
+
+/**
+ * Externally-hosted content links (lesson/resource `external_url`) must be
+ * HTTPS. A bare `z.url()` also accepts `javascript:` and `data:` URLs, which
+ * would execute if ever rendered as an `href`/`window.open` target.
+ */
+export const httpsUrlSchema = z.url({ protocol: /^https$/ });
 export type Id = z.infer<typeof idSchema>;
 
 /**

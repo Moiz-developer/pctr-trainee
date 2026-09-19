@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { PDFDocumentLoadingTask, PDFDocumentProxy } from "pdfjs-dist";
 import { AlertTriangle, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { ApiClientError } from "../../../services/api/client";
-import { getMediaAccessUrl } from "../../../services/api/media";
+import { getMediaAccessUrl, MEDIA_ACCESS_URL_STALE_MS } from "../../../services/api/media";
 
 /**
  * In-app PDF viewer (Phase 2I; SYSTEM_PLAN.md §16: "PDFs rendered via an
@@ -37,6 +37,10 @@ export function PdfLessonViewer({ mediaAssetId }: { mediaAssetId: string }) {
   const accessUrlQuery = useQuery({
     queryKey: ["media-access-url", mediaAssetId],
     queryFn: () => getMediaAccessUrl(mediaAssetId),
+    // Reuse the fetched URL and don't re-mint it on window focus: a new URL
+    // would reload the whole document and reset the page being read.
+    staleTime: MEDIA_ACCESS_URL_STALE_MS,
+    refetchOnWindowFocus: false,
   });
 
   const signedUrl = accessUrlQuery.data?.url;
@@ -156,7 +160,7 @@ export function PdfLessonViewer({ mediaAssetId }: { mediaAssetId: string }) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="protected-content space-y-3" onContextMenu={(event) => event.preventDefault()}>
       {isLoadingDoc && (
         <div className="flex items-center gap-2 py-6 text-sm text-slate-500">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />

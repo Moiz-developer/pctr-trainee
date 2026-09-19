@@ -7,7 +7,7 @@ import { Button } from "../../../components/ui/Button";
 import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
-import { getMediaAccessUrl } from "../../../services/api/media";
+import { ProtectedFileViewer } from "../courses/ProtectedFileViewer";
 import { getDashboard } from "../../../services/api/dashboard";
 import { acknowledgeAnnouncement, dismissAnnouncement } from "../../../services/api/announcements";
 
@@ -90,13 +90,8 @@ export function PortalAnnouncementPopup() {
       toast.error(error instanceof ApiClientError ? error.message : "Failed to dismiss.");
     },
   });
-  const imageUrlMutation = useMutation({
-    mutationFn: (mediaAssetId: string) => getMediaAccessUrl(mediaAssetId),
-    onSuccess: (result) => window.open(result.url, "_blank", "noopener"),
-    onError: (error) => {
-      toast.error(error instanceof ApiClientError ? error.message : "Failed to open the file.");
-    },
-  });
+  // Which media (image/attachment) is expanded inline — viewed in the portal, never opened as a raw URL.
+  const [openMediaId, setOpenMediaId] = useState<string | null>(null);
 
   function advance() {
     setQueueIndex((i) => i + 1);
@@ -125,29 +120,44 @@ export function PortalAnnouncementPopup() {
         <p className="whitespace-pre-wrap text-sm text-slate-700">{current.body}</p>
 
         {(current.image_media_id || current.attachment_media_id) && (
-          <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">
-            {current.image_media_id && (
-              <Button
-                variant="secondary"
-                className="gap-1.5 px-2 py-1 text-xs"
-                disabled={imageUrlMutation.isPending}
-                onClick={() => imageUrlMutation.mutate(current.image_media_id!)}
-              >
-                <ImageIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                View Image
-              </Button>
-            )}
-            {current.attachment_media_id && (
-              <Button
-                variant="secondary"
-                className="gap-1.5 px-2 py-1 text-xs"
-                disabled={imageUrlMutation.isPending}
-                onClick={() => imageUrlMutation.mutate(current.attachment_media_id!)}
-              >
-                <Download className="h-3.5 w-3.5" aria-hidden="true" />
-                View Attachment
-              </Button>
-            )}
+          <div className="space-y-3 border-t border-slate-100 pt-3">
+            <div className="flex flex-wrap gap-2">
+              {current.image_media_id && (
+                <Button
+                  variant="secondary"
+                  className="gap-1.5 px-2 py-1 text-xs"
+                  onClick={() =>
+                    setOpenMediaId((id) =>
+                      id === current.image_media_id ? null : current.image_media_id,
+                    )
+                  }
+                >
+                  <ImageIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                  {openMediaId === current.image_media_id ? "Hide Image" : "View Image"}
+                </Button>
+              )}
+              {current.attachment_media_id && (
+                <Button
+                  variant="secondary"
+                  className="gap-1.5 px-2 py-1 text-xs"
+                  onClick={() =>
+                    setOpenMediaId((id) =>
+                      id === current.attachment_media_id ? null : current.attachment_media_id,
+                    )
+                  }
+                >
+                  <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                  {openMediaId === current.attachment_media_id
+                    ? "Hide Attachment"
+                    : "View Attachment"}
+                </Button>
+              )}
+            </div>
+            {openMediaId &&
+              (openMediaId === current.image_media_id ||
+                openMediaId === current.attachment_media_id) && (
+                <ProtectedFileViewer mediaAssetId={openMediaId} />
+              )}
           </div>
         )}
 

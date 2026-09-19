@@ -106,6 +106,9 @@ export async function uploadBrandingAsset(file: File): Promise<MediaAssetRespons
   return uploadMedia(file, "branding-assets");
 }
 
+/** Signed URLs are short-lived; reuse a fetched one for a few minutes rather than minting a new URL on every mount or window focus. */
+export const MEDIA_ACCESS_URL_STALE_MS = 4 * 60_000;
+
 export async function getMediaAccessUrl(mediaAssetId: string): Promise<MediaAccessUrlResponse> {
   const body = await apiFetch<unknown>(`/media/${mediaAssetId}/access-url`);
   return mediaAccessUrlSuccessResponseSchema.parse(body).data;

@@ -7,6 +7,7 @@ import { courseCategoriesRoutes } from "../modules/course-categories/course-cate
 import { coursesRoutes } from "../modules/courses/courses.routes.js";
 import { userCoursesRoutes } from "../modules/courses/user-courses.routes.js";
 import { mediaRoutes } from "../modules/media/media.routes.js";
+import { mediaRateLimit } from "../middleware/rate-limit.js";
 import { progressRoutes } from "../modules/progress/progress.routes.js";
 import { trainingHourRequirementsRoutes } from "../modules/training-hours/training-hour-requirements.routes.js";
 import { dashboardRoutes } from "../modules/dashboard/dashboard.routes.js";
@@ -47,7 +48,7 @@ routes.use("/courses", userCoursesRoutes);
 // Media upload / signed-URL access (SYSTEM_PLAN.md §16/§26). Flat under
 // /media, not /admin — upload/confirm are permission-gated Admin ops;
 // :id/access-url is a User capability (auth + effective course access).
-routes.use("/media", mediaRoutes);
+routes.use("/media", mediaRateLimit, mediaRoutes);
 
 // Lesson Progress (SYSTEM_PLAN.md §26 `PATCH /progress/lessons/:id`, §18) —
 // self-only, no permission gate; see progress.routes.ts.

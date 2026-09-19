@@ -93,3 +93,28 @@ input[type="file"]:hover::file-selector-button {
     transform: translateX(300%);
   }
 }
+
+/*
+ * In-portal document/media viewers. These are deterrents only — a browser
+ * must receive the file to render it, so screenshots, DevTools and a
+ * determined user can't be prevented — but they remove the obvious
+ * copy/save/print affordances. Normal scrolling and page navigation are
+ * unaffected.
+ */
+.protected-content {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.protected-content img,
+.protected-content canvas,
+.protected-content video {
+  -webkit-user-drag: none;
+}
+
+@media print {
+  .protected-content {
+    display: none !important;
+  }
+}

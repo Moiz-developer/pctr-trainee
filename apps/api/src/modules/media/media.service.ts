@@ -25,6 +25,8 @@ import {
   BRANDING_ASSETS_BUCKET,
   BRANDING_ASSETS_MAX_BYTES,
   BRANDING_ASSETS_MIME_ALLOWLIST,
+  MAX_DEFAULT_SIGNED_URL_TTL_SECONDS,
+  MAX_VIDEO_SIGNED_URL_TTL_SECONDS,
 } from "./media.constants.js";
 import { getMediaSettings } from "../settings/settings.service.js";
 import {
@@ -32,6 +34,7 @@ import {
   createSignedUploadUrl,
   ensureBucket,
   getObjectInfo,
+  removeObject,
 } from "./media.storage.js";
 
 // A storage path this API generated: `<uuid>/<safe-filename>`. Confirm
@@ -151,7 +154,7 @@ export async function createMediaUploadUrl(
     });
   }
 
-  await ensureBucket(bucket);
+  await ensureBucket(bucket, { maxBytes, mimeAllowlist });
 
   const storagePath = `${randomUUID()}/${sanitizeFilename(input.filename)}`;
   const uploadUrl = await createSignedUploadUrl(bucket, storagePath);
@@ -199,14 +202,28 @@ export async function confirmMediaUpload(
       "No uploaded object was found at that path — upload the file to the signed URL before confirming.",
     );
   }
+  // Past this point no media_assets row exists for the object, so a rejected
+  // upload is just an orphan: remove it rather than leaving it in Storage.
   if (info.size > maxBytes) {
+    await removeObject(bucket, input.storage_path);
     throw new ValidationError({
       size_bytes: [`The uploaded object exceeds the ${input.purpose} size limit.`],
     });
   }
-  if (info.contentType !== "application/octet-stream" && !mimeAllowlist.has(info.contentType)) {
+  // The stored content type must be an allowed one AND match what was
+  // declared. `application/octet-stream` (Storage's fallback for an upload
+  // sent without a real type) is deliberately NOT accepted: the web client
+  // always sends the real type, and Storage records it as sent.
+  if (!mimeAllowlist.has(info.contentType)) {
+    await removeObject(bucket, input.storage_path);
     throw new ValidationError({
       mime_type: [`The uploaded object's content type "${info.contentType}" is not allowed.`],
+    });
+  }
+  if (info.contentType.toLowerCase() !== input.mime_type.toLowerCase()) {
+    await removeObject(bucket, input.storage_path);
+    throw new ValidationError({
+      mime_type: ["The uploaded object's content type does not match the declared type."],
     });
   }
 
@@ -438,9 +455,11 @@ export async function getMediaAccessUrl(
   }
 
   const settings = await getMediaSettings();
+  // Configured TTLs are capped: a signed URL is a bearer token that can't be
+  // revoked, so its lifetime is bounded regardless of the stored setting.
   const ttl = media.mimeType.startsWith("video/")
-    ? settings.signedUrlTtlVideoSeconds
-    : settings.signedUrlTtlDefaultSeconds;
+    ? Math.min(settings.signedUrlTtlVideoSeconds, MAX_VIDEO_SIGNED_URL_TTL_SECONDS)
+    : Math.min(settings.signedUrlTtlDefaultSeconds, MAX_DEFAULT_SIGNED_URL_TTL_SECONDS);
 
   const signedUrl = await createSignedDownloadUrl(media.bucket, media.storagePath, ttl);
   if (!signedUrl) {
@@ -448,5 +467,10 @@ export async function getMediaAccessUrl(
   }
 
   const expiresAt = new Date(Date.now() + ttl * 1000);
-  return { url: signedUrl, expires_in: ttl, expires_at: expiresAt.toISOString() };
+  return {
+    url: signedUrl,
+    mime_type: media.mimeType,
+    expires_in: ttl,
+    expires_at: expiresAt.toISOString(),
+  };
 }

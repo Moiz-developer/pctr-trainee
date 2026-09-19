@@ -74,10 +74,20 @@ export function VideoLessonPlayer({
   const hasAutoCompletedRef = useRef(progress.status === "COMPLETED");
   const lastSentSecondsRef = useRef(progress.video_position_seconds);
   const lastSentAtRef = useRef(0);
+  // Set while a signed-URL refresh is in flight so playback resumes where it left off.
+  const resumeAtRef = useRef<number | null>(null);
+  const resumePlayingRef = useRef(false);
+  const lastRefreshRef = useRef(0);
 
+  // The signed URL is short-lived (server-capped at 30 min) and is refreshed
+  // ONLY on demand (see refreshAccessUrl): never on window focus or a timer,
+  // because a new URL would swap the <video> source and restart playback.
   const accessUrlQuery = useQuery({
     queryKey: ["media-access-url", mediaAssetId],
     queryFn: () => getMediaAccessUrl(mediaAssetId),
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   const thresholdQuery = useQuery({
@@ -122,8 +132,34 @@ export function VideoLessonPlayer({
     progressMutation.mutate({ video_position_seconds: currentSeconds });
   }
 
+  // Re-authorizes through the same access-url API when the signed URL has
+  // expired (or is about to). At most once per 30s so a persistent failure
+  // can't loop; the server re-checks authorization on every call.
+  function refreshAccessUrl() {
+    const video = videoRef.current;
+    if (!video) return;
+    const now = Date.now();
+    if (now - lastRefreshRef.current < 30_000) return;
+    lastRefreshRef.current = now;
+    resumeAtRef.current = video.currentTime;
+    resumePlayingRef.current = !video.paused;
+    void accessUrlQuery.refetch();
+  }
+
+  function handlePlay() {
+    const expiresAt = accessUrlQuery.data?.expires_at;
+    if (expiresAt && Date.parse(expiresAt) - Date.now() < 30_000) refreshAccessUrl();
+  }
+
   function handleLoadedMetadata() {
     const video = videoRef.current;
+    if (video && resumeAtRef.current !== null) {
+      // The source was just swapped for a refreshed signed URL: continue from where playback was.
+      video.currentTime = resumeAtRef.current;
+      resumeAtRef.current = null;
+      if (resumePlayingRef.current) void video.play().catch(() => undefined);
+      return;
+    }
     if (!video || hasSeekedRef.current) return;
     hasSeekedRef.current = true;
     if (progress.video_position_seconds > 0 && progress.status !== "COMPLETED") {
@@ -203,7 +239,12 @@ export function VideoLessonPlayer({
         src={accessUrlQuery.data?.url}
         controls
         controlsList="nodownload"
-        className="w-full rounded-lg bg-black"
+        disablePictureInPicture
+        disableRemotePlayback
+        onContextMenu={(event) => event.preventDefault()}
+        className="protected-content w-full rounded-lg bg-black"
+        onError={refreshAccessUrl}
+        onPlay={handlePlay}
         onLoadedMetadata={handleLoadedMetadata}
         onTimeUpdate={handleTimeUpdate}
         onPause={handlePause}
@@ -214,8 +255,8 @@ export function VideoLessonPlayer({
             <div className="h-full rounded-full bg-indigo-900" style={{ width: `${watchPct}%` }} />
           </div>
           <p className="text-xs text-slate-500">
-            {watchPct}% watched — completes automatically at{" "}
-            {Math.round(completionThreshold * 100)}%
+            {watchPct}% watched — completes automatically at {Math.round(completionThreshold * 100)}
+            %
           </p>
         </div>
       )}

@@ -1,35 +1,36 @@
-import { useMutation } from "@tanstack/react-query";
+import { useState } from "react";
 import { Paperclip, User } from "lucide-react";
 import type { QueryMessageResponse } from "@internal-training/shared";
-import { getMediaAccessUrl } from "../../services/api/media";
+import { ProtectedFileViewer } from "../../pages/portal/courses/ProtectedFileViewer";
 
 /**
- * Opens a query attachment (SYSTEM_PLAN.md §16): resolves the existing
- * `GET /media/:id/access-url` flow to a short-lived signed URL on demand,
- * then opens it — never a stored/direct link, matching every other media
- * reference in this app. Shared by the trainer's own thread view
- * (QueryDetailPage) and the admin management view (AdminQueryDetailPage,
- * Phase 6.7) — the server (not this component) decides who is actually
- * authorized to resolve a given attachment.
+ * Shows a query attachment (SYSTEM_PLAN.md §16) inside the portal (toggle) via
+ * the shared protected viewer — never a stored/direct link and never a raw
+ * signed-URL "open in new tab", which would be a normal download path. The
+ * server (`GET /media/:id/access-url`, not this component) still decides who
+ * is authorized to view a given attachment, for both the trainer's own thread
+ * view (QueryDetailPage) and the admin management view (AdminQueryDetailPage).
  */
 function AttachmentLink({ mediaAssetId, filename }: { mediaAssetId: string; filename: string }) {
-  const mutation = useMutation({
-    mutationFn: () => getMediaAccessUrl(mediaAssetId),
-    onSuccess: (result) => {
-      window.open(result.url, "_blank", "noopener");
-    },
-  });
+  const [open, setOpen] = useState(false);
 
   return (
-    <button
-      type="button"
-      className="flex cursor-pointer items-center gap-1.5 text-xs font-medium text-indigo-700 hover:underline disabled:opacity-50"
-      disabled={mutation.isPending}
-      onClick={() => mutation.mutate()}
-    >
-      <Paperclip className="h-3.5 w-3.5" aria-hidden="true" />
-      {mutation.isPending ? "Opening…" : filename}
-    </button>
+    <div className={open ? "w-full" : ""}>
+      <button
+        type="button"
+        className="flex cursor-pointer items-center gap-1.5 text-xs font-medium text-indigo-700 hover:underline"
+        onClick={() => setOpen((current) => !current)}
+        aria-expanded={open}
+      >
+        <Paperclip className="h-3.5 w-3.5" aria-hidden="true" />
+        {open ? `Hide ${filename}` : filename}
+      </button>
+      {open && (
+        <div className="mt-2">
+          <ProtectedFileViewer mediaAssetId={mediaAssetId} />
+        </div>
+      )}
+    </div>
   );
 }
 

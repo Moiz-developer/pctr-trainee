@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { idSchema, isoDateStringSchema } from "../types/common.js";
+import { httpsUrlSchema, idSchema, isoDateStringSchema } from "../types/common.js";
 import { apiPaginatedSchema, apiSuccessSchema } from "./common.js";
 import { departmentResponseSchema, departmentRefSchema } from "./departments.js";
 
@@ -52,7 +52,9 @@ export const resourceCategoryResponseSchema = z.object({
 });
 export type ResourceCategoryResponse = z.infer<typeof resourceCategoryResponseSchema>;
 
-export const resourceCategoryListResponseSchema = apiPaginatedSchema(resourceCategoryResponseSchema);
+export const resourceCategoryListResponseSchema = apiPaginatedSchema(
+  resourceCategoryResponseSchema,
+);
 export type ResourceCategoryListResponse = z.infer<typeof resourceCategoryListResponseSchema>;
 
 /**
@@ -118,7 +120,7 @@ export const resourceResponseSchema = z.object({
   description: z.string().nullable(),
   category: resourceCategoryRefSchema,
   media_asset_id: idSchema.nullable(),
-  external_url: z.url().nullable(),
+  external_url: httpsUrlSchema.nullable(),
   file_type: z.string(),
   uploaded_by: idSchema.nullable(),
   status: resourceStatusSchema,
@@ -177,7 +179,7 @@ export const createResourceRequestSchema = z
     description: z.string().min(1).nullable().optional(),
     category_id: idSchema,
     media_asset_id: idSchema.optional(),
-    external_url: z.url().optional(),
+    external_url: httpsUrlSchema.optional(),
     status: resourceStatusSchema.optional(),
   })
   .refine((data) => (data.media_asset_id !== undefined) !== (data.external_url !== undefined), {
@@ -207,7 +209,7 @@ export const updateResourceRequestSchema = z
     description: z.string().min(1).nullable().optional(),
     category_id: idSchema.optional(),
     media_asset_id: idSchema.nullable().optional(),
-    external_url: z.url().nullable().optional(),
+    external_url: httpsUrlSchema.nullable().optional(),
     status: resourceStatusSchema.optional(),
   })
   .refine((data) => !(data.media_asset_id != null && data.external_url != null), {
@@ -227,5 +229,7 @@ export const setResourceDepartmentsRequestSchema = z.object({
 });
 export type SetResourceDepartmentsRequest = z.infer<typeof setResourceDepartmentsRequestSchema>;
 
-export const resourceDepartmentsResponseSchema = apiSuccessSchema(z.array(departmentResponseSchema));
+export const resourceDepartmentsResponseSchema = apiSuccessSchema(
+  z.array(departmentResponseSchema),
+);
 export type ResourceDepartmentsResponse = z.infer<typeof resourceDepartmentsResponseSchema>;

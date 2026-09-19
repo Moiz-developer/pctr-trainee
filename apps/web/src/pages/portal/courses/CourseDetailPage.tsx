@@ -33,6 +33,7 @@ import { RemoteDataView } from "../../../components/shared/RemoteDataView";
 import { CourseProgressCard } from "../../../components/shared/CourseProgressSummary";
 import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
+import { getSafeHttpsUrl } from "../../../lib/safeUrl";
 import { getUserCourseDetail } from "../../../services/api/userCourses";
 import { getLessonProgress, updateLessonProgress } from "../../../services/api/lessonProgress";
 import { VideoLessonPlayer } from "./VideoLessonPlayer";
@@ -115,9 +116,14 @@ function LessonContent({ lesson }: { lesson: CourseDetailLesson }) {
     if (embedUrl) {
       return <ExternalVideoPlayer embedUrl={embedUrl} title={lesson.title} />;
     }
+    // Only https links are ever rendered as a link (legacy rows may hold other schemes).
+    const safeUrl = getSafeHttpsUrl(lesson.external_url);
+    if (!safeUrl) {
+      return <p className="text-sm text-slate-400">This link is unavailable.</p>;
+    }
     return (
       <a
-        href={lesson.external_url}
+        href={safeUrl}
         target="_blank"
         rel="noreferrer"
         className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-700 hover:underline"

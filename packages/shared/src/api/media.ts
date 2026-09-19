@@ -85,6 +85,9 @@ export const mediaAssetSuccessResponseSchema = apiSuccessSchema(mediaAssetRespon
  */
 export const mediaAccessUrlResponseSchema = z.object({
   url: z.url(),
+  // Lets the web app pick an in-portal viewer for a media asset it only holds an id for
+  // (announcement/query attachments) — never a download decision.
+  mime_type: z.string(),
   expires_in: z.number().int().positive(),
   expires_at: isoDateStringSchema,
 });

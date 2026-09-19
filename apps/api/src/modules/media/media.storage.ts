@@ -10,20 +10,48 @@ import { getSupabaseAdmin } from "../../lib/supabase-admin.js";
  * purpose-to-bucket resolution.
  */
 
-const readyBuckets = new Set<string>();
+const readyBuckets = new Map<string, string>();
+
+/** Storage-level limits applied to a bucket (defence in depth; the API validates the same values). */
+export interface BucketLimits {
+  maxBytes: number;
+  mimeAllowlist: ReadonlySet<string>;
+}
+
+function limitsSignature(limits: BucketLimits | undefined): string {
+  return limits ? `${limits.maxBytes}|${[...limits.mimeAllowlist].sort().join(",")}` : "";
+}
+
+function isAlreadyExists(message: string): boolean {
+  return /already exists|duplicate|resource already exists/i.test(message);
+}
 
 /**
- * Idempotently ensures a private bucket exists. Cached per-bucket after the
- * first success. Throws loudly if the bucket somehow exists but is public —
- * SYSTEM_PLAN.md §16 requires every media bucket to be private.
+ * Idempotently ensures a private bucket exists, with Storage-level
+ * `file_size_limit`/`allowed_mime_types` matching the API's own validation,
+ * so a direct PUT to a signed upload URL can't exceed them either. Cached per
+ * bucket + limits after the first success, so limits changed in Admin
+ * Settings are applied on the next upload. Throws loudly if the bucket
+ * somehow exists but is public — SYSTEM_PLAN.md §16 requires every media
+ * bucket to be private. Applying the limits is best-effort: a hosted
+ * project's global upload cap can reject a larger per-bucket value, and that
+ * must never block uploads the API has already validated.
  *
  * (In a mature deployment bucket provisioning belongs in infrastructure
  * bootstrap, §40 Phase 0; doing it lazily here keeps the API self-healing
  * without a manual dashboard step.)
  */
-export async function ensureBucket(bucket: string): Promise<void> {
-  if (readyBuckets.has(bucket)) return;
+export async function ensureBucket(bucket: string, limits?: BucketLimits): Promise<void> {
+  const signature = limitsSignature(limits);
+  if (readyBuckets.get(bucket) === signature) return;
   const supabase = getSupabaseAdmin();
+  const options = limits
+    ? {
+        public: false,
+        fileSizeLimit: limits.maxBytes,
+        allowedMimeTypes: [...limits.mimeAllowlist],
+      }
+    : { public: false };
 
   const { data } = await supabase.storage.getBucket(bucket);
   if (data) {
@@ -32,15 +60,37 @@ export async function ensureBucket(bucket: string): Promise<void> {
         `Storage bucket "${bucket}" is public — SYSTEM_PLAN.md §16 requires media buckets to be private.`,
       );
     }
-    readyBuckets.add(bucket);
+    if (limits) {
+      const { error } = await supabase.storage.updateBucket(bucket, options);
+      if (error) {
+        console.error(`[api] could not apply Storage limits to bucket "${bucket}":`, error.message);
+      }
+    }
+    readyBuckets.set(bucket, signature);
     return;
   }
 
-  const { error } = await supabase.storage.createBucket(bucket, { public: false });
-  if (error && !/already exists|duplicate|resource already exists/i.test(error.message)) {
-    throw error;
+  const { error } = await supabase.storage.createBucket(bucket, options);
+  if (error && !isAlreadyExists(error.message)) {
+    // The bucket itself must exist even if the limits couldn't be applied.
+    const retry = await supabase.storage.createBucket(bucket, { public: false });
+    if (retry.error && !isAlreadyExists(retry.error.message)) {
+      throw retry.error;
+    }
   }
-  readyBuckets.add(bucket);
+  readyBuckets.set(bucket, signature);
+}
+
+/** Best-effort removal of an object the API rejected (size/type), so rejected files don't stay orphaned. */
+export async function removeObject(bucket: string, storagePath: string): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase.storage.from(bucket).remove([storagePath]);
+  if (error) {
+    console.error(
+      `[api] could not remove rejected object "${bucket}/${storagePath}":`,
+      error.message,
+    );
+  }
 }
 
 /** Signed *upload* URL for a server-computed path (SYSTEM_PLAN.md §16 step 3). */

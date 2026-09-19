@@ -56,3 +56,12 @@ export const BRANDING_ASSETS_MIME_ALLOWLIST: ReadonlySet<string> = new Set([
   "image/x-icon",
   "image/vnd.microsoft.icon",
 ]);
+
+/**
+ * Hard ceilings on signed *download* URL lifetimes, applied on top of the
+ * admin-configurable `system_settings` TTLs. A signed URL is a bearer token
+ * (anyone holding it can fetch the file until it expires, and it can't be
+ * revoked), so these bound that exposure even if a setting is raised.
+ */
+export const MAX_VIDEO_SIGNED_URL_TTL_SECONDS = 30 * 60;
+export const MAX_DEFAULT_SIGNED_URL_TTL_SECONDS = 15 * 60;

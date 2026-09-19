@@ -80,6 +80,10 @@ export function ExternalVideoPlayer({ embedUrl, title }: { embedUrl: string; tit
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
         allowFullScreen
         referrerPolicy="strict-origin-when-cross-origin"
+        // Third-party embed (YouTube/Vimeo, already host allow-listed and
+        // https-only): the player needs scripts and its own origin, but gets no
+        // top-level navigation, forms, downloads or access to this app.
+        sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox"
       />
     </div>
   );

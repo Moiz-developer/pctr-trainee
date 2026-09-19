@@ -3,6 +3,7 @@ import { updateSystemSettingsRequestSchema } from "@internal-training/shared";
 import { requireAuth } from "../auth/auth.middleware.js";
 import { requirePermission } from "../authorization/authorization.middleware.js";
 import { ValidationError } from "../../lib/errors.js";
+import { brandingRateLimit } from "../../middleware/rate-limit.js";
 import {
   getPublicBranding,
   getSystemSettings,
@@ -64,7 +65,7 @@ adminSettingsRoutes.patch(
 // Public (no requireAuth): the login page renders the platform name/logos/
 // colors before sign-in. Returns only public branding values — see
 // getPublicBranding().
-settingsRoutes.get("/branding", async (_req, res, next) => {
+settingsRoutes.get("/branding", brandingRateLimit, async (_req, res, next) => {
   try {
     res.json({ data: await getPublicBranding() });
   } catch (error) {

@@ -1,21 +1,23 @@
 import { useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Download, Eye, ExternalLink, FileText } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { ChevronLeft, ChevronRight, Eye, ExternalLink, FileText } from "lucide-react";
 import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
 import { Badge } from "../../../components/ui/Badge";
 import { Modal } from "../../../components/ui/Modal";
 import { SelectField } from "../../../components/ui/FormField";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
-import { useToast } from "../../../components/ui/Toast";
-import { ApiClientError } from "../../../services/api/client";
 import { listResourceCategories, listResources } from "../../../services/api/resources";
-import { getMediaAccessUrl } from "../../../services/api/media";
-import { PdfLessonViewer } from "../courses/PdfLessonViewer";
-import { DocumentLessonViewer, DOCX_MIME } from "../courses/DocumentLessonViewer";
+import { getSafeHttpsUrl } from "../../../lib/safeUrl";
+import { ProtectedFileViewer } from "../courses/ProtectedFileViewer";
+import { DOCX_MIME } from "../courses/DocumentLessonViewer";
 
 const PDF_MIME = "application/pdf";
-const DOC_MIME = "application/msword";
+
+/** File types the portal can render itself; everything else has no preview and no download. */
+function canPreviewInPortal(mimeType: string): boolean {
+  return mimeType === PDF_MIME || mimeType === DOCX_MIME || mimeType.startsWith("image/");
+}
 
 /**
  * Resource Library (SYSTEM_PLAN.md §4/§14.5/§20/§26): every PUBLISHED
@@ -26,46 +28,17 @@ const DOC_MIME = "application/msword";
  * Category is an additional, purely presentational filter on top of that —
  * a server-side query param, not a substitute for the visibility check.
  *
- * Download restriction unit: a PDF/DOCX (or legacy DOC) resource now opens
- * in-app via InAppDocumentButton (reusing PdfLessonViewer/
- * DocumentLessonViewer exactly as course lessons already do) instead of a
- * direct "View / Download" new-tab open of the signed URL — this
- * DownloadButton is kept unchanged for every other file type (images,
- * spreadsheets, archives, etc.), for which no in-app viewer exists in this
- * codebase; that remains the safest existing behavior rather than inventing
- * a new document-conversion system.
+ * Security & download restrictions: a resource file is only ever opened
+ * through the in-portal viewer (PDF, DOCX and images). There is no generic
+ * "View / Download" that opens the raw signed Storage URL; a file type the
+ * portal can't render is shown as "Preview not available".
  */
-function DownloadButton({ mediaAssetId }: { mediaAssetId: string }) {
-  const toast = useToast();
-  const mutation = useMutation({
-    mutationFn: () => getMediaAccessUrl(mediaAssetId),
-    onSuccess: (result) => {
-      window.open(result.url, "_blank", "noopener");
-    },
-    onError: (error) => {
-      toast.error(error instanceof ApiClientError ? error.message : "Failed to open the file.");
-    },
-  });
-
-  return (
-    <Button
-      variant="secondary"
-      className="gap-1.5 px-2 py-1 text-xs"
-      disabled={mutation.isPending}
-      onClick={() => mutation.mutate()}
-    >
-      <Download className="h-3.5 w-3.5" aria-hidden="true" />
-      {mutation.isPending ? "Opening…" : "View / Download"}
-    </Button>
-  );
-}
-
 /**
- * In-app viewer for a PDF/DOCX/DOC resource — opens the existing
- * PdfLessonViewer/DocumentLessonViewer inside a Modal (mirrors
+ * In-app viewer for a previewable resource — opens the shared
+ * ProtectedFileViewer inside a Modal (mirrors
  * PoliciesPage.tsx's own "View" + read-only Modal convention) instead of
  * offering a direct download link, satisfying "no download affordance for
- * recognized document formats" without touching either viewer component.
+ * recognized document formats".
  */
 function InAppDocumentButton({
   mediaAssetId,
@@ -80,16 +53,16 @@ function InAppDocumentButton({
 
   return (
     <>
-      <Button variant="secondary" className="gap-1.5 px-2 py-1 text-xs" onClick={() => setOpen(true)}>
+      <Button
+        variant="secondary"
+        className="gap-1.5 px-2 py-1 text-xs"
+        onClick={() => setOpen(true)}
+      >
         <Eye className="h-3.5 w-3.5" aria-hidden="true" />
         View
       </Button>
       <Modal open={open} onClose={() => setOpen(false)} title={title} wide>
-        {mimeType === PDF_MIME ? (
-          <PdfLessonViewer mediaAssetId={mediaAssetId} />
-        ) : (
-          <DocumentLessonViewer mediaAssetId={mediaAssetId} mimeType={mimeType} />
-        )}
+        <ProtectedFileViewer mediaAssetId={mediaAssetId} mimeType={mimeType} />
       </Modal>
     </>
   );
@@ -99,16 +72,18 @@ function InAppDocumentButton({
  * Useful Links unit: a URL-backed resource (`external_url` set, no attached
  * media asset) needs no signed-URL round trip — `external_url` is already a
  * public link, returned as-is by the API (resources.ts's own schema
- * comment) — so this opens it directly, same `window.open(..., "_blank",
- * "noopener")` call DownloadButton already uses, just without the
- * intermediate `getMediaAccessUrl` mutation.
+ * comment) — so this opens it directly with `window.open(..., "_blank",
+ * "noopener")`, after the https-only guard below.
  */
 function OpenLinkButton({ externalUrl }: { externalUrl: string }) {
+  // Only https links are ever opened, even if a legacy row holds another scheme.
+  const safeUrl = getSafeHttpsUrl(externalUrl);
+  if (!safeUrl) return <span className="text-xs text-slate-400">Link unavailable</span>;
   return (
     <Button
       variant="secondary"
       className="gap-1.5 px-2 py-1 text-xs"
-      onClick={() => window.open(externalUrl, "_blank", "noopener")}
+      onClick={() => window.open(safeUrl, "_blank", "noopener")}
     >
       <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
       View / Open Link
@@ -228,16 +203,14 @@ export function ResourcesPage() {
                       <td className="py-3 pr-4">
                         {item.external_url ? (
                           <OpenLinkButton externalUrl={item.external_url} />
-                        ) : item.file_type === PDF_MIME ||
-                          item.file_type === DOCX_MIME ||
-                          item.file_type === DOC_MIME ? (
+                        ) : canPreviewInPortal(item.file_type) ? (
                           <InAppDocumentButton
                             mediaAssetId={item.media_asset_id!}
                             mimeType={item.file_type}
                             title={item.title}
                           />
                         ) : (
-                          <DownloadButton mediaAssetId={item.media_asset_id!} />
+                          <span className="text-xs text-slate-400">Preview not available</span>
                         )}
                       </td>
                     </tr>

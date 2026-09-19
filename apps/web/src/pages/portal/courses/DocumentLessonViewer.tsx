@@ -1,51 +1,15 @@
 import { useEffect, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Download, Loader2 } from "lucide-react";
-import { Button } from "../../../components/ui/Button";
-import { useToast } from "../../../components/ui/Toast";
+import { useQuery } from "@tanstack/react-query";
+import { AlertTriangle, Loader2 } from "lucide-react";
 import { ApiClientError } from "../../../services/api/client";
-import { getMediaAccessUrl } from "../../../services/api/media";
+import { getMediaAccessUrl, MEDIA_ACCESS_URL_STALE_MS } from "../../../services/api/media";
+import { PreviewUnavailable } from "./PreviewUnavailable";
 
 // Exported (download restriction unit) so callers outside course lessons —
 // ResourcesPage.tsx/PoliciesPage.tsx — can detect a DOCX file themselves and
 // choose to render this same in-app viewer, without duplicating the literal
 // MIME string or changing this component itself.
 export const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-
-/**
- * Legacy `.doc` download action (mirrors ResourcesPage.tsx's DownloadButton
- * exactly — same on-demand `getMediaAccessUrl` mutation + `window.open(...,
- * "_blank", "noopener")`, never a stored/direct link). Resolved on click,
- * not eagerly like the DOCX viewer's `accessUrlQuery`, since a `.doc` file
- * is never fetched/converted client-side — the signed URL is only ever
- * needed once the trainee actually asks to download it.
- */
-function DocDownloadButton({ mediaAssetId }: { mediaAssetId: string }) {
-  const toast = useToast();
-  const mutation = useMutation({
-    mutationFn: () => getMediaAccessUrl(mediaAssetId),
-    onSuccess: (result) => {
-      window.open(result.url, "_blank", "noopener");
-    },
-    onError: (error) => {
-      toast.error(
-        error instanceof ApiClientError ? error.message : "Couldn't download this document.",
-      );
-    },
-  });
-
-  return (
-    <Button
-      variant="secondary"
-      className="gap-1.5 px-2 py-1 text-xs"
-      disabled={mutation.isPending}
-      onClick={() => mutation.mutate()}
-    >
-      <Download className="h-3.5 w-3.5" aria-hidden="true" />
-      {mutation.isPending ? "Opening…" : "Download"}
-    </Button>
-  );
-}
 
 /**
  * In-app DOCUMENT viewer (Phase 2I). Only modern DOCX (OOXML — a zip of
@@ -81,6 +45,8 @@ export function DocumentLessonViewer({
     queryKey: ["media-access-url", mediaAssetId],
     queryFn: () => getMediaAccessUrl(mediaAssetId),
     enabled: mimeType === DOCX_MIME,
+    staleTime: MEDIA_ACCESS_URL_STALE_MS,
+    refetchOnWindowFocus: false,
   });
   const signedUrl = accessUrlQuery.data?.url;
 
@@ -125,13 +91,11 @@ export function DocumentLessonViewer({
 
   if (mimeType !== DOCX_MIME) {
     return (
-      <div className="space-y-3">
-        <p className="text-sm text-slate-400">
-          This is a legacy .doc file — only modern .docx documents can be viewed in-app (no safe
-          in-browser reader exists for the older binary format). Download it to view it instead.
-        </p>
-        <DocDownloadButton mediaAssetId={mediaAssetId} />
-      </div>
+      <PreviewUnavailable>
+        This is a legacy .doc file. Only modern .docx documents can be viewed in the portal (no safe
+        in-browser reader exists for the older binary format), and downloading is not available. Ask
+        your administrator to provide this document as a PDF or .docx.
+      </PreviewUnavailable>
     );
   }
 
@@ -173,7 +137,8 @@ export function DocumentLessonViewer({
 
   return (
     <div
-      className="max-h-[70vh] overflow-y-auto rounded-lg border border-slate-200 p-4 text-sm leading-relaxed text-slate-700"
+      className="protected-content max-h-[70vh] overflow-y-auto rounded-lg border border-slate-200 p-4 text-sm leading-relaxed text-slate-700"
+      onContextMenu={(event) => event.preventDefault()}
       dangerouslySetInnerHTML={{ __html: html ?? "" }}
     />
   );
