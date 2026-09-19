@@ -235,6 +235,7 @@ export async function listOwnAssessments(
     select: {
       id: true,
       title: true,
+      description: true,
       type: true,
       totalMarks: true,
       passingMarks: true,
@@ -242,6 +243,7 @@ export async function listOwnAssessments(
       dueDate: true,
       createdAt: true,
       course: { select: { id: true, title: true } },
+      _count: { select: { questions: true } },
       attempts: {
         where: { userId },
         select: {
@@ -275,7 +277,9 @@ export async function listOwnAssessments(
       course_id: assessment.course.id,
       course_title: assessment.course.title,
       title: assessment.title,
+      description: assessment.description,
       type: assessment.type,
+      question_count: assessment._count.questions,
       total_marks: assessment.totalMarks,
       passing_marks: assessment.passingMarks,
       max_attempts: assessment.maxAttempts,

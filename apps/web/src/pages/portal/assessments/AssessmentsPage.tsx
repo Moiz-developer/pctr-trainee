@@ -1,17 +1,25 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import type { MyAssessmentSummary } from "@internal-training/shared";
+import {
+  CircleHelp,
+  ClipboardCheck,
+  ClipboardList,
+  FileCheck2,
+  Wrench,
+  type LucideIcon,
+} from "lucide-react";
+import type { AssessmentType, MyAssessmentSummary } from "@internal-training/shared";
 import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
-import { Badge, type BadgeTone } from "../../../components/ui/Badge";
+import { Badge } from "../../../components/ui/Badge";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
 import {
   listAssessmentHistory,
   listOwnAssessments,
 } from "../../../services/api/assessmentAttempts";
+import { AssessmentSummaryCard } from "./AssessmentSummaryCard";
 import {
-  ASSESSMENT_STATUS_LABEL,
   ASSESSMENT_TYPE_LABEL,
   formatAssessmentDate,
   formatPercentage,
@@ -35,10 +43,12 @@ const FILTERS: { key: StatusFilter; label: string }[] = [
   { key: "FAILED", label: "Failed" },
 ];
 
-const STATUS_TONE: Record<MyAssessmentSummary["my_status"], BadgeTone> = {
-  NOT_STARTED: "neutral",
-  IN_PROGRESS: "info",
-  COMPLETED: "success",
+const TYPE_ICON: Record<AssessmentType, LucideIcon> = {
+  QUIZ: CircleHelp,
+  MOCK_EXAM: FileCheck2,
+  PRACTICAL: Wrench,
+  TEST: ClipboardCheck,
+  OTHER: ClipboardList,
 };
 
 function matchesFilter(assessment: MyAssessmentSummary, filter: StatusFilter): boolean {
@@ -54,93 +64,102 @@ function matchesFilter(assessment: MyAssessmentSummary, filter: StatusFilter): b
   }
 }
 
-const ACTION_LABEL: Record<MyAssessmentSummary["my_status"], string> = {
-  NOT_STARTED: "Start Assessment",
-  IN_PROGRESS: "Continue Assessment",
-  COMPLETED: "View Result",
-};
-
-/** One label/value line on an assessment card. */
-function Detail({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex items-start justify-between gap-3 text-xs">
-      <dt className="shrink-0 text-slate-500">{label}</dt>
-      <dd className="text-right font-medium text-slate-800">{children}</dd>
-    </div>
-  );
-}
+// The reference's bottom status pill for a finished assessment, coloured by its real result.
+const DONE_PILL_CLASS = {
+  success: "bg-emerald-500",
+  danger: "bg-rose-500",
+  warning: "bg-amber-500",
+} as const;
 
 function AssessmentCard({ assessment, now }: { assessment: MyAssessmentSummary; now: number }) {
   const navigate = useNavigate();
-  const completed =
-    assessment.my_status === "COMPLETED" || assessment.my_last_submitted_at !== null;
-  const result = resultLabel(assessment.my_best_result, completed);
+  const TypeIcon = TYPE_ICON[assessment.type];
+  const done = assessment.my_status === "COMPLETED";
+  const result = resultLabel(assessment.my_best_result, assessment.my_last_submitted_at !== null);
   const overdue =
-    assessment.due_date !== null &&
-    assessment.my_status !== "COMPLETED" &&
-    new Date(assessment.due_date).getTime() < now;
-  // A finished assessment's result can always be reviewed; only an open/new one is "started".
-  const actionLabel = ACTION_LABEL[assessment.my_status];
+    assessment.due_date !== null && !done && new Date(assessment.due_date).getTime() < now;
+  const open = () => void navigate(`/app/assessments/${assessment.id}`);
+
+  const progressLine =
+    assessment.my_best_score !== null
+      ? `${assessment.my_best_score} / ${assessment.total_marks} marks${
+          assessment.my_best_percentage !== null
+            ? ` (${formatPercentage(assessment.my_best_percentage)})`
+            : ""
+        }`
+      : assessment.my_status === "IN_PROGRESS"
+        ? "Attempt in progress"
+        : "Not attempted yet";
 
   return (
-    <Card className="flex flex-col">
-      <div className="flex items-start justify-between gap-2">
-        <h3 className="text-sm font-semibold leading-snug text-indigo-950">{assessment.title}</h3>
-        <Badge tone={STATUS_TONE[assessment.my_status]} solid>
-          {ASSESSMENT_STATUS_LABEL[assessment.my_status]}
-        </Badge>
+    <Card flush className="flex flex-col">
+      <div className="p-5 pb-3">
+        <h3 className="min-h-10 text-sm font-semibold leading-snug text-indigo-950">
+          {assessment.title}
+        </h3>
+        <p className="mt-3 text-center text-xs font-semibold text-slate-700">
+          {assessment.question_count} {assessment.question_count === 1 ? "Question" : "Questions"}
+        </p>
+        <p className="mt-2 line-clamp-2 min-h-8 text-center text-xs text-slate-500">
+          {assessment.description ?? assessment.course_title}
+        </p>
       </div>
 
-      <dl className="mt-4 space-y-2">
-        <Detail label="Course">{assessment.course_title}</Detail>
-        <Detail label="Type">{ASSESSMENT_TYPE_LABEL[assessment.type]}</Detail>
-        <Detail label="Date assigned">{formatAssessmentDate(assessment.assigned_at)}</Detail>
-        {assessment.due_date && (
-          <Detail label="Due date">
-            <span className={overdue ? "text-red-600" : undefined}>
-              {formatAssessmentDate(assessment.due_date)}
-              {overdue ? " (overdue)" : ""}
-            </span>
-          </Detail>
-        )}
-        {assessment.my_best_percentage !== null && (
-          <Detail label="Score">
-            {formatPercentage(assessment.my_best_percentage)}
-            {assessment.my_best_score !== null && (
-              <span className="font-normal text-slate-500">
-                {" "}
-                ({assessment.my_best_score}/{assessment.total_marks} marks)
-              </span>
-            )}
-          </Detail>
-        )}
-        {result && (
-          <Detail label="Result">
-            <Badge tone={result.tone}>{result.label}</Badge>
-          </Detail>
-        )}
-        {assessment.my_last_submitted_at && (
-          <Detail label="Completed on">
-            {formatAssessmentDate(assessment.my_last_submitted_at)}
-          </Detail>
-        )}
-        <Detail label="Pass mark">
-          {assessment.passing_marks}/{assessment.total_marks}
-        </Detail>
-        <Detail label="Attempts">
-          {assessment.my_attempts_used}/{assessment.max_attempts}
-        </Detail>
-      </dl>
+      <div className="mx-5 flex h-32 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-900 to-indigo-700 text-white/30">
+        <TypeIcon className="h-12 w-12" aria-hidden="true" />
+      </div>
 
-      <div className="mt-4 flex-1" />
-      <Button
-        type="button"
-        variant={assessment.my_status === "COMPLETED" ? "secondary" : "primary"}
-        className="w-full"
-        onClick={() => void navigate(`/app/assessments/${assessment.id}`)}
-      >
-        {actionLabel}
-      </Button>
+      <div className="flex flex-1 flex-col p-5 pt-3">
+        <p className="text-center text-xs font-semibold text-slate-700">{progressLine}</p>
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
+          <Badge tone="info">{ASSESSMENT_TYPE_LABEL[assessment.type]}</Badge>
+          <span className="text-xs text-slate-500">{assessment.course_title}</span>
+        </div>
+        <p className="mt-2 text-center text-xs text-slate-500">
+          Assigned {formatAssessmentDate(assessment.assigned_at)}
+          {assessment.due_date && (
+            <>
+              {" · "}
+              <span className={overdue ? "font-medium text-red-600" : undefined}>
+                Due {formatAssessmentDate(assessment.due_date)}
+                {overdue ? " (overdue)" : ""}
+              </span>
+            </>
+          )}
+        </p>
+        {!done && result && (
+          <p className="mt-1 text-center text-xs text-slate-500">Best result: {result.label}</p>
+        )}
+
+        <div className="mt-4 flex-1" />
+        {done ? (
+          <div className="space-y-2">
+            <Button type="button" className="w-full text-xs" onClick={open}>
+              View Details
+            </Button>
+            <p
+              className={`rounded-md px-3 py-2 text-center text-xs font-semibold text-white ${
+                DONE_PILL_CLASS[result?.tone ?? "success"]
+              }`}
+            >
+              Completed{result ? ` · ${result.label}` : ""}
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={open}
+              className="cursor-pointer rounded-md bg-orange-500 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-orange-400"
+            >
+              {assessment.my_status === "IN_PROGRESS" ? "Continue" : "Start Assessment"}
+            </button>
+            <Button type="button" className="text-xs" onClick={open}>
+              View Details
+            </Button>
+          </div>
+        )}
+      </div>
     </Card>
   );
 }
@@ -166,6 +185,8 @@ function CurrentAssessments() {
 
   return (
     <div className="space-y-5">
+      {all.length > 0 && <AssessmentSummaryCard assessments={all} />}
+
       <div className="flex flex-wrap items-center justify-center gap-2">
         <span className="text-sm font-semibold text-indigo-950">Filter:</span>
         {FILTERS.map((f) => (
@@ -199,7 +220,7 @@ function CurrentAssessments() {
         }
       >
         {(assessments) => (
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
             {assessments.map((assessment) => (
               <AssessmentCard key={assessment.id} assessment={assessment} now={now} />
             ))}
@@ -296,13 +317,13 @@ function AssessmentHistory() {
 
 /**
  * Trainee-facing Assessments section: this trainer's own assessments across
- * every course they have effective access to (`GET /assessments`), shown as
- * cards with type, course, dates, derived status, score and result, plus a
- * History tab of every completed attempt (`GET /assessments/history`).
- * Starting, resuming and reviewing all go through the existing, untouched
- * `/app/assessments/:id` (TakeAssessmentPage), which owns attempts, scoring and
- * the per-assessment attempt history — nothing about how attempts are started,
- * graded or limited changes here.
+ * every course they have effective access to (`GET /assessments`), as a summary
+ * card (overall progress, current score, per-assessment table) over a grid of
+ * assessment cards, plus a History tab of every completed attempt
+ * (`GET /assessments/history`). Starting, continuing and reviewing all go
+ * through the existing `/app/assessments/:id` (TakeAssessmentPage), which owns
+ * attempts, scoring and per-assessment attempt history — nothing about how
+ * attempts are started, graded or limited changes here.
  */
 export function AssessmentsPage() {
   const [tab, setTab] = useState<Tab>("CURRENT");
@@ -312,7 +333,8 @@ export function AssessmentsPage() {
       <div>
         <h2 className="text-xl font-semibold text-slate-900">Assessments</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Quizzes, mock exams, practical assessments, and tests across your courses.
+          Test your knowledge and track your progress across quizzes, mock exams, practical
+          assessments, and tests.
         </p>
       </div>
 
