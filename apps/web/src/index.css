@@ -95,6 +95,164 @@ input[type="file"]:hover::file-selector-button {
 }
 
 /*
+ * Page loader (components/ui/PageLoader.tsx): the ten-bar radial spinner from
+ * the approved loader.svg — same geometry, colours and 1.449s fade timing — as a
+ * CSS animation instead of SVG SMIL so prefers-reduced-motion can switch it off
+ * (each bar then keeps the static opacity set inline: a still, graded ring).
+ */
+@keyframes loader-bar-fade {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.loader-bar {
+  animation: loader-bar-fade 1.449275s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loader-bar {
+    animation: none;
+  }
+}
+
+/*
+ * Card hover fill: a yellow layer slides in from off-screen until it covers its
+ * target (and slides back out on leave). The yellow is the exact colour of the
+ * approved reference (#f9b234); change it in one place via `--card-slide-fill`.
+ * The layer always sits behind the content (negative z-index inside an isolated
+ * stacking context), so text, icons, badges and buttons stay on top and
+ * clickable. Hover only applies on devices that really hover (no sticky fill
+ * after a tap); keyboard focus inside the card triggers it too. With reduced
+ * motion the fill appears instantly instead of sliding.
+ *
+ * Four variants share everything below (only their parked edge/direction, and
+ * whether they need a separate scope/section pair, differs):
+ *  - `card-slide-fill` — the whole card is the target (course cards). Parked
+ *    off the RIGHT edge, slides right → left. While filled, muted slate (and
+ *    overdue-red) text switches to a darker ink so it stays readable on
+ *    yellow.
+ *  - `card-slide-scope` on the card + `card-slide-section` on its coloured part
+ *    (dashboard Quick Access cards) — only that coloured section is the target;
+ *    it clips the layer itself, so the white part of the card never changes, and
+ *    the existing icon there stays as-is in the normal state. Parked off the
+ *    LEFT edge, slides left → right.
+ *  - `card-slide-fill-ltr` — the whole card is the target and is entirely the
+ *    coloured surface, so it's self-contained like `card-slide-fill` (no scope
+ *    wrapper needed) but parked off the LEFT edge, sliding left → right, like
+ *    `card-slide-section` (top dashboard stat cards, e.g. Trainer ID/Training
+ *    Hours/Courses Assigned). White text switches to a darker ink so it stays
+ *    readable on yellow.
+ *  - `card-slide-scope` on the card + `card-slide-section-rtl` on its coloured
+ *    part (assessment cards' indigo icon box) — same scoped clipping as
+ *    `card-slide-section`, so the white title/marks/badges/dates/buttons
+ *    around it never change, but parked off the RIGHT edge like `card-slide-fill`
+ *    (this card's existing direction), sliding right → left.
+ */
+.card-slide-fill,
+.card-slide-fill-ltr,
+.card-slide-section,
+.card-slide-section-rtl {
+  --card-slide-fill: #f9b234;
+  --card-slide-ink: var(--color-indigo-950);
+  --card-slide-warn: #7f1d1d;
+  position: relative;
+  isolation: isolate;
+}
+
+.card-slide-section,
+.card-slide-section-rtl {
+  overflow: hidden;
+}
+
+.card-slide-fill::before,
+.card-slide-fill-ltr::before,
+.card-slide-section::before,
+.card-slide-section-rtl::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--card-slide-fill);
+  transition: transform 500ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  pointer-events: none;
+}
+
+.card-slide-fill::before,
+.card-slide-section-rtl::before {
+  transform: translateX(101%);
+}
+
+.card-slide-fill-ltr::before,
+.card-slide-section::before {
+  transform: translateX(-101%);
+}
+
+.card-slide-fill:focus-within::before,
+.card-slide-fill-ltr:focus-within::before,
+.card-slide-scope:focus-within .card-slide-section::before,
+.card-slide-scope:focus-within .card-slide-section-rtl::before {
+  transform: translateX(0);
+}
+
+.card-slide-fill:focus-within :is(.text-slate-500, .text-slate-600, .text-slate-700) {
+  color: var(--card-slide-ink);
+}
+
+.card-slide-fill:focus-within .text-red-600 {
+  color: var(--card-slide-warn);
+}
+
+/* The section's own icon (drawn in a faint white on indigo) turns to a faint ink on yellow. */
+.card-slide-scope:focus-within .card-slide-section,
+.card-slide-scope:focus-within .card-slide-section-rtl {
+  color: color-mix(in srgb, var(--card-slide-ink) 60%, transparent);
+}
+
+/* Stat cards are solid white text on indigo; switch to ink so it stays readable on yellow. */
+.card-slide-fill-ltr:focus-within {
+  color: var(--card-slide-ink);
+}
+
+@media (hover: hover) {
+  .card-slide-fill:hover::before,
+  .card-slide-fill-ltr:hover::before,
+  .card-slide-scope:hover .card-slide-section::before,
+  .card-slide-scope:hover .card-slide-section-rtl::before {
+    transform: translateX(0);
+  }
+
+  .card-slide-fill:hover :is(.text-slate-500, .text-slate-600, .text-slate-700) {
+    color: var(--card-slide-ink);
+  }
+
+  .card-slide-fill:hover .text-red-600 {
+    color: var(--card-slide-warn);
+  }
+
+  .card-slide-scope:hover .card-slide-section,
+  .card-slide-scope:hover .card-slide-section-rtl {
+    color: color-mix(in srgb, var(--card-slide-ink) 60%, transparent);
+  }
+
+  .card-slide-fill-ltr:hover {
+    color: var(--card-slide-ink);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-slide-fill::before,
+  .card-slide-fill-ltr::before,
+  .card-slide-section::before,
+  .card-slide-section-rtl::before {
+    transition: none;
+  }
+}
+
+/*
  * In-portal document/media viewers. These are deterrents only — a browser
  * must receive the file to render it, so screenshots, DevTools and a
  * determined user can't be prevented — but they remove the obvious

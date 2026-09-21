@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
-import { AlertTriangle, Inbox, Loader2 } from "lucide-react";
+import { AlertTriangle, Inbox } from "lucide-react";
 import { ApiClientError } from "../../services/api/client";
+import { PageLoader } from "../ui/PageLoader";
 
 /**
  * SYSTEM_PLAN.md §34: "loading (skeletons, not spincatch-alls), empty (icon +
@@ -32,12 +33,7 @@ export function RemoteDataView<T>({
   children: (data: T) => ReactNode;
 }) {
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500">
-        <Loader2 className="h-4 w-4 animate-spin text-indigo-900" aria-hidden="true" />
-        Loading…
-      </div>
-    );
+    return <PageLoader fullScreen delayMs={150} />;
   }
 
   if (isError) {

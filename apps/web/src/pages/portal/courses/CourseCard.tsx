@@ -15,7 +15,7 @@ const ACTION_LABEL: Record<CourseProgressStatus, string> = {
 };
 
 const THUMBNAIL_BOX_CLASS =
-  "flex h-44 items-center justify-center overflow-hidden bg-gradient-to-br from-indigo-900 to-indigo-700 text-white/30";
+  "card-slide-section-rtl flex h-44 items-center justify-center overflow-hidden bg-gradient-to-br from-indigo-900 to-indigo-700 text-white/30";
 
 /**
  * Resolves and renders one course's thumbnail on demand via the existing
@@ -80,7 +80,7 @@ export function CourseCard({
   const navigate = useNavigate();
 
   return (
-    <Card flush className="flex flex-col">
+    <Card flush className="card-slide-scope flex flex-col">
       <CourseThumbnail thumbnailMediaId={course.thumbnail_media_id} />
 
       <div className="flex flex-1 flex-col p-5">

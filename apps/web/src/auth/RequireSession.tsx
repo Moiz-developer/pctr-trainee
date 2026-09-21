@@ -1,4 +1,5 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { PageLoader } from "../components/ui/PageLoader";
 import { useAuth } from "./useAuth";
 
 /**
@@ -14,11 +15,7 @@ export function RequireSession() {
   const location = useLocation();
 
   if (session === undefined || (session && identity.isLoading)) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-sm text-slate-500">
-        Loading…
-      </div>
-    );
+    return <PageLoader fullScreen />;
   }
 
   if (!session) {

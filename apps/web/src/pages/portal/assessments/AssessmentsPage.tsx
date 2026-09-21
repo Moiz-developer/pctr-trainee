@@ -92,7 +92,7 @@ function AssessmentCard({ assessment, now }: { assessment: MyAssessmentSummary; 
         : "Not attempted yet";
 
   return (
-    <Card flush className="flex flex-col">
+    <Card flush className="card-slide-scope flex flex-col">
       <div className="p-5 pb-3">
         <h3 className="min-h-10 text-sm font-semibold leading-snug text-indigo-950">
           {assessment.title}
@@ -105,7 +105,7 @@ function AssessmentCard({ assessment, now }: { assessment: MyAssessmentSummary; 
         </p>
       </div>
 
-      <div className="mx-5 flex h-32 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-900 to-indigo-700 text-white/30">
+      <div className="card-slide-section-rtl mx-5 flex h-32 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-900 to-indigo-700 text-white/30">
         <TypeIcon className="h-12 w-12" aria-hidden="true" />
       </div>
 

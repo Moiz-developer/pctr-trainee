@@ -74,19 +74,19 @@ export function AdminDashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-        <StatCard icon={TrendingUp}>
+        <StatCard icon={TrendingUp} className="card-slide-fill-ltr">
           <p className="text-xs">Active Trainees</p>
           <p className="mt-2 text-2xl font-bold sm:text-3xl">
             {activeTraineesQuery.data ? activeTraineesQuery.data.meta.totalItems : "—"}
           </p>
         </StatCard>
-        <StatCard icon={Activity}>
+        <StatCard icon={Activity} className="card-slide-fill-ltr">
           <p className="text-xs">Courses In Progress</p>
           <p className="mt-2 text-2xl font-bold sm:text-3xl">
             {coursesInProgressQuery.data ? coursesInProgressQuery.data.in_progress_count : "—"}
           </p>
         </StatCard>
-        <StatCard icon={Megaphone}>
+        <StatCard icon={Megaphone} className="card-slide-fill-ltr">
           <p className="text-xs">Open Queries</p>
           <p className="mt-2 text-2xl font-bold sm:text-3xl">
             {openQueriesQuery.data ? openQueriesQuery.data.meta.totalItems : "—"}

@@ -91,13 +91,13 @@ export function UserDashboardPage() {
       <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="space-y-6">
           <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-            <StatCard icon={GraduationCap}>
+            <StatCard icon={GraduationCap} className="card-slide-fill-ltr">
               <p className="text-xs">Trainer ID</p>
               <p className="mt-2 truncate text-2xl font-bold sm:text-3xl">
                 {identity.data ? identity.data.employeeId : "—"}
               </p>
             </StatCard>
-            <StatCard icon={Hourglass}>
+            <StatCard icon={Hourglass} className="card-slide-fill-ltr">
               <p className="text-xs">Training Hours</p>
               <p className="mt-2 text-2xl font-bold sm:text-3xl">
                 {query.data
@@ -109,7 +109,7 @@ export function UserDashboardPage() {
                   : "—"}
               </p>
             </StatCard>
-            <StatCard icon={BookOpen}>
+            <StatCard icon={BookOpen} className="card-slide-fill-ltr">
               <p className="text-xs">Courses Assigned</p>
               <p className="mt-2 text-2xl font-bold sm:text-3xl">
                 {query.data ? query.data.courses.total_courses : "—"}
@@ -154,8 +154,8 @@ export function UserDashboardPage() {
             <h3 className="mb-3 text-xl font-semibold text-indigo-900">Quick Access</h3>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 2xl:grid-cols-4">
               {QUICK_ACCESS.map(({ to, title, description, icon: Icon }) => (
-                <Card key={to} flush className="flex flex-col">
-                  <div className="flex h-32 items-center justify-center bg-gradient-to-br from-indigo-900 to-indigo-700 text-white/30">
+                <Card key={to} flush className="card-slide-scope flex flex-col">
+                  <div className="card-slide-section flex h-32 items-center justify-center bg-gradient-to-br from-indigo-900 to-indigo-700 text-white/30">
                     <Icon className="h-14 w-14" aria-hidden="true" />
                   </div>
                   <div className="flex flex-1 flex-col p-5">

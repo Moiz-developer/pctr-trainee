@@ -10,9 +10,189 @@
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
+    <style>
+      /* Boot loader: shown from the first paint until React mounts and replaces #root's contents. Self-contained (no bundle/CSS needed). Same spinner as components/ui/PageLoader.tsx / loader.svg. */
+      #pctr-boot-loader {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #fff;
+      }
+      .pctr-boot-bar {
+        animation: pctr-boot-fade 1.449275s linear infinite;
+      }
+      @keyframes pctr-boot-fade {
+        from {
+          opacity: 1;
+        }
+        to {
+          opacity: 0;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .pctr-boot-bar {
+          animation: none;
+        }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="pctr-boot-loader" role="status" aria-live="polite" aria-busy="true">
+        <span
+          style="
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+            clip: rect(0 0 0 0);
+            white-space: nowrap;
+          "
+          >Loading…</span
+        >
+        <svg
+          width="80"
+          height="80"
+          viewBox="0 0 100 100"
+          aria-hidden="true"
+          focusable="false"
+          style="display: block"
+        >
+          <g transform="rotate(0 50 50)">
+            <rect
+              class="pctr-boot-bar"
+              x="41.5"
+              y="24.5"
+              rx="8.5"
+              ry="2.5"
+              width="17"
+              height="5"
+              fill="#6c5ffc"
+              style="animation-delay: -1.3043s; opacity: 0.1"
+            />
+          </g>
+          <g transform="rotate(36 50 50)">
+            <rect
+              class="pctr-boot-bar"
+              x="41.5"
+              y="24.5"
+              rx="8.5"
+              ry="2.5"
+              width="17"
+              height="5"
+              fill="#05c3fb"
+              style="animation-delay: -1.1594s; opacity: 0.2"
+            />
+          </g>
+          <g transform="rotate(72 50 50)">
+            <rect
+              class="pctr-boot-bar"
+              x="41.5"
+              y="24.5"
+              rx="8.5"
+              ry="2.5"
+              width="17"
+              height="5"
+              fill="#6c5ffc"
+              style="animation-delay: -1.0145s; opacity: 0.3"
+            />
+          </g>
+          <g transform="rotate(108 50 50)">
+            <rect
+              class="pctr-boot-bar"
+              x="41.5"
+              y="24.5"
+              rx="8.5"
+              ry="2.5"
+              width="17"
+              height="5"
+              fill="#05c3fb"
+              style="animation-delay: -0.8696s; opacity: 0.4"
+            />
+          </g>
+          <g transform="rotate(144 50 50)">
+            <rect
+              class="pctr-boot-bar"
+              x="41.5"
+              y="24.5"
+              rx="8.5"
+              ry="2.5"
+              width="17"
+              height="5"
+              fill="#6c5ffc"
+              style="animation-delay: -0.7246s; opacity: 0.5"
+            />
+          </g>
+          <g transform="rotate(180 50 50)">
+            <rect
+              class="pctr-boot-bar"
+              x="41.5"
+              y="24.5"
+              rx="8.5"
+              ry="2.5"
+              width="17"
+              height="5"
+              fill="#05c3fb"
+              style="animation-delay: -0.5797s; opacity: 0.6"
+            />
+          </g>
+          <g transform="rotate(216 50 50)">
+            <rect
+              class="pctr-boot-bar"
+              x="41.5"
+              y="24.5"
+              rx="8.5"
+              ry="2.5"
+              width="17"
+              height="5"
+              fill="#6c5ffc"
+              style="animation-delay: -0.4348s; opacity: 0.7"
+            />
+          </g>
+          <g transform="rotate(252 50 50)">
+            <rect
+              class="pctr-boot-bar"
+              x="41.5"
+              y="24.5"
+              rx="8.5"
+              ry="2.5"
+              width="17"
+              height="5"
+              fill="#05c3fb"
+              style="animation-delay: -0.2899s; opacity: 0.8"
+            />
+          </g>
+          <g transform="rotate(288 50 50)">
+            <rect
+              class="pctr-boot-bar"
+              x="41.5"
+              y="24.5"
+              rx="8.5"
+              ry="2.5"
+              width="17"
+              height="5"
+              fill="#6c5ffc"
+              style="animation-delay: -0.1449s; opacity: 0.9"
+            />
+          </g>
+          <g transform="rotate(324 50 50)">
+            <rect
+              class="pctr-boot-bar"
+              x="41.5"
+              y="24.5"
+              rx="8.5"
+              ry="2.5"
+              width="17"
+              height="5"
+              fill="#05c3fb"
+              style="animation-delay: 0s; opacity: 1"
+            />
+          </g>
+        </svg>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
