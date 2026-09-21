@@ -1,6 +1,15 @@
 import { useEffect, type ReactNode } from "react";
 import { X } from "lucide-react";
 
+// min(…, 100vw − the overlay's 2rem padding) keeps every size inside the viewport on small screens.
+const PANEL_SIZE_CLASS = {
+  default: "max-h-[90vh] max-w-md",
+  wide: "max-h-[90vh] max-w-2xl",
+  xl: "max-h-[90vh] max-w-6xl",
+  "2xl": "max-h-[calc(100vh-2rem)] max-w-[min(1360px,calc(100vw-2rem))]",
+  full: "max-h-[calc(100vh-2rem)] max-w-[min(1900px,calc(100vw-2rem))]",
+} as const;
+
 /**
  * Minimal reusable modal dialog — no primitive like this existed yet, and
  * course/module/lesson/access create-edit forms all need one. Same
@@ -20,8 +29,12 @@ export function Modal({
   title: string;
   children: ReactNode;
   wide?: boolean;
-  /** Panel width; overrides `wide`. Omit for the existing sm/wide behaviour. `xl` is for full-page-style views. */
-  size?: "xl";
+  /**
+   * Panel width; overrides `wide`. Omit for the existing sm/wide behaviour. `xl` is for
+   * full-page-style views; `2xl` (taller, wider) and `full` (nearly the whole viewport)
+   * are for document viewers.
+   */
+  size?: "xl" | "2xl" | "full";
 }) {
   useEffect(() => {
     if (!open) return;
@@ -41,7 +54,7 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`relative max-h-[90vh] w-full overflow-y-auto rounded-lg bg-white p-6 shadow-xl ${size === "xl" ? "max-w-6xl" : wide ? "max-w-2xl" : "max-w-md"}`}
+        className={`relative w-full overflow-y-auto rounded-lg bg-white p-6 shadow-xl ${PANEL_SIZE_CLASS[size ?? (wide ? "wide" : "default")]}`}
       >
         <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
           <h2 className="text-lg font-semibold text-indigo-950">{title}</h2>

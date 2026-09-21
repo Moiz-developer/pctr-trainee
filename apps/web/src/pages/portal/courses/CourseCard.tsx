@@ -14,7 +14,7 @@ const ACTION_LABEL: Record<CourseProgressStatus, string> = {
   COMPLETED: "Review",
 };
 
-const THUMBNAIL_BOX_CLASS =
+export const THUMBNAIL_BOX_CLASS =
   "card-slide-section-rtl flex h-44 items-center justify-center overflow-hidden bg-gradient-to-br from-indigo-900 to-indigo-700 text-white/30";
 
 /**
@@ -48,7 +48,7 @@ function CourseThumbnail({ thumbnailMediaId }: { thumbnailMediaId: string | null
 }
 
 /** Small grey tag chip (the "Presentation / Video / Notes" chips in the reference course cards). */
-function Chip({ icon, children }: { icon: ReactNode; children: ReactNode }) {
+export function Chip({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
     <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-1 text-xs text-slate-600">
       {icon}

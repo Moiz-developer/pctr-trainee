@@ -12,10 +12,88 @@ import {
   ZoomOut,
 } from "lucide-react";
 import { ApiClientError } from "../../../services/api/client";
-import { getMediaAccessUrl, MEDIA_ACCESS_URL_STALE_MS } from "../../../services/api/media";
+import { getMediaAccessUrl } from "../../../services/api/media";
 
 /** How each page is sized: to the viewer's width, to the whole visible area, or a manual zoom. */
 type FitMode = "width" | "page" | "custom";
+
+/** Orientation of a document's first page, reported so a host modal can size itself to it. */
+export type PdfPageShape = "portrait" | "landscape";
+
+// A signed URL's lifetime is an admin setting, so a cached one counts as fresh
+// only until shortly before the expiry the API reported, never a fixed guess.
+const URL_EXPIRY_MARGIN_MS = 60_000;
+
+interface LoadFailure {
+  message: string;
+  /** The underlying error (links stripped: they carry a signed token), so the real cause stays visible. */
+  detail: string;
+  retryable: boolean;
+}
+
+const withoutLinks = (text: string) => text.replace(/https?:\/\/\S+/g, "[link]");
+
+function errorDetail(error: unknown): string {
+  const name = error instanceof Error ? error.name : "Error";
+  const message = error instanceof Error ? error.message : String(error);
+  return `${name}: ${withoutLinks(message)}`.slice(0, 240);
+}
+
+/** Storage answers 400/401/403 for a signed URL that expired or was rejected — not a problem with the file. */
+function isLinkRejected(error: unknown): boolean {
+  const status = (error as { status?: unknown } | null)?.status;
+  return (
+    error instanceof Error &&
+    error.name === "UnexpectedResponseException" &&
+    (status === 400 || status === 401 || status === 403)
+  );
+}
+
+/** pdf.js reports named exceptions; say what actually went wrong instead of blaming the file. */
+function describeLoadFailure(error: unknown, stage: "component" | "document"): LoadFailure {
+  const detail = errorDetail(error);
+  if (stage === "component") {
+    return {
+      message: "The PDF viewer could not be loaded. Reload the page and try again.",
+      detail,
+      retryable: false,
+    };
+  }
+  const name = error instanceof Error ? error.name : "";
+  const status = (error as { status?: unknown } | null)?.status;
+  if (name === "PasswordException") {
+    return {
+      message: "This PDF is password-protected, so it can't be previewed.",
+      detail,
+      retryable: false,
+    };
+  }
+  if (name === "InvalidPDFException") {
+    return { message: "This file is not a valid PDF, or it is damaged.", detail, retryable: false };
+  }
+  if (name === "MissingPDFException" || (name === "UnexpectedResponseException" && status === 404)) {
+    return { message: "The PDF file could not be found.", detail, retryable: false };
+  }
+  if (isLinkRejected(error)) {
+    return {
+      message: "The secure link for this document was rejected or has expired.",
+      detail,
+      retryable: true,
+    };
+  }
+  if (name === "UnexpectedResponseException" && typeof status === "number") {
+    return {
+      message: `The server returned an error (HTTP ${status}) while downloading the PDF.`,
+      detail,
+      retryable: true,
+    };
+  }
+  return {
+    message: "The PDF could not be downloaded. Check your connection and try again.",
+    detail,
+    retryable: true,
+  };
+}
 
 // The scroll area is capped so a tall page scrolls inside the viewer and the
 // page/zoom controls below it stay on screen. "Fit page" fits to this height.
@@ -61,7 +139,21 @@ const CONTROL_BUTTON_CLASS =
  * toolbar can switch to fitting the whole page or zoom manually. The bitmap is
  * rendered at the screen's pixel density so text stays sharp.
  */
-export function PdfLessonViewer({ mediaAssetId }: { mediaAssetId: string }) {
+export function PdfLessonViewer({
+  mediaAssetId,
+  onPageShape,
+  maxHeightVh = VIEW_MAX_HEIGHT_VH,
+}: {
+  mediaAssetId: string;
+  /** Cap on the scroll area's height, in vh. Defaults to the shared cap; the lesson modal passes a taller one. */
+  maxHeightVh?: number;
+  /** Called once per loaded document with its first page's shape, so a host modal can size itself to it. */
+  onPageShape?: (shape: PdfPageShape) => void;
+}) {
+  const onPageShapeRef = useRef(onPageShape);
+  useEffect(() => {
+    onPageShapeRef.current = onPageShape;
+  });
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pdfDocRef = useRef<PDFDocumentProxy | null>(null);
   const loadingTaskRef = useRef<PDFDocumentLoadingTask | null>(null);
@@ -72,19 +164,32 @@ export function PdfLessonViewer({ mediaAssetId }: { mediaAssetId: string }) {
   const [fitMode, setFitMode] = useState<FitMode>("width");
   const [customScale, setCustomScale] = useState(1);
   const [displayScale, setDisplayScale] = useState(1);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadFailure, setLoadFailure] = useState<LoadFailure | null>(null);
   const [isLoadingDoc, setIsLoadingDoc] = useState(true);
+  // Set once a rejected/expired link has been swapped for a fresh one, so a
+  // second rejection is reported instead of retried forever.
+  const linkRefreshedRef = useRef(false);
 
   const accessUrlQuery = useQuery({
     queryKey: ["media-access-url", mediaAssetId],
     queryFn: () => getMediaAccessUrl(mediaAssetId),
-    // Reuse the fetched URL and don't re-mint it on window focus: a new URL
-    // would reload the whole document and reset the page being read.
-    staleTime: MEDIA_ACCESS_URL_STALE_MS,
+    // Reuse the fetched URL and don't re-mint it on window focus (a new URL
+    // would reload the whole document and reset the page being read), but only
+    // while it is still valid: fresh until shortly before the API-reported expiry.
+    staleTime: (query) => {
+      const expiresAt = query.state.data?.expires_at;
+      return expiresAt ? Math.max(0, Date.parse(expiresAt) - Date.now() - URL_EXPIRY_MARGIN_MS) : 0;
+    },
     refetchOnWindowFocus: false,
   });
+  const { refetch: refetchAccessUrl } = accessUrlQuery;
 
-  const signedUrl = accessUrlQuery.data?.url;
+  // A stale cached URL is being refreshed: wait for the new one rather than
+  // start a download with a link that may already have expired.
+  const signedUrl =
+    accessUrlQuery.data && !(accessUrlQuery.isStale && accessUrlQuery.isFetching)
+      ? accessUrlQuery.data.url
+      : undefined;
 
   // Track the space a page can use: the scroll area's width, and the height it
   // is capped to. Callback ref (state) because the area only mounts once the
@@ -97,7 +202,7 @@ export function PdfLessonViewer({ mediaAssetId }: { mediaAssetId: string }) {
       const border = parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
       setView({
         width: wrapperEl.clientWidth,
-        height: Math.floor((window.innerHeight * VIEW_MAX_HEIGHT_VH) / 100 - border),
+        height: Math.floor((window.innerHeight * maxHeightVh) / 100 - border),
       });
     };
     const observer = new ResizeObserver(measure);
@@ -107,7 +212,7 @@ export function PdfLessonViewer({ mediaAssetId }: { mediaAssetId: string }) {
       observer.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, [wrapperEl]);
+  }, [wrapperEl, maxHeightVh]);
 
   // Load the document once a signed URL is available. Re-runs if the
   // lesson (and therefore the signed URL) changes.
@@ -122,10 +227,12 @@ export function PdfLessonViewer({ mediaAssetId }: { mediaAssetId: string }) {
       // react-hooks/set-state-in-effect's cascading-render warning for
       // synchronous setState calls directly in an effect.
       setIsLoadingDoc(true);
-      setLoadError(null);
+      setLoadFailure(null);
       setNumPages(null);
       setPageNum(1);
       setFitMode("width");
+      let stage: "component" | "document" = "component";
+      let refreshingLink = false;
       try {
         // The `legacy` build, not the default one: pdfjs-dist's default build assumes
         // the very newest JS built-ins (Uint8Array.toHex, Map.getOrInsertComputed,
@@ -138,6 +245,7 @@ export function PdfLessonViewer({ mediaAssetId }: { mediaAssetId: string }) {
         ]);
         pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrlModule.default;
 
+        stage = "document";
         const loadingTask = pdfjsLib.getDocument({ url: signedUrl });
         loadingTaskRef.current = loadingTask;
         const doc = await loadingTask.promise;
@@ -146,15 +254,26 @@ export function PdfLessonViewer({ mediaAssetId }: { mediaAssetId: string }) {
           return;
         }
         pdfDocRef.current = doc;
+        linkRefreshedRef.current = false;
+        // Report the first page's shape (rotation included) before the first render.
+        const first = (await doc.getPage(1)).getViewport({ scale: 1 });
+        if (cancelled) return;
+        onPageShapeRef.current?.(first.width > first.height ? "landscape" : "portrait");
         setNumPages(doc.numPages);
-      } catch {
-        if (!cancelled) {
-          setLoadError(
-            "This PDF could not be loaded — the file may be corrupted or in an unsupported format.",
-          );
+      } catch (error) {
+        if (cancelled) return;
+        if (stage === "document" && isLinkRejected(error) && !linkRefreshedRef.current) {
+          // The signed URL expired (or was rejected) before it was used, which
+          // says nothing about the file: get a fresh one once and reload.
+          linkRefreshedRef.current = true;
+          refreshingLink = true;
+          void refetchAccessUrl({ cancelRefetch: false });
+          return;
         }
+        console.error("[PdfLessonViewer] Could not load the PDF:", error);
+        setLoadFailure(describeLoadFailure(error, stage));
       } finally {
-        if (!cancelled) setIsLoadingDoc(false);
+        if (!cancelled && !refreshingLink) setIsLoadingDoc(false);
       }
     })();
 
@@ -164,7 +283,7 @@ export function PdfLessonViewer({ mediaAssetId }: { mediaAssetId: string }) {
       loadingTaskRef.current = null;
       pdfDocRef.current = null;
     };
-  }, [signedUrl]);
+  }, [signedUrl, refetchAccessUrl]);
 
   // Render the current page whenever it, the zoom, or the available space changes.
   useEffect(() => {
@@ -214,9 +333,14 @@ export function PdfLessonViewer({ mediaAssetId }: { mediaAssetId: string }) {
         canvas.style.height = `${natural.height * scale}px`;
         canvas.getContext("2d")?.drawImage(buffer, 0, 0);
         setDisplayScale(scale);
-      } catch {
+      } catch (error) {
         if (!cancelled) {
-          setLoadError("This page could not be rendered.");
+          console.error("[PdfLessonViewer] Could not render the page:", error);
+          setLoadFailure({
+            message: "This page could not be rendered.",
+            detail: errorDetail(error),
+            retryable: false,
+          });
         }
       }
     })();
@@ -226,6 +350,11 @@ export function PdfLessonViewer({ mediaAssetId }: { mediaAssetId: string }) {
       renderTask?.cancel();
     };
   }, [pageNum, numPages, fitMode, customScale, view.width, view.height]);
+
+  function retryLoad() {
+    linkRefreshedRef.current = false;
+    void refetchAccessUrl();
+  }
 
   function zoomBy(factor: number) {
     setCustomScale(clampScale(displayScale * factor));
@@ -259,11 +388,25 @@ export function PdfLessonViewer({ mediaAssetId }: { mediaAssetId: string }) {
     );
   }
 
-  if (loadError) {
+  if (loadFailure) {
     return (
-      <div className="flex items-center gap-2 py-4 text-sm text-red-600">
-        <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
-        {loadError}
+      <div role="alert" className="flex items-start gap-2 py-4 text-sm text-red-600">
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+        <div className="min-w-0">
+          <p>
+            {loadFailure.message}
+            {loadFailure.retryable && (
+              <button
+                type="button"
+                className="ml-2 cursor-pointer font-medium underline"
+                onClick={retryLoad}
+              >
+                Try again
+              </button>
+            )}
+          </p>
+          <p className="mt-1 break-words text-xs text-slate-500">{loadFailure.detail}</p>
+        </div>
       </div>
     );
   }
@@ -278,7 +421,7 @@ export function PdfLessonViewer({ mediaAssetId }: { mediaAssetId: string }) {
       )}
       <div
         ref={setWrapperEl}
-        style={{ maxHeight: `${VIEW_MAX_HEIGHT_VH}vh` }}
+        style={{ maxHeight: `${maxHeightVh}vh` }}
         className={`overflow-auto rounded-lg border border-slate-200 [scrollbar-gutter:stable] ${isLoadingDoc ? "hidden" : ""}`}
       >
         <canvas ref={canvasRef} className="mx-auto block" />

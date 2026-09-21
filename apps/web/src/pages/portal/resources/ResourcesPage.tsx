@@ -1,9 +1,17 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Eye, ExternalLink, FileText } from "lucide-react";
+import {
+  Building2,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  ExternalLink,
+  FileText,
+  Tag,
+} from "lucide-react";
+import type { ResourceResponse } from "@internal-training/shared";
 import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
-import { Badge } from "../../../components/ui/Badge";
 import { Modal } from "../../../components/ui/Modal";
 import { SelectField } from "../../../components/ui/FormField";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
@@ -11,6 +19,7 @@ import { listResourceCategories, listResources } from "../../../services/api/res
 import { getSafeHttpsUrl } from "../../../lib/safeUrl";
 import { ProtectedFileViewer } from "../courses/ProtectedFileViewer";
 import { DOCX_MIME } from "../courses/DocumentLessonViewer";
+import { Chip, THUMBNAIL_BOX_CLASS } from "../courses/CourseCard";
 
 const PDF_MIME = "application/pdf";
 
@@ -53,12 +62,8 @@ function InAppDocumentButton({
 
   return (
     <>
-      <Button
-        variant="secondary"
-        className="gap-1.5 px-2 py-1 text-xs"
-        onClick={() => setOpen(true)}
-      >
-        <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+      <Button className="w-full gap-1.5" onClick={() => setOpen(true)}>
+        <Eye className="h-4 w-4" aria-hidden="true" />
         View
       </Button>
       <Modal open={open} onClose={() => setOpen(false)} title={title} wide>
@@ -78,16 +83,65 @@ function InAppDocumentButton({
 function OpenLinkButton({ externalUrl }: { externalUrl: string }) {
   // Only https links are ever opened, even if a legacy row holds another scheme.
   const safeUrl = getSafeHttpsUrl(externalUrl);
-  if (!safeUrl) return <span className="text-xs text-slate-400">Link unavailable</span>;
+  if (!safeUrl) return <p className="text-center text-xs text-slate-400">Link unavailable</p>;
   return (
-    <Button
-      variant="secondary"
-      className="gap-1.5 px-2 py-1 text-xs"
-      onClick={() => window.open(safeUrl, "_blank", "noopener")}
-    >
-      <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+    <Button className="w-full gap-1.5" onClick={() => window.open(safeUrl, "_blank", "noopener")}>
+      <ExternalLink className="h-4 w-4" aria-hidden="true" />
       View / Open Link
     </Button>
+  );
+}
+
+/**
+ * One resource card, laid out like CourseCard.tsx (same Card, thumbnail box,
+ * text hierarchy, chips and full-width action). Resources have no thumbnail, so
+ * the box shows the same file/link icon the table row used.
+ */
+function ResourceCard({ item }: { item: ResourceResponse }) {
+  const ThumbIcon = item.external_url ? ExternalLink : FileText;
+  return (
+    <Card flush className="card-slide-scope flex flex-col">
+      <div className={THUMBNAIL_BOX_CLASS}>
+        <ThumbIcon className="h-14 w-14" aria-hidden="true" />
+      </div>
+
+      <div className="flex flex-1 flex-col p-5">
+        <h3 className="text-sm font-semibold leading-snug text-indigo-950">{item.title}</h3>
+        {item.description && (
+          <p className="mt-1 line-clamp-2 text-xs text-slate-500">{item.description}</p>
+        )}
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Chip icon={<Tag className="h-3 w-3" aria-hidden="true" />}>{item.category.name}</Chip>
+          {/* Department visibility in the Trainer Portal UI unit: empty =
+              globally visible, so nothing is rendered (mirrors CourseCard.tsx's
+              identical convention). */}
+          {item.departments.map((department) => (
+            <Chip key={department.id} icon={<Building2 className="h-3 w-3" aria-hidden="true" />}>
+              {department.name}
+            </Chip>
+          ))}
+          <Chip icon={<FileText className="h-3 w-3" aria-hidden="true" />}>{item.file_type}</Chip>
+        </div>
+
+        <p className="mt-3 text-xs text-slate-500">
+          Uploaded {new Date(item.created_at).toLocaleDateString()}
+        </p>
+
+        <div className="mt-4 flex-1" />
+        {item.external_url ? (
+          <OpenLinkButton externalUrl={item.external_url} />
+        ) : canPreviewInPortal(item.file_type) ? (
+          <InAppDocumentButton
+            mediaAssetId={item.media_asset_id!}
+            mimeType={item.file_type}
+            title={item.title}
+          />
+        ) : (
+          <p className="text-center text-xs text-slate-400">Preview not available</p>
+        )}
+      </div>
+    </Card>
   );
 }
 
@@ -120,7 +174,7 @@ export function ResourcesPage() {
       </div>
 
       <Card>
-        <div className="mb-4 max-w-xs">
+        <div className="max-w-xs">
           <SelectField
             label="Category"
             id="filter-category"
@@ -135,94 +189,30 @@ export function ResourcesPage() {
             ))}
           </SelectField>
         </div>
+      </Card>
 
-        <RemoteDataView
-          isLoading={query.isLoading}
-          isError={query.isError}
-          error={query.error}
-          data={query.data?.data}
-          onRetry={() => void query.refetch()}
-          isEmpty={(items) => items.length === 0}
-          emptyTitle="No resources available"
-          emptyDescription="Check back later, or try a different category."
-        >
-          {(items) => (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-500">
-                    <th className="py-2 pr-4">Title</th>
-                    <th className="py-2 pr-4">Category</th>
-                    <th className="py-2 pr-4">File Type</th>
-                    <th className="py-2 pr-4">Uploaded</th>
-                    <th className="py-2 pr-4" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item) => (
-                    <tr key={item.id} className="border-b border-slate-50">
-                      <td className="max-w-xs py-3 pr-4">
-                        <div className="flex items-center gap-1.5">
-                          {item.external_url ? (
-                            <ExternalLink
-                              className="h-3.5 w-3.5 shrink-0 text-slate-400"
-                              aria-hidden="true"
-                            />
-                          ) : (
-                            <FileText
-                              className="h-3.5 w-3.5 shrink-0 text-slate-400"
-                              aria-hidden="true"
-                            />
-                          )}
-                          <div>
-                            <p className="truncate font-medium text-slate-900">{item.title}</p>
-                            {item.description && (
-                              <p className="truncate text-xs text-slate-500">{item.description}</p>
-                            )}
-                            {/* Department visibility in the Trainer Portal UI
-                                unit: empty = globally visible, so nothing is
-                                rendered (mirrors CourseCard.tsx's identical
-                                convention). */}
-                            {item.departments.length > 0 && (
-                              <div className="mt-1 flex flex-wrap gap-1">
-                                {item.departments.map((department) => (
-                                  <Badge key={department.id} tone="info">
-                                    {department.name}
-                                  </Badge>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-3 pr-4 text-slate-600">{item.category.name}</td>
-                      <td className="py-3 pr-4 text-slate-500">{item.file_type}</td>
-                      <td className="py-3 pr-4 text-slate-500">
-                        {new Date(item.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="py-3 pr-4">
-                        {item.external_url ? (
-                          <OpenLinkButton externalUrl={item.external_url} />
-                        ) : canPreviewInPortal(item.file_type) ? (
-                          <InAppDocumentButton
-                            mediaAssetId={item.media_asset_id!}
-                            mimeType={item.file_type}
-                            title={item.title}
-                          />
-                        ) : (
-                          <span className="text-xs text-slate-400">Preview not available</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </RemoteDataView>
+      <RemoteDataView
+        isLoading={query.isLoading}
+        isError={query.isError}
+        error={query.error}
+        data={query.data?.data}
+        onRetry={() => void query.refetch()}
+        isEmpty={(items) => items.length === 0}
+        emptyTitle="No resources available"
+        emptyDescription="Check back later, or try a different category."
+      >
+        {(items) => (
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+            {items.map((item) => (
+              <ResourceCard key={item.id} item={item} />
+            ))}
+          </div>
+        )}
+      </RemoteDataView>
 
-        {query.data && query.data.meta.totalPages > 1 && (
-          <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
+      {query.data && query.data.meta.totalPages > 1 && (
+        <Card>
+          <div className="flex items-center justify-between">
             <p className="text-xs text-slate-500">
               Page {query.data.meta.page} of {query.data.meta.totalPages} ·{" "}
               {query.data.meta.totalItems} total
@@ -250,8 +240,8 @@ export function ResourcesPage() {
               </Button>
             </div>
           </div>
-        )}
-      </Card>
+        </Card>
+      )}
     </div>
   );
 }

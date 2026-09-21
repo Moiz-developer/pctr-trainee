@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -13,7 +14,7 @@ import { Modal } from "../../../components/ui/Modal";
 import { ApiClientError } from "../../../services/api/client";
 import { getSafeHttpsUrl } from "../../../lib/safeUrl";
 import { VideoLessonPlayer } from "./VideoLessonPlayer";
-import { PdfLessonViewer } from "./PdfLessonViewer";
+import { PdfLessonViewer, type PdfPageShape } from "./PdfLessonViewer";
 import { DocumentLessonViewer, DOCX_MIME } from "./DocumentLessonViewer";
 import { ExternalVideoPlayer, getEmbeddableVideoUrl } from "./ExternalVideoPlayer";
 import { PresentationLessonViewer } from "./PresentationLessonViewer";
@@ -73,6 +74,10 @@ function LessonContent({ lesson }: { lesson: CourseDetailLesson }) {
   return <p className="text-sm text-slate-400">This lesson has no content yet.</p>;
 }
 
+// The lesson modal's PDF reading area is taller than the viewer's shared default (used by
+// Policies/Resources), since the modal itself is enlarged to fit the PDF.
+const PDF_MODAL_MAX_HEIGHT_VH = 85;
+
 const NOT_UPLOADED_MESSAGE: Partial<Record<CourseDetailLesson["content_type"], string>> = {
   VIDEO: "This lesson's video hasn't been uploaded yet.",
   PDF: "This lesson's PDF hasn't been uploaded yet.",
@@ -89,9 +94,11 @@ const NOT_UPLOADED_MESSAGE: Partial<Record<CourseDetailLesson["content_type"], s
 function LessonBody({
   lesson,
   progress,
+  onPdfShape,
 }: {
   lesson: CourseDetailLesson;
   progress: LessonProgressResponse | undefined;
+  onPdfShape: (shape: PdfPageShape) => void;
 }) {
   const kind = getLessonViewerKind(lesson);
 
@@ -117,7 +124,13 @@ function LessonBody({
         />
       );
     case "PDF":
-      return <PdfLessonViewer mediaAssetId={lesson.media_asset_id!} />;
+      return (
+        <PdfLessonViewer
+          mediaAssetId={lesson.media_asset_id!}
+          onPageShape={onPdfShape}
+          maxHeightVh={PDF_MODAL_MAX_HEIGHT_VH}
+        />
+      );
     case "DOCX":
       return <DocumentLessonViewer mediaAssetId={lesson.media_asset_id!} mimeType={DOCX_MIME} />;
     case "LEGACY_DOC":
@@ -219,6 +232,9 @@ export function LessonViewerModal({
   onRetryProgress: () => void;
   onClose: () => void;
 }) {
+  // The open PDF's page shape, reported once it loads, sizes the modal to it. Tagged with
+  // the lesson so it never carries over to a different lesson.
+  const [pdfShape, setPdfShape] = useState<{ lessonId: string; shape: PdfPageShape } | null>(null);
   const entry = group?.entries.find((e) => e.lesson.id === openLessonId);
   if (!group || !entry) return null;
 
@@ -240,7 +256,14 @@ export function LessonViewerModal({
   }
 
   return (
-    <Modal open onClose={onClose} title={lesson.title} size="xl">
+    <Modal
+      open
+      onClose={onClose}
+      title={lesson.title}
+      size={
+        pdfShape?.lessonId !== lesson.id ? "xl" : pdfShape.shape === "landscape" ? "full" : "2xl"
+      }
+    >
       <div className="space-y-5">
         {categories.length > 1 && (
           <div className={`grid grid-cols-1 gap-4 ${CATEGORY_GRID_COLS[categories.length]}`}>
@@ -327,7 +350,12 @@ export function LessonViewerModal({
           )}
 
           <div className="mt-4 border-t border-slate-100 pt-4">
-            <LessonBody key={lesson.id} lesson={lesson} progress={progress} />
+            <LessonBody
+              key={lesson.id}
+              lesson={lesson}
+              progress={progress}
+              onPdfShape={(shape) => setPdfShape({ lessonId: lesson.id, shape })}
+            />
 
             {status === "COMPLETED" && (
               <p className="mt-4 flex items-center gap-1.5 text-xs font-medium text-emerald-700">
