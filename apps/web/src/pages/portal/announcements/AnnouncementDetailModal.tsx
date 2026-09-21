@@ -10,6 +10,11 @@ import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { ProtectedFileViewer } from "../courses/ProtectedFileViewer";
 import {
+  PDF_ONLY_MODAL,
+  usePdfModalSizing,
+  type PdfViewerSizingProps,
+} from "../courses/pdfModalSizing";
+import {
   acknowledgeAnnouncement,
   dismissAnnouncement,
   getAnnouncementDetail,
@@ -31,10 +36,12 @@ function MediaLink({
   mediaAssetId,
   label,
   icon: Icon,
+  pdfProps,
 }: {
   mediaAssetId: string;
   label: string;
   icon: typeof Download;
+  pdfProps: PdfViewerSizingProps;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -50,7 +57,7 @@ function MediaLink({
       </Button>
       {open && (
         <div className="mt-3">
-          <ProtectedFileViewer mediaAssetId={mediaAssetId} />
+          <ProtectedFileViewer mediaAssetId={mediaAssetId} pdfProps={pdfProps} />
         </div>
       )}
     </div>
@@ -74,6 +81,8 @@ export function AnnouncementDetailModal({
   announcementId: string | null;
 }) {
   const queryClient = useQueryClient();
+  // Sizes the modal to an attached PDF's page (shared with every PDF modal, see pdfModalSizing.ts).
+  const pdfFit = usePdfModalSizing(PDF_ONLY_MODAL);
   const toast = useToast();
 
   const detailQuery = useQuery({
@@ -120,7 +129,14 @@ export function AnnouncementDetailModal({
   if (!announcementId) return null;
 
   return (
-    <Modal open={open} onClose={onClose} title="Announcement" wide>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Announcement"
+      wide
+      size={pdfFit.size}
+      maxWidth={pdfFit.maxWidth}
+    >
       <RemoteDataView
         isLoading={detailQuery.isLoading}
         isError={detailQuery.isError}
@@ -155,6 +171,7 @@ export function AnnouncementDetailModal({
                     mediaAssetId={announcement.image_media_id}
                     label="View Image"
                     icon={ImageIcon}
+                    pdfProps={pdfFit.viewerProps}
                   />
                 )}
                 {announcement.attachment_media_id && (
@@ -162,6 +179,7 @@ export function AnnouncementDetailModal({
                     mediaAssetId={announcement.attachment_media_id}
                     label="View Attachment"
                     icon={Download}
+                    pdfProps={pdfFit.viewerProps}
                   />
                 )}
               </div>

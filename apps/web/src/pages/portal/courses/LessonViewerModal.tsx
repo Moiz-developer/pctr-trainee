@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -15,6 +14,7 @@ import { ApiClientError } from "../../../services/api/client";
 import { getSafeHttpsUrl } from "../../../lib/safeUrl";
 import { VideoLessonPlayer } from "./VideoLessonPlayer";
 import { PdfLessonViewer } from "./PdfLessonViewer";
+import { PDF_LESSON_MODAL, usePdfModalSizing, type PdfViewerSizingProps } from "./pdfModalSizing";
 import { DocumentLessonViewer, DOCX_MIME } from "./DocumentLessonViewer";
 import { ExternalVideoPlayer, getEmbeddableVideoUrl } from "./ExternalVideoPlayer";
 import { PresentationLessonViewer } from "./PresentationLessonViewer";
@@ -74,27 +74,6 @@ function LessonContent({ lesson }: { lesson: CourseDetailLesson }) {
   return <p className="text-sm text-slate-400">This lesson has no content yet.</p>;
 }
 
-// The lesson modal's PDF reading area is taller than the viewer's shared default (used by
-// Policies/Resources), since the modal itself is enlarged to fit the PDF.
-const PDF_MODAL_MAX_HEIGHT_VH = 85;
-// Horizontal space between the modal's edge and the PDF page: modal padding (48px) + lesson
-// card padding and border (42px) + viewer border (2px) + reserved scrollbar gutter (~15px),
-// rounded up so the page ends up a hair shorter than the reading area, never taller.
-const PDF_MODAL_CHROME_PX = 120;
-const PDF_MODAL_MIN_WIDTH_PX = 720;
-const PDF_MODAL_MAX_WIDTH_PX = 1900;
-
-/**
- * The modal width at which a page of this aspect ratio, fitted to the viewer's width, is
- * exactly as tall as the reading area — so the whole page shows without the PDF scrolling
- * (portrait → a narrower, reading-width modal; landscape → a wide one). Bounded below so the
- * toolbar and lesson list stay usable, above for very wide pages, and always within the
- * viewport, so on a phone it is simply the full width and the page scrolls as normal.
- */
-function pdfModalMaxWidth(aspect: number): string {
-  return `min(${PDF_MODAL_MAX_WIDTH_PX}px, calc(100vw - 2rem), max(${PDF_MODAL_MIN_WIDTH_PX}px, calc(${aspect.toFixed(4)} * ${PDF_MODAL_MAX_HEIGHT_VH}vh + ${PDF_MODAL_CHROME_PX}px)))`;
-}
-
 const NOT_UPLOADED_MESSAGE: Partial<Record<CourseDetailLesson["content_type"], string>> = {
   VIDEO: "This lesson's video hasn't been uploaded yet.",
   PDF: "This lesson's PDF hasn't been uploaded yet.",
@@ -111,11 +90,11 @@ const NOT_UPLOADED_MESSAGE: Partial<Record<CourseDetailLesson["content_type"], s
 function LessonBody({
   lesson,
   progress,
-  onPdfAspect,
+  pdfViewerProps,
 }: {
   lesson: CourseDetailLesson;
   progress: LessonProgressResponse | undefined;
-  onPdfAspect: (aspect: number) => void;
+  pdfViewerProps: PdfViewerSizingProps;
 }) {
   const kind = getLessonViewerKind(lesson);
 
@@ -141,13 +120,7 @@ function LessonBody({
         />
       );
     case "PDF":
-      return (
-        <PdfLessonViewer
-          mediaAssetId={lesson.media_asset_id!}
-          onPageAspect={onPdfAspect}
-          maxHeightVh={PDF_MODAL_MAX_HEIGHT_VH}
-        />
-      );
+      return <PdfLessonViewer mediaAssetId={lesson.media_asset_id!} {...pdfViewerProps} />;
     case "DOCX":
       return <DocumentLessonViewer mediaAssetId={lesson.media_asset_id!} mimeType={DOCX_MIME} />;
     case "LEGACY_DOC":
@@ -249,9 +222,8 @@ export function LessonViewerModal({
   onRetryProgress: () => void;
   onClose: () => void;
 }) {
-  // The open PDF's page aspect ratio, reported once it loads, sizes the modal to it. Tagged with
-  // the lesson so it never carries over to a different lesson.
-  const [pdfAspect, setPdfAspect] = useState<{ lessonId: string; aspect: number } | null>(null);
+  // Sizes the modal to the open PDF's page (shared with every PDF modal, see pdfModalSizing.ts).
+  const pdfFit = usePdfModalSizing(PDF_LESSON_MODAL);
   const entry = group?.entries.find((e) => e.lesson.id === openLessonId);
   if (!group || !entry) return null;
 
@@ -277,8 +249,8 @@ export function LessonViewerModal({
       open
       onClose={onClose}
       title={lesson.title}
-      size={pdfAspect?.lessonId === lesson.id ? "viewer" : "xl"}
-      maxWidth={pdfAspect?.lessonId === lesson.id ? pdfModalMaxWidth(pdfAspect.aspect) : undefined}
+      size={pdfFit.size ?? "xl"}
+      maxWidth={pdfFit.maxWidth}
     >
       <div className="space-y-5">
         {categories.length > 1 && (
@@ -370,7 +342,7 @@ export function LessonViewerModal({
               key={lesson.id}
               lesson={lesson}
               progress={progress}
-              onPdfAspect={(aspect) => setPdfAspect({ lessonId: lesson.id, aspect })}
+              pdfViewerProps={pdfFit.viewerProps}
             />
 
             {status === "COMPLETED" && (

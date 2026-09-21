@@ -8,6 +8,7 @@ import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { ProtectedFileViewer } from "../courses/ProtectedFileViewer";
+import { PDF_ONLY_MODAL, usePdfModalSizing } from "../courses/pdfModalSizing";
 import { getDashboard } from "../../../services/api/dashboard";
 import { acknowledgeAnnouncement, dismissAnnouncement } from "../../../services/api/announcements";
 
@@ -41,6 +42,8 @@ const PRIORITY_TONE: Record<AnnouncementPriority, BadgeTone> = {
  */
 export function PortalAnnouncementPopup() {
   const queryClient = useQueryClient();
+  // Sizes the modal to an attached PDF's page (shared with every PDF modal, see pdfModalSizing.ts).
+  const pdfFit = usePdfModalSizing(PDF_ONLY_MODAL);
   const toast = useToast();
   const [queueIndex, setQueueIndex] = useState(0);
   const [dismissedLocally, setDismissedLocally] = useState(false);
@@ -107,7 +110,13 @@ export function PortalAnnouncementPopup() {
   if (!current) return null;
 
   return (
-    <Modal open onClose={handleClose} title="Announcement">
+    <Modal
+      open
+      onClose={handleClose}
+      title="Announcement"
+      size={pdfFit.size}
+      maxWidth={pdfFit.maxWidth}
+    >
       <div className="space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <h3 className="text-lg font-semibold text-slate-900">{current.title}</h3>
@@ -156,7 +165,7 @@ export function PortalAnnouncementPopup() {
             {openMediaId &&
               (openMediaId === current.image_media_id ||
                 openMediaId === current.attachment_media_id) && (
-                <ProtectedFileViewer mediaAssetId={openMediaId} />
+                <ProtectedFileViewer mediaAssetId={openMediaId} pdfProps={pdfFit.viewerProps} />
               )}
           </div>
         )}

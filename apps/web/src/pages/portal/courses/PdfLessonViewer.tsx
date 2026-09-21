@@ -142,18 +142,24 @@ const CONTROL_BUTTON_CLASS =
 export function PdfLessonViewer({
   mediaAssetId,
   onPageAspect,
-  maxHeightVh = VIEW_MAX_HEIGHT_VH,
+  reservedHeightPx,
 }: {
   mediaAssetId: string;
-  /** Cap on the scroll area's height, in vh. Defaults to the shared cap; the lesson modal passes a taller one. */
-  maxHeightVh?: number;
-  /** Called once per loaded document with its first page's aspect ratio (width / height, rotation included), so a host modal can size itself to it. */
-  onPageAspect?: (aspect: number) => void;
+  /** Opt-in: cap the scroll area at the viewport height minus this many px (a modal sizing itself to the PDF) instead of the shared 70vh. */
+  reservedHeightPx?: number;
+  /** Called once per loaded document with its first page's aspect ratio (width / height, rotation included), and with null when this viewer goes away, so a host modal can size itself to it. */
+  onPageAspect?: (aspect: number | null) => void;
 }) {
   const onPageAspectRef = useRef(onPageAspect);
   useEffect(() => {
     onPageAspectRef.current = onPageAspect;
   });
+  // Tell the host modal this viewer is gone (hidden, lesson switched, modal closed), so it
+  // drops back to its normal size. Unmount only: a refreshed signed URL must not flicker it.
+  useEffect(() => {
+    const report = onPageAspectRef;
+    return () => report.current?.(null);
+  }, []);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pdfDocRef = useRef<PDFDocumentProxy | null>(null);
   const loadingTaskRef = useRef<PDFDocumentLoadingTask | null>(null);
@@ -202,7 +208,11 @@ export function PdfLessonViewer({
       const border = parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
       setView({
         width: wrapperEl.clientWidth,
-        height: Math.floor((window.innerHeight * maxHeightVh) / 100 - border),
+        height: Math.floor(
+          (reservedHeightPx === undefined
+            ? (window.innerHeight * VIEW_MAX_HEIGHT_VH) / 100
+            : window.innerHeight - reservedHeightPx) - border,
+        ),
       });
     };
     const observer = new ResizeObserver(measure);
@@ -212,7 +222,7 @@ export function PdfLessonViewer({
       observer.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, [wrapperEl, maxHeightVh]);
+  }, [wrapperEl, reservedHeightPx]);
 
   // Load the document once a signed URL is available. Re-runs if the
   // lesson (and therefore the signed URL) changes.
@@ -421,7 +431,12 @@ export function PdfLessonViewer({
       )}
       <div
         ref={setWrapperEl}
-        style={{ maxHeight: `${maxHeightVh}vh` }}
+        style={{
+          maxHeight:
+            reservedHeightPx === undefined
+              ? `${VIEW_MAX_HEIGHT_VH}vh`
+              : `calc(100vh - ${reservedHeightPx}px)`,
+        }}
         className={`overflow-auto rounded-lg border border-slate-200 [scrollbar-gutter:stable] ${isLoadingDoc ? "hidden" : ""}`}
       >
         <canvas ref={canvasRef} className="mx-auto block" />

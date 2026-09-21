@@ -18,6 +18,7 @@ import { RemoteDataView } from "../../../components/shared/RemoteDataView";
 import { listResourceCategories, listResources } from "../../../services/api/resources";
 import { getSafeHttpsUrl } from "../../../lib/safeUrl";
 import { ProtectedFileViewer } from "../courses/ProtectedFileViewer";
+import { PDF_ONLY_MODAL, usePdfModalSizing } from "../courses/pdfModalSizing";
 import { DOCX_MIME } from "../courses/DocumentLessonViewer";
 import { Chip, THUMBNAIL_BOX_CLASS } from "../courses/CourseCard";
 
@@ -59,6 +60,8 @@ function InAppDocumentButton({
   title: string;
 }) {
   const [open, setOpen] = useState(false);
+  // Sizes the modal to the PDF's page (shared with every PDF modal, see pdfModalSizing.ts).
+  const pdfFit = usePdfModalSizing(PDF_ONLY_MODAL);
 
   return (
     <>
@@ -66,8 +69,19 @@ function InAppDocumentButton({
         <Eye className="h-4 w-4" aria-hidden="true" />
         View
       </Button>
-      <Modal open={open} onClose={() => setOpen(false)} title={title} wide>
-        <ProtectedFileViewer mediaAssetId={mediaAssetId} mimeType={mimeType} />
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title={title}
+        wide
+        size={pdfFit.size ?? (mimeType === PDF_MIME ? "xl" : undefined)}
+        maxWidth={pdfFit.maxWidth}
+      >
+        <ProtectedFileViewer
+          mediaAssetId={mediaAssetId}
+          mimeType={mimeType}
+          pdfProps={pdfFit.viewerProps}
+        />
       </Modal>
     </>
   );

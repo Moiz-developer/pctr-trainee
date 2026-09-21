@@ -3,6 +3,7 @@ import { AlertTriangle, Loader2 } from "lucide-react";
 import { ApiClientError } from "../../../services/api/client";
 import { getMediaAccessUrl, MEDIA_ACCESS_URL_STALE_MS } from "../../../services/api/media";
 import { PdfLessonViewer } from "./PdfLessonViewer";
+import type { PdfViewerSizingProps } from "./pdfModalSizing";
 import { DocumentLessonViewer, DOCX_MIME } from "./DocumentLessonViewer";
 import { PreviewUnavailable } from "./PreviewUnavailable";
 
@@ -58,9 +59,12 @@ function ProtectedImage({ mediaAssetId }: { mediaAssetId: string }) {
 export function ProtectedFileViewer({
   mediaAssetId,
   mimeType,
+  pdfProps,
 }: {
   mediaAssetId: string;
   mimeType?: string | null;
+  /** Opt-in for a host modal: lets a PDF size the modal to its page (see pdfModalSizing.ts). */
+  pdfProps?: PdfViewerSizingProps;
 }) {
   const accessUrlQuery = useQuery({
     queryKey: ["media-access-url", mediaAssetId],
@@ -90,7 +94,7 @@ export function ProtectedFileViewer({
     );
   }
 
-  if (mime === PDF_MIME) return <PdfLessonViewer mediaAssetId={mediaAssetId} />;
+  if (mime === PDF_MIME) return <PdfLessonViewer mediaAssetId={mediaAssetId} {...pdfProps} />;
   if (mime === DOCX_MIME)
     return <DocumentLessonViewer mediaAssetId={mediaAssetId} mimeType={mime} />;
   if (mime.startsWith("image/")) return <ProtectedImage mediaAssetId={mediaAssetId} />;

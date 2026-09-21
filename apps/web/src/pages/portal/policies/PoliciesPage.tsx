@@ -9,6 +9,7 @@ import { Modal } from "../../../components/ui/Modal";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
 import { listPolicies } from "../../../services/api/policies";
 import { PdfLessonViewer } from "../courses/PdfLessonViewer";
+import { PDF_ONLY_MODAL, usePdfModalSizing } from "../courses/pdfModalSizing";
 import { DocumentLessonViewer } from "../courses/DocumentLessonViewer";
 
 const PDF_MIME = "application/pdf";
@@ -29,17 +30,30 @@ const PDF_MIME = "application/pdf";
  */
 function ViewButton({ version }: { version: PolicyResponse["active_version"] }) {
   const [open, setOpen] = useState(false);
+  // Sizes the modal to the PDF's page (shared with every PDF modal, see pdfModalSizing.ts).
+  const pdfFit = usePdfModalSizing(PDF_ONLY_MODAL);
 
   return (
     <>
-      <Button variant="secondary" className="gap-1.5 px-2 py-1 text-xs" onClick={() => setOpen(true)}>
+      <Button
+        variant="secondary"
+        className="gap-1.5 px-2 py-1 text-xs"
+        onClick={() => setOpen(true)}
+      >
         <ScrollText className="h-3.5 w-3.5" aria-hidden="true" />
         View
       </Button>
-      <Modal open={open} onClose={() => setOpen(false)} title="Policy Content" wide>
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Policy Content"
+        wide
+        size={pdfFit.size ?? (version.media_mime_type === PDF_MIME ? "xl" : undefined)}
+        maxWidth={pdfFit.maxWidth}
+      >
         {version.media_asset_id ? (
           version.media_mime_type === PDF_MIME ? (
-            <PdfLessonViewer mediaAssetId={version.media_asset_id} />
+            <PdfLessonViewer mediaAssetId={version.media_asset_id} {...pdfFit.viewerProps} />
           ) : (
             <DocumentLessonViewer
               mediaAssetId={version.media_asset_id}
