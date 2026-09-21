@@ -6,8 +6,8 @@ const PANEL_SIZE_CLASS = {
   default: "max-h-[90vh] max-w-md",
   wide: "max-h-[90vh] max-w-2xl",
   xl: "max-h-[90vh] max-w-6xl",
-  "2xl": "max-h-[calc(100vh-2rem)] max-w-[min(1360px,calc(100vw-2rem))]",
-  full: "max-h-[calc(100vh-2rem)] max-w-[min(1900px,calc(100vw-2rem))]",
+  // Nearly the whole viewport tall; the width is set by the caller's `maxWidth`.
+  viewer: "max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)]",
 } as const;
 
 /**
@@ -23,6 +23,7 @@ export function Modal({
   children,
   wide = false,
   size,
+  maxWidth,
 }: {
   open: boolean;
   onClose: () => void;
@@ -30,11 +31,13 @@ export function Modal({
   children: ReactNode;
   wide?: boolean;
   /**
-   * Panel width; overrides `wide`. Omit for the existing sm/wide behaviour. `xl` is for
-   * full-page-style views; `2xl` (taller, wider) and `full` (nearly the whole viewport)
-   * are for document viewers.
+   * Panel size; overrides `wide`. Omit for the existing sm/wide behaviour. `xl` is for
+   * full-page-style views; `viewer` is for document viewers (nearly the full viewport
+   * height, width from `maxWidth`).
    */
-  size?: "xl" | "2xl" | "full";
+  size?: "xl" | "viewer";
+  /** CSS max-width for the panel; overrides the width from `size`. Keep it within the viewport. */
+  maxWidth?: string;
 }) {
   useEffect(() => {
     if (!open) return;
@@ -54,6 +57,7 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        style={maxWidth ? { maxWidth } : undefined}
         className={`relative w-full overflow-y-auto rounded-lg bg-white p-6 shadow-xl ${PANEL_SIZE_CLASS[size ?? (wide ? "wide" : "default")]}`}
       >
         <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-3">

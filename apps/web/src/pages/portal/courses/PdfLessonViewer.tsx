@@ -17,9 +17,6 @@ import { getMediaAccessUrl } from "../../../services/api/media";
 /** How each page is sized: to the viewer's width, to the whole visible area, or a manual zoom. */
 type FitMode = "width" | "page" | "custom";
 
-/** Orientation of a document's first page, reported so a host modal can size itself to it. */
-export type PdfPageShape = "portrait" | "landscape";
-
 // A signed URL's lifetime is an admin setting, so a cached one counts as fresh
 // only until shortly before the expiry the API reported, never a fixed guess.
 const URL_EXPIRY_MARGIN_MS = 60_000;
@@ -71,7 +68,10 @@ function describeLoadFailure(error: unknown, stage: "component" | "document"): L
   if (name === "InvalidPDFException") {
     return { message: "This file is not a valid PDF, or it is damaged.", detail, retryable: false };
   }
-  if (name === "MissingPDFException" || (name === "UnexpectedResponseException" && status === 404)) {
+  if (
+    name === "MissingPDFException" ||
+    (name === "UnexpectedResponseException" && status === 404)
+  ) {
     return { message: "The PDF file could not be found.", detail, retryable: false };
   }
   if (isLinkRejected(error)) {
@@ -141,18 +141,18 @@ const CONTROL_BUTTON_CLASS =
  */
 export function PdfLessonViewer({
   mediaAssetId,
-  onPageShape,
+  onPageAspect,
   maxHeightVh = VIEW_MAX_HEIGHT_VH,
 }: {
   mediaAssetId: string;
   /** Cap on the scroll area's height, in vh. Defaults to the shared cap; the lesson modal passes a taller one. */
   maxHeightVh?: number;
-  /** Called once per loaded document with its first page's shape, so a host modal can size itself to it. */
-  onPageShape?: (shape: PdfPageShape) => void;
+  /** Called once per loaded document with its first page's aspect ratio (width / height, rotation included), so a host modal can size itself to it. */
+  onPageAspect?: (aspect: number) => void;
 }) {
-  const onPageShapeRef = useRef(onPageShape);
+  const onPageAspectRef = useRef(onPageAspect);
   useEffect(() => {
-    onPageShapeRef.current = onPageShape;
+    onPageAspectRef.current = onPageAspect;
   });
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pdfDocRef = useRef<PDFDocumentProxy | null>(null);
@@ -255,10 +255,10 @@ export function PdfLessonViewer({
         }
         pdfDocRef.current = doc;
         linkRefreshedRef.current = false;
-        // Report the first page's shape (rotation included) before the first render.
+        // Report the first page's aspect ratio (rotation included) before the first render.
         const first = (await doc.getPage(1)).getViewport({ scale: 1 });
         if (cancelled) return;
-        onPageShapeRef.current?.(first.width > first.height ? "landscape" : "portrait");
+        onPageAspectRef.current?.(first.width / first.height);
         setNumPages(doc.numPages);
       } catch (error) {
         if (cancelled) return;
