@@ -21,6 +21,7 @@ import { PolicyFormModal } from "./PolicyFormModal";
 import { PolicyVersionFormModal } from "./PolicyVersionFormModal";
 import { PolicyDepartmentsPanel } from "./PolicyDepartmentsPanel";
 import { PolicyAccessPanel } from "./PolicyAccessPanel";
+import { RichText } from "../../../components/ui/RichText";
 
 function versionStatus(version: PolicyVersionResponse): { label: string; tone: BadgeTone } {
   if (version.is_active) return { label: "Active", tone: "success" };
@@ -155,7 +156,7 @@ export function AdminPolicyDetailPage() {
                 </Button>
               </div>
               {detail.description && (
-                <p className="mt-3 text-sm text-slate-700">{detail.description}</p>
+                <RichText value={detail.description} className="mt-3 text-sm text-slate-700" />
               )}
             </Card>
 

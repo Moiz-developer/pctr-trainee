@@ -7,7 +7,7 @@ import { UploadCloud } from "lucide-react";
 import type { PolicyVersionResponse } from "@internal-training/shared";
 import { Modal } from "../../../components/ui/Modal";
 import { Button } from "../../../components/ui/Button";
-import { TextField, TextAreaField } from "../../../components/ui/FormField";
+import { TextField, RichTextField } from "../../../components/ui/FormField";
 import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { uploadPolicyDocument } from "../../../services/api/media";
@@ -64,6 +64,7 @@ export function PolicyVersionFormModal({
 
   const {
     register,
+    control,
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
@@ -189,12 +190,11 @@ export function PolicyVersionFormModal({
           </div>
         </div>
 
-        <TextAreaField
+        <RichTextField
           label="Inline Content (optional if a document is attached)"
           id="v-content"
-          error={errors.content?.message}
-          {...register("content")}
-          placeholder="Plain text content, if this version isn't a document upload…"
+          control={control}
+          name="content"
         />
 
         {fileError && <p className="text-sm text-red-600">{fileError}</p>}

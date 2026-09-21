@@ -11,7 +11,7 @@ import { Modal } from "../../../components/ui/Modal";
 import { Button } from "../../../components/ui/Button";
 import {
   TextField,
-  TextAreaField,
+  RichTextField,
   CheckboxField,
   SelectField,
 } from "../../../components/ui/FormField";
@@ -49,6 +49,7 @@ export function CourseFormModal({
 
   const {
     register,
+    control,
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
@@ -134,12 +135,7 @@ export function CourseFormModal({
             placeholder="e.g. workplace-safety-101"
           />
         </div>
-        <TextAreaField
-          label="Description"
-          id="description"
-          error={errors.description?.message}
-          {...register("description")}
-        />
+        <RichTextField label="Description" id="description" control={control} name="description" />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <SelectField
             label="Category"

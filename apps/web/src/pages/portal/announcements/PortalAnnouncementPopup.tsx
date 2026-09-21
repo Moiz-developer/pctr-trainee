@@ -11,6 +11,7 @@ import { ProtectedFileViewer } from "../courses/ProtectedFileViewer";
 import { usePdfModalSizing } from "../courses/pdfModalSizing";
 import { getDashboard } from "../../../services/api/dashboard";
 import { acknowledgeAnnouncement, dismissAnnouncement } from "../../../services/api/announcements";
+import { RichText } from "../../../components/ui/RichText";
 
 const PRIORITY_TONE: Record<AnnouncementPriority, BadgeTone> = {
   LOW: "neutral",
@@ -126,7 +127,7 @@ export function PortalAnnouncementPopup() {
           </div>
         </div>
 
-        <p className="whitespace-pre-wrap text-sm text-slate-700">{current.body}</p>
+        <RichText value={current.body} className="text-sm text-slate-700" />
 
         {(current.image_media_id || current.attachment_media_id) && (
           <div className="space-y-3 border-t border-slate-100 pt-3">

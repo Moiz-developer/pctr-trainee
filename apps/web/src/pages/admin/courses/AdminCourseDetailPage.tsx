@@ -31,6 +31,7 @@ import { CourseModulesPanel } from "./CourseModulesPanel";
 import { CourseAccessPanel } from "./CourseAccessPanel";
 import { AssessmentsPanel } from "./AssessmentsPanel";
 import { AdminCourseTabs, type AdminCourseTabDef } from "./AdminCourseTabs";
+import { RichText } from "../../../components/ui/RichText";
 
 const STATUS_TONE: Record<CourseStatus, BadgeTone> = {
   DRAFT: "neutral",
@@ -218,9 +219,10 @@ export function AdminCourseDetailPage() {
                       <h4 className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                         Description
                       </h4>
-                      <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
-                        {course.description ?? "No description provided."}
-                      </p>
+                      <RichText
+                        value={course.description ?? "No description provided."}
+                        className="mt-2 text-sm leading-relaxed text-slate-800"
+                      />
                     </section>
 
                     <section>

@@ -1,3 +1,6 @@
+import { lazy, Suspense } from "react";
+import { toEditorHtml } from "../../lib/richText";
+import { useController, type Control, type FieldValues, type Path } from "react-hook-form";
 import type {
   InputHTMLAttributes,
   ReactNode,
@@ -101,5 +104,58 @@ export function CheckboxField({
       </label>
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
     </div>
+  );
+}
+
+// CKEditor is large: load it only when a screen actually shows a rich text field.
+const RichTextEditor = lazy(() => import("./RichTextEditor"));
+
+/**
+ * Formatted-text field (CKEditor with the application's one toolbar; see RichTextEditor.tsx)
+ * for description/content fields. Bound to react-hook-form with `control` + `name`, in place of
+ * `register()` on a TextAreaField: the value stays the same string field (now HTML), so the
+ * form's validation and API payload are unchanged, and any error set on the field shows here.
+ * Show the saved value with <RichText>.
+ */
+export function RichTextField<T extends FieldValues>({
+  label,
+  id,
+  control,
+  name,
+  disabled,
+}: {
+  label: string;
+  id: string;
+  control: Control<T>;
+  name: Path<T>;
+  disabled?: boolean;
+}) {
+  const { field, fieldState } = useController({ control, name });
+
+  return (
+    <FieldShell label={label} htmlFor={id} error={fieldState.error?.message}>
+      {/* CKEditor stops the Escape it handles itself (closing a dropdown or the link balloon), so a
+          surrounding Modal only sees an Escape the editor left alone. This is a backstop for one it
+          handled without stopping: that must not also close the Modal and throw the edits away. */}
+      <div
+        id={id}
+        className="rich-text-editor"
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && event.defaultPrevented) event.stopPropagation();
+        }}
+      >
+        <Suspense
+          fallback={<div className="h-40 rounded-md border border-slate-300 bg-slate-50" />}
+        >
+          <RichTextEditor
+            value={typeof field.value === "string" ? toEditorHtml(field.value) : ""}
+            onChange={field.onChange}
+            onBlur={field.onBlur}
+            label={label}
+            disabled={disabled}
+          />
+        </Suspense>
+      </div>
+    </FieldShell>
   );
 }

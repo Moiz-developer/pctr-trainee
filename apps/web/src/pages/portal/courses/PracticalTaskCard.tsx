@@ -1,5 +1,6 @@
-import { CheckCircle2, Eye, Info, Loader2, Play } from "lucide-react";
+import { CheckCircle2, ClipboardList, Eye, Info, Loader2, Play } from "lucide-react";
 import { Card } from "../../../components/ui/Card";
+import { MediaImage } from "../../../components/shared/MediaImage";
 import {
   getGroupStatus,
   isVideoLesson,
@@ -7,6 +8,7 @@ import {
   type LessonEntry,
   type ModuleGroup,
 } from "./courseLessonMeta";
+import { RichText } from "../../../components/ui/RichText";
 
 // The reference's task status pill: yellow while not started, blue in progress, green when done.
 const STATUS_PILL_CLASS = {
@@ -72,8 +74,22 @@ export function PracticalTaskCard({
         <h4 className="text-base font-semibold leading-snug text-white">{group.title}</h4>
       </div>
 
+      {/* The module's own image (uploaded in the admin module form), when it has one — the same
+          cover the theory chapter cards show. A task without an image keeps the card as it was. */}
+      {group.imageMediaId && (
+        <div className="flex aspect-video w-full items-center justify-center overflow-hidden bg-gradient-to-br from-indigo-900 to-indigo-700 text-white/30">
+          <MediaImage
+            mediaAssetId={group.imageMediaId}
+            className="h-full w-full object-cover"
+            fallback={<ClipboardList className="h-12 w-12" aria-hidden="true" />}
+          />
+        </div>
+      )}
+
       <div className="flex flex-1 flex-col gap-4 p-5">
-        {group.description && <p className="text-sm text-slate-600">{group.description}</p>}
+        {group.description && (
+          <RichText value={group.description} className="text-sm text-slate-600" />
+        )}
 
         {resources.length > 0 && (
           <div>

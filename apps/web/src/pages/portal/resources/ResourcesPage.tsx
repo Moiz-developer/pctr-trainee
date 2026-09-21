@@ -21,6 +21,7 @@ import { ProtectedFileViewer } from "../courses/ProtectedFileViewer";
 import { usePdfModalSizing } from "../courses/pdfModalSizing";
 import { DOCX_MIME } from "../courses/DocumentLessonViewer";
 import { Chip, THUMBNAIL_BOX_CLASS } from "../courses/CourseCard";
+import { richTextToPlain } from "../../../lib/richText";
 
 const PDF_MIME = "application/pdf";
 
@@ -122,7 +123,9 @@ function ResourceCard({ item }: { item: ResourceResponse }) {
       <div className="flex flex-1 flex-col p-5">
         <h3 className="text-sm font-semibold leading-snug text-indigo-950">{item.title}</h3>
         {item.description && (
-          <p className="mt-1 line-clamp-2 text-xs text-slate-500">{item.description}</p>
+          <p className="mt-1 line-clamp-2 text-xs text-slate-500">
+            {richTextToPlain(item.description)}
+          </p>
         )}
 
         <div className="mt-3 flex flex-wrap items-center gap-2">

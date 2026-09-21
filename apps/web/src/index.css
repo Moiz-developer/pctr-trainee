@@ -276,3 +276,83 @@ input[type="file"]:hover::file-selector-button {
     display: none !important;
   }
 }
+
+/*
+ * Rich text: the CKEditor editing area (components/ui/RichTextEditor.tsx, wrapped by
+ * RichTextField) and the displayed value (components/ui/RichText.tsx) share one set of
+ * content styles — Tailwind's reset removes list bullets and heading sizes. The editor's UI
+ * is themed to match the plain form controls (same border, radius and focus ring).
+ */
+.rich-text,
+.rich-text-editor .ck-content {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--color-slate-700);
+  overflow-wrap: anywhere;
+}
+
+.rich-text > * + *,
+.rich-text-editor .ck-content > * + * {
+  margin-top: 0.75em;
+}
+
+.rich-text h2,
+.rich-text-editor .ck-content h2 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--color-indigo-950);
+}
+
+.rich-text h3,
+.rich-text-editor .ck-content h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--color-indigo-950);
+}
+
+.rich-text ul,
+.rich-text-editor .ck-content ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+}
+
+.rich-text ol,
+.rich-text-editor .ck-content ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+}
+
+.rich-text blockquote,
+.rich-text-editor .ck-content blockquote {
+  border-left: 3px solid var(--color-indigo-200);
+  padding-left: 1rem;
+  color: var(--color-slate-600);
+  font-style: italic;
+}
+
+.rich-text a,
+.rich-text-editor .ck-content a {
+  color: var(--color-indigo-700);
+  text-decoration: underline;
+}
+
+.rich-text-editor {
+  --ck-font-face: inherit;
+  --ck-font-size-base: 0.875rem;
+  --ck-border-radius: 0.375rem;
+  --ck-color-base-border: var(--color-slate-300);
+  --ck-color-focus-border: var(--color-indigo-900);
+  --ck-focus-ring: 1px solid var(--color-indigo-900);
+  --ck-color-toolbar-border: var(--color-slate-300);
+  --ck-color-button-on-background: var(--color-indigo-50);
+  --ck-color-button-on-color: var(--color-indigo-900);
+}
+
+.rich-text-editor .ck-editor__editable_inline {
+  min-height: 9rem;
+  max-height: 24rem;
+  overflow-y: auto;
+  padding: 0.5rem 0.75rem;
+}

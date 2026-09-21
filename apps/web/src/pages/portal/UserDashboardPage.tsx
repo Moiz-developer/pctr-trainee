@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -19,6 +20,7 @@ import { CourseProgressInline, ProgressBar } from "../../components/shared/Cours
 import { useAuth } from "../../auth/useAuth";
 import { getDashboard } from "../../services/api/dashboard";
 import type { AnnouncementPriority } from "@internal-training/shared";
+import { richTextToPlain } from "../../lib/richText";
 
 const PRIORITY_TONE: Record<AnnouncementPriority, BadgeTone> = {
   LOW: "neutral",
@@ -56,6 +58,26 @@ const QUICK_ACCESS: { to: string; title: string; description: string; icon: Luci
 ];
 
 /**
+ * A stat tile for this dashboard: the shared StatCard with the icon in a small rounded tile
+ * (instead of StatCard's large faint corner glyph). The tile takes the card's own text colour
+ * via `currentColor`, so it stays legible when the card's hover fill slides in. Local to this
+ * page because StatCard is also used by the admin dashboard.
+ */
+function DashboardStat({ icon: Icon, children }: { icon: LucideIcon; children: ReactNode }) {
+  return (
+    <StatCard className="card-slide-fill-ltr">
+      <span
+        className="absolute -bottom-2 right-0 flex h-12 w-12 items-center justify-center rounded-xl bg-current/10 ring-1 ring-current/20"
+        aria-hidden="true"
+      >
+        <Icon className="h-6 w-6" strokeWidth={1.75} />
+      </span>
+      <div className="pr-16">{children}</div>
+    </StatCard>
+  );
+}
+
+/**
  * User Dashboard (SYSTEM_PLAN.md §26/§40 Phase 3: "dashboard real data
  * (hours, progress, continue learning)"; §26: "aggregates hours, progress,
  * announcements, continue-learning"). Every figure below comes from
@@ -91,15 +113,15 @@ export function UserDashboardPage() {
       <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="space-y-6">
           <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-            <StatCard icon={GraduationCap} className="card-slide-fill-ltr">
-              <p className="text-xs">Trainer ID</p>
-              <p className="mt-2 truncate text-2xl font-bold sm:text-3xl">
+            <DashboardStat icon={GraduationCap}>
+              <p className="text-sm font-medium opacity-90">Trainer ID</p>
+              <p className="mt-2 truncate text-2xl font-bold tracking-tight sm:text-3xl">
                 {identity.data ? identity.data.employeeId : "—"}
               </p>
-            </StatCard>
-            <StatCard icon={Hourglass} className="card-slide-fill-ltr">
-              <p className="text-xs">Training Hours</p>
-              <p className="mt-2 text-2xl font-bold sm:text-3xl">
+            </DashboardStat>
+            <DashboardStat icon={Hourglass}>
+              <p className="text-sm font-medium opacity-90">Training Hours</p>
+              <p className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
                 {query.data
                   ? `${query.data.hours.consumed_hours}${
                       query.data.hours.allocated_hours > 0
@@ -108,10 +130,10 @@ export function UserDashboardPage() {
                     }h`
                   : "—"}
               </p>
-            </StatCard>
-            <StatCard icon={BookOpen} className="card-slide-fill-ltr">
-              <p className="text-xs">Courses Assigned</p>
-              <p className="mt-2 text-2xl font-bold sm:text-3xl">
+            </DashboardStat>
+            <DashboardStat icon={BookOpen}>
+              <p className="text-sm font-medium opacity-90">Courses Assigned</p>
+              <p className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
                 {query.data ? query.data.courses.total_courses : "—"}
               </p>
               {query.data && (
@@ -120,14 +142,16 @@ export function UserDashboardPage() {
                   progress
                 </p>
               )}
-            </StatCard>
+            </DashboardStat>
           </div>
 
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             <Card>
-              <div className="flex items-center gap-2 text-indigo-950">
-                <BookOpen className="h-5 w-5" aria-hidden="true" />
-                <h3 className="text-sm font-semibold">Theoretical Training Progress</h3>
+              <div className="flex items-center gap-3 text-indigo-950">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-900">
+                  <BookOpen className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
+                </span>
+                <h3 className="text-base font-semibold">Theoretical Training Progress</h3>
               </div>
               <div className="mt-4">
                 <ProgressBar
@@ -137,9 +161,11 @@ export function UserDashboardPage() {
               </div>
             </Card>
             <Card>
-              <div className="flex items-center gap-2 text-indigo-950">
-                <Briefcase className="h-5 w-5" aria-hidden="true" />
-                <h3 className="text-sm font-semibold">Practical Training Progress</h3>
+              <div className="flex items-center gap-3 text-indigo-950">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-900">
+                  <Briefcase className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
+                </span>
+                <h3 className="text-base font-semibold">Practical Training Progress</h3>
               </div>
               <div className="mt-4">
                 <ProgressBar
@@ -155,19 +181,18 @@ export function UserDashboardPage() {
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 2xl:grid-cols-4">
               {QUICK_ACCESS.map(({ to, title, description, icon: Icon }) => (
                 <Card key={to} flush className="card-slide-scope flex flex-col">
-                  <div className="card-slide-section flex h-32 items-center justify-center bg-gradient-to-br from-indigo-900 to-indigo-700 text-white/30">
-                    <Icon className="h-14 w-14" aria-hidden="true" />
+                  <div className="card-slide-section flex h-32 items-center justify-center bg-gradient-to-br from-indigo-900 to-indigo-700 text-white/90">
+                    <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-current/10 ring-1 ring-current/20">
+                      <Icon className="h-10 w-10" strokeWidth={1.5} aria-hidden="true" />
+                    </span>
                   </div>
                   <div className="flex flex-1 flex-col p-5">
-                    <h4 className="flex items-center gap-2 text-base font-semibold text-indigo-950">
-                      <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                      {title}
-                    </h4>
-                    <p className="mt-1.5 flex-1 text-xs text-slate-500">{description}</p>
+                    <h4 className="text-lg font-semibold leading-snug text-indigo-950">{title}</h4>
+                    <p className="mt-1.5 flex-1 text-sm leading-relaxed text-slate-500">
+                      {description}
+                    </p>
                     <div className="mt-4">
-                      <Button className="px-3 py-1.5 text-xs" onClick={() => void navigate(to)}>
-                        See More
-                      </Button>
+                      <Button onClick={() => void navigate(to)}>See More</Button>
                     </div>
                   </div>
                 </Card>
@@ -300,7 +325,7 @@ export function UserDashboardPage() {
                             )}
                           </span>
                           <span className="mt-1 line-clamp-2 text-xs text-slate-500">
-                            {item.body}
+                            {richTextToPlain(item.body)}
                           </span>
                           {item.published_at && (
                             <span className="mt-1 block text-xs text-slate-400">

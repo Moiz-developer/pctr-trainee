@@ -31,6 +31,7 @@ import {
   type LessonEntry,
   type ModuleGroup,
 } from "./courseLessonMeta";
+import { RichText } from "../../../components/ui/RichText";
 
 /**
  * Renders a lesson's actual content for the two content types that have
@@ -42,9 +43,10 @@ import {
 function LessonContent({ lesson }: { lesson: CourseDetailLesson }) {
   if (lesson.content_type === "TEXT") {
     return (
-      <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
-        {lesson.text_content ?? "This lesson has no content yet."}
-      </p>
+      <RichText
+        value={lesson.text_content ?? "This lesson has no content yet."}
+        className="text-sm leading-relaxed text-slate-700"
+      />
     );
   }
   if (lesson.content_type === "EXTERNAL_LINK" && lesson.external_url) {
@@ -318,7 +320,7 @@ export function LessonViewerModal({
           </div>
 
           {lesson.description && (
-            <p className="mt-3 text-sm text-slate-600">{lesson.description}</p>
+            <RichText value={lesson.description} className="mt-3 text-sm text-slate-600" />
           )}
 
           {progressError != null && (

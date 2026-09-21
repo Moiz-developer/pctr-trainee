@@ -10,6 +10,7 @@ import { listUsers } from "../../services/api/users";
 import { getCourseProgressSummary } from "../../services/api/courses";
 import { listAdminQueries } from "../../services/api/adminQueries";
 import { listAdminAnnouncements } from "../../services/api/adminAnnouncements";
+import { richTextToPlain } from "../../lib/richText";
 
 const PRIORITY_TONE: Record<AnnouncementPriority, BadgeTone> = {
   LOW: "neutral",
@@ -129,7 +130,9 @@ export function AdminDashboardPage() {
                         <p className="truncate text-sm font-medium text-slate-900">{item.title}</p>
                         <Badge tone={PRIORITY_TONE[item.priority]}>{item.priority}</Badge>
                       </div>
-                      <p className="mt-1 line-clamp-2 text-xs text-slate-500">{item.body}</p>
+                      <p className="mt-1 line-clamp-2 text-xs text-slate-500">
+                        {richTextToPlain(item.body)}
+                      </p>
                       {item.published_at && (
                         <p className="mt-1 text-xs text-slate-400">
                           {new Date(item.published_at).toLocaleString()}

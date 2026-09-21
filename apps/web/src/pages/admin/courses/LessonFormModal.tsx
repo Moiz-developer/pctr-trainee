@@ -11,7 +11,7 @@ import { Modal } from "../../../components/ui/Modal";
 import { Button } from "../../../components/ui/Button";
 import {
   TextField,
-  TextAreaField,
+  RichTextField,
   SelectField,
   CheckboxField,
 } from "../../../components/ui/FormField";
@@ -49,6 +49,7 @@ export function LessonFormModal({
 
   const {
     register,
+    control,
     handleSubmit,
     reset,
     watch,
@@ -141,11 +142,11 @@ export function LessonFormModal({
           error={errors.title?.message}
           {...register("title")}
         />
-        <TextAreaField
+        <RichTextField
           label="Description"
           id="lesson-description"
-          error={errors.description?.message}
-          {...register("description")}
+          control={control}
+          name="description"
         />
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -200,11 +201,11 @@ export function LessonFormModal({
           </div>
         )}
         {contentType === "TEXT" && (
-          <TextAreaField
+          <RichTextField
             label="Text content"
             id="lesson-text-content"
-            error={errors.text_content?.message}
-            {...register("text_content")}
+            control={control}
+            name="text_content"
           />
         )}
         {(contentType === "VIDEO" ||

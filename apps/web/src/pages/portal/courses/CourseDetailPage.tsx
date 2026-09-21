@@ -22,6 +22,7 @@ import { PracticalTaskCard } from "./PracticalTaskCard";
 import { CourseChapterTabs } from "./CourseChapterTabs";
 import { LessonViewerModal } from "./LessonViewerModal";
 import { isGroupCompleted, type LessonEntry, type ModuleGroup } from "./courseLessonMeta";
+import { RichText } from "../../../components/ui/RichText";
 
 type ChapterFilter = "ALL" | "COMPLETED" | "INCOMPLETE";
 type CourseTab = "training" | "practical";
@@ -301,9 +302,7 @@ export function CourseDetailPage() {
                 )}
               </div>
               {course.description && (
-                <p className="mt-3 whitespace-pre-wrap text-sm text-slate-600">
-                  {course.description}
-                </p>
+                <RichText value={course.description} className="mt-3 text-sm text-slate-600" />
               )}
             </div>
 

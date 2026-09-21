@@ -11,6 +11,8 @@ import { listPolicies } from "../../../services/api/policies";
 import { PdfLessonViewer } from "../courses/PdfLessonViewer";
 import { usePdfModalSizing } from "../courses/pdfModalSizing";
 import { DocumentLessonViewer } from "../courses/DocumentLessonViewer";
+import { RichText } from "../../../components/ui/RichText";
+import { richTextToPlain } from "../../../lib/richText";
 
 const PDF_MIME = "application/pdf";
 
@@ -61,7 +63,7 @@ function ViewButton({ version }: { version: PolicyResponse["active_version"] }) 
             />
           )
         ) : (
-          <p className="whitespace-pre-wrap text-sm text-slate-700">{version.content}</p>
+          <RichText value={version.content ?? ""} className="text-sm text-slate-700" />
         )}
       </Modal>
     </>
@@ -125,7 +127,9 @@ export function PoliciesPage() {
                           <div className="min-w-0">
                             <p className="font-medium text-slate-900">{item.title}</p>
                             {item.description && (
-                              <p className="mt-0.5 text-xs text-slate-500">{item.description}</p>
+                              <p className="mt-0.5 text-xs text-slate-500">
+                                {richTextToPlain(item.description)}
+                              </p>
                             )}
                           </div>
                         </div>

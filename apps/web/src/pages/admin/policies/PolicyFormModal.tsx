@@ -9,7 +9,7 @@ import {
 } from "@internal-training/shared";
 import { Modal } from "../../../components/ui/Modal";
 import { Button } from "../../../components/ui/Button";
-import { TextField, TextAreaField } from "../../../components/ui/FormField";
+import { TextField, RichTextField } from "../../../components/ui/FormField";
 import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { createPolicy, updatePolicy } from "../../../services/api/adminPolicies";
@@ -41,6 +41,7 @@ export function PolicyFormModal({
 
   const {
     register,
+    control,
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
@@ -111,11 +112,11 @@ export function PolicyFormModal({
           {...register("category")}
           placeholder="Optional"
         />
-        <TextAreaField
+        <RichTextField
           label="Description"
           id="p-description"
-          error={errors.description?.message}
-          {...register("description")}
+          control={control}
+          name="description"
         />
 
         <div className="flex justify-end gap-2 pt-2">

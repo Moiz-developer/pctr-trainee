@@ -7,7 +7,7 @@ import { UploadCloud } from "lucide-react";
 import type { CreateResourceRequest, ResourceResponse } from "@internal-training/shared";
 import { Modal } from "../../../components/ui/Modal";
 import { Button } from "../../../components/ui/Button";
-import { TextField, TextAreaField, SelectField, CheckboxField } from "../../../components/ui/FormField";
+import { TextField, RichTextField, SelectField, CheckboxField } from "../../../components/ui/FormField";
 import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { uploadResourceFile } from "../../../services/api/media";
@@ -114,6 +114,7 @@ export function ResourceFormModal({
 
   const {
     register,
+    control,
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
@@ -246,11 +247,11 @@ export function ResourceFormModal({
         }
       >
         <TextField label="Title" id="r-title" error={errors.title?.message} {...register("title")} />
-        <TextAreaField
+        <RichTextField
           label="Description"
           id="r-description"
-          error={errors.description?.message}
-          {...register("description")}
+          control={control}
+          name="description"
         />
         <SelectField
           label="Category"

@@ -9,7 +9,7 @@ import { Modal } from "../../../components/ui/Modal";
 import { Button } from "../../../components/ui/Button";
 import {
   TextField,
-  TextAreaField,
+  RichTextField,
   SelectField,
   CheckboxField,
 } from "../../../components/ui/FormField";
@@ -95,6 +95,7 @@ export function AnnouncementFormModal({
 
   const {
     register,
+    control,
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
@@ -190,12 +191,7 @@ export function AnnouncementFormModal({
         onSubmit={(event) => void handleSubmit((values) => mutation.mutate(values))(event)}
       >
         <TextField label="Title" id="a-title" error={errors.title?.message} {...register("title")} />
-        <TextAreaField
-          label="Description"
-          id="a-body"
-          error={errors.body?.message}
-          {...register("body")}
-        />
+        <RichTextField label="Description" id="a-body" control={control} name="body" />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <SelectField
             label="Priority"

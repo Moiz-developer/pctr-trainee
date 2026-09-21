@@ -15,6 +15,7 @@ import {
   dismissAnnouncement,
   getAnnouncementDetail,
 } from "../../../services/api/announcements";
+import { RichText } from "../../../components/ui/RichText";
 
 const PRIORITY_TONE: Record<AnnouncementPriority, BadgeTone> = {
   LOW: "neutral",
@@ -158,7 +159,7 @@ export function AnnouncementDetailModal({
               </div>
             </div>
 
-            <p className="whitespace-pre-wrap text-sm text-slate-700">{announcement.body}</p>
+            <RichText value={announcement.body} className="text-sm text-slate-700" />
 
             {(announcement.image_media_id || announcement.attachment_media_id) && (
               <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-3">

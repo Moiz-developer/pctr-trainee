@@ -17,6 +17,7 @@ import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
 import { listAnnouncements } from "../../../services/api/announcements";
 import { AnnouncementDetailModal } from "./AnnouncementDetailModal";
+import { richTextToPlain } from "../../../lib/richText";
 
 const PRIORITY_TONE: Record<AnnouncementPriority, BadgeTone> = {
   LOW: "neutral",
@@ -133,7 +134,7 @@ export function AnnouncementsPage() {
                   </div>
 
                   <p className="mt-3 line-clamp-3 flex-1 break-words text-sm leading-relaxed text-slate-600">
-                    {item.body}
+                    {richTextToPlain(item.body)}
                   </p>
 
                   <div className="mt-4 flex items-center justify-between gap-3 border-t border-indigo-100 pt-3">

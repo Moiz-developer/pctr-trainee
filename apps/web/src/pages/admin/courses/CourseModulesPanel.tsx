@@ -14,6 +14,7 @@ import { listCourseModules, updateCourseModule } from "../../../services/api/cou
 import { ModuleFormModal } from "./ModuleFormModal";
 import { LessonsPanel } from "./LessonsPanel";
 import { ReorderControls, RowIconButton } from "./ContentRowControls";
+import { richTextToPlain } from "../../../lib/richText";
 
 /**
  * SYSTEM_PLAN.md §17: modules use `is_active` to retire content (no delete
@@ -167,7 +168,7 @@ export function CourseModulesPanel({ courseId }: { courseId: string }) {
                         </span>
                         {module.description && (
                           <span className="mt-0.5 block truncate text-xs text-slate-500">
-                            {module.description}
+                            {richTextToPlain(module.description)}
                           </span>
                         )}
                       </span>

@@ -7,6 +7,7 @@ import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
 import { CourseStatusBadge, ProgressBar } from "../../../components/shared/CourseProgressSummary";
 import { getMediaAccessUrl } from "../../../services/api/media";
+import { richTextToPlain } from "../../../lib/richText";
 
 const ACTION_LABEL: Record<CourseProgressStatus, string> = {
   NOT_STARTED: "Start Course",
@@ -86,7 +87,9 @@ export function CourseCard({
       <div className="flex flex-1 flex-col p-5">
         <h3 className="text-sm font-semibold leading-snug text-indigo-950">{course.title}</h3>
         {course.description && (
-          <p className="mt-1 line-clamp-2 text-xs text-slate-500">{course.description}</p>
+          <p className="mt-1 line-clamp-2 text-xs text-slate-500">
+            {richTextToPlain(course.description)}
+          </p>
         )}
 
         <div className="mt-3">
