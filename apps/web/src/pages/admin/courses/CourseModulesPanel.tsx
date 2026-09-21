@@ -7,6 +7,7 @@ import { Button } from "../../../components/ui/Button";
 import { Badge } from "../../../components/ui/Badge";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
 import { ConfirmDialog } from "../../../components/shared/ConfirmDialog";
+import { MediaImage } from "../../../components/shared/MediaImage";
 import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { listCourseModules, updateCourseModule } from "../../../services/api/courseModules";
@@ -138,6 +139,15 @@ export function CourseModulesPanel({ courseId }: { courseId: string }) {
                           <ChevronRight className="h-4 w-4" />
                         )}
                       </span>
+                      {module.image_media_id && (
+                        <span className="h-10 w-14 shrink-0 overflow-hidden rounded bg-slate-100">
+                          <MediaImage
+                            mediaAssetId={module.image_media_id}
+                            className="h-full w-full object-cover"
+                            fallback={null}
+                          />
+                        </span>
+                      )}
                       <span className="min-w-0 flex-1">
                         <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                           <Folder className="h-4 w-4 shrink-0 text-indigo-400" aria-hidden="true" />

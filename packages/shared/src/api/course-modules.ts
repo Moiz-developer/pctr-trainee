@@ -19,6 +19,9 @@ import { apiPaginatedSchema } from "./common.js";
 export const createCourseModuleRequestSchema = z.object({
   title: z.string().min(1),
   description: z.string().min(1).nullable().optional(),
+  // Optional cover image: a `course-media` media asset id (uploaded first via
+  // POST /media/upload-url + /media/confirm, purpose `course-media`).
+  image_media_id: idSchema.nullable().optional(),
   sort_order: z.number().int(),
 });
 export type CreateCourseModuleRequest = z.infer<typeof createCourseModuleRequestSchema>;
@@ -33,6 +36,8 @@ export type CreateCourseModuleRequest = z.infer<typeof createCourseModuleRequest
 export const updateCourseModuleRequestSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().min(1).nullable().optional(),
+  // Omit to keep the current image, an id to replace it, `null` to remove it.
+  image_media_id: idSchema.nullable().optional(),
   sort_order: z.number().int().optional(),
   is_active: z.boolean().optional(),
 });
@@ -44,6 +49,7 @@ export const courseModuleResponseSchema = z.object({
   course_id: idSchema,
   title: z.string(),
   description: z.string().nullable(),
+  image_media_id: idSchema.nullable(),
   sort_order: z.number().int(),
   is_active: z.boolean(),
   created_at: isoDateStringSchema,

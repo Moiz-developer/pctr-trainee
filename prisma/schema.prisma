@@ -283,12 +283,16 @@ model CourseModule {
   courseId    String   @map("course_id") @db.Uuid
   title       String
   description String?
+  // Optional cover image (course-media bucket), shown on module cards/lists.
+  // FK → media_assets(id) ON DELETE SET NULL, like courses.thumbnail_media_id.
+  imageMediaId String?  @map("image_media_id") @db.Uuid
   sortOrder   Int      @map("sort_order")
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   course  Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  image   MediaAsset?    @relation("CourseModuleImage", fields: [imageMediaId], references: [id], onDelete: SetNull)
   lessons CourseLesson[]
 
   @@index([courseId, sortOrder])
@@ -405,6 +409,7 @@ model MediaAsset {
 
   uploadedByProfile       Profile?          @relation(fields: [uploadedBy], references: [id], onDelete: SetNull)
   courseThumbnails        Course[]          @relation("CourseThumbnail")
+  courseModuleImages      CourseModule[]    @relation("CourseModuleImage")
   lessons                 CourseLesson[]
   queryAttachments        QueryAttachment[]
   resources               Resource[]

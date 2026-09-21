@@ -7,7 +7,8 @@ import type {
 } from "@internal-training/shared";
 import { prisma } from "../../lib/prisma.js";
 import type { CourseModule } from "../../generated/prisma/client.js";
-import { NotFoundError } from "../../lib/errors.js";
+import { NotFoundError, ValidationError } from "../../lib/errors.js";
+import { COURSE_MEDIA_BUCKET } from "../media/media.constants.js";
 
 function toResponse(module: CourseModule): CourseModuleResponse {
   return {
@@ -15,6 +16,7 @@ function toResponse(module: CourseModule): CourseModuleResponse {
     course_id: module.courseId,
     title: module.title,
     description: module.description,
+    image_media_id: module.imageMediaId,
     sort_order: module.sortOrder,
     is_active: module.isActive,
     created_at: module.createdAt.toISOString(),
@@ -26,6 +28,19 @@ async function assertCourseExists(courseId: string): Promise<void> {
   const course = await prisma.course.findUnique({ where: { id: courseId }, select: { id: true } });
   if (!course) {
     throw new NotFoundError(`No course exists with id "${courseId}".`);
+  }
+}
+
+/** A module image must be an uploaded `course-media` asset that is actually an image. */
+async function assertModuleImageAsset(mediaAssetId: string): Promise<void> {
+  const media = await prisma.mediaAsset.findUnique({ where: { id: mediaAssetId } });
+  if (!media || media.bucket !== COURSE_MEDIA_BUCKET) {
+    throw new ValidationError({
+      image_media_id: [`No course media exists with id "${mediaAssetId}".`],
+    });
+  }
+  if (!media.mimeType.startsWith("image/")) {
+    throw new ValidationError({ image_media_id: ["The module image must be an image file."] });
   }
 }
 
@@ -50,12 +65,14 @@ export async function createCourseModule(
   input: CreateCourseModuleRequest,
 ): Promise<CourseModuleResponse> {
   await assertCourseExists(courseId);
+  if (input.image_media_id) await assertModuleImageAsset(input.image_media_id);
 
   const module = await prisma.courseModule.create({
     data: {
       courseId,
       title: input.title,
       description: input.description ?? null,
+      imageMediaId: input.image_media_id ?? null,
       sortOrder: input.sort_order,
     },
   });
@@ -113,12 +130,14 @@ export async function updateCourseModule(
 ): Promise<CourseModuleResponse> {
   await assertCourseExists(courseId);
   await findOwnedModule(courseId, id);
+  if (input.image_media_id) await assertModuleImageAsset(input.image_media_id);
 
   const module = await prisma.courseModule.update({
     where: { id },
     data: {
       ...(input.title !== undefined ? { title: input.title } : {}),
       ...(input.description !== undefined ? { description: input.description } : {}),
+      ...(input.image_media_id !== undefined ? { imageMediaId: input.image_media_id } : {}),
       ...(input.sort_order !== undefined ? { sortOrder: input.sort_order } : {}),
       ...(input.is_active !== undefined ? { isActive: input.is_active } : {}),
     },

@@ -88,6 +88,7 @@ export const courseDetailModuleSchema = z.object({
   id: idSchema,
   title: z.string(),
   description: z.string().nullable(),
+  image_media_id: idSchema.nullable(),
   sort_order: z.number().int(),
   lessons: z.array(courseDetailLessonSchema),
 });

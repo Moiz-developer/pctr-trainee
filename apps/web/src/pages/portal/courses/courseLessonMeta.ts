@@ -51,6 +51,7 @@ export interface ModuleGroup {
   moduleId: string;
   title: string;
   description: string | null;
+  imageMediaId: string | null;
   entries: LessonEntry[];
 }
 

@@ -440,13 +440,39 @@ export async function getMediaAccessUrl(
           select: { id: true },
         });
 
+  // A module's cover image: same shape as the course-thumbnail path above —
+  // a course.content.manage holder may preview any module's image; everyone
+  // else only an ACTIVE module of a PUBLISHED course they have effective
+  // access to (the exact predicate the course detail endpoint serves it under).
+  const reachableViaModuleImage =
+    reachableViaLesson ||
+    reachableViaQuery ||
+    reachableViaResource ||
+    reachableViaPolicyVersion ||
+    reachableViaAnnouncement ||
+    reachableViaCourseThumbnail
+      ? null
+      : await prisma.courseModule.findFirst({
+          where: {
+            imageMediaId: mediaAssetId,
+            ...(canManageCourseContent
+              ? {}
+              : {
+                  isActive: true,
+                  course: { status: "PUBLISHED", ...effectiveCourseAccessFilter(userId) },
+                }),
+          },
+          select: { id: true },
+        });
+
   if (
     !reachableViaLesson &&
     !reachableViaQuery &&
     !reachableViaResource &&
     !reachableViaPolicyVersion &&
     !reachableViaAnnouncement &&
-    !reachableViaCourseThumbnail
+    !reachableViaCourseThumbnail &&
+    !reachableViaModuleImage
   ) {
     // The asset exists but the caller cannot legitimately view it through
     // any path they're authorized for. 403 (not 404) — the asset genuinely

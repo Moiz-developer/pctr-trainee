@@ -211,6 +211,7 @@ export function CourseDetailPage() {
         moduleId: module.id,
         title: module.title,
         description: module.description,
+        imageMediaId: module.image_media_id,
         entries: module.lessons
           .filter((lesson) => lesson.classification === classification)
           .map(buildEntry),

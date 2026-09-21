@@ -1,6 +1,7 @@
 import { BookOpen, CheckCircle2, Loader2 } from "lucide-react";
 import { Card } from "../../../components/ui/Card";
 import { Badge } from "../../../components/ui/Badge";
+import { MediaImage } from "../../../components/shared/MediaImage";
 import {
   CONTENT_TYPE_META,
   isGroupCompleted,
@@ -62,9 +63,9 @@ function LessonChip({
  * One theoretical chapter (a module's THEORETICAL lessons) as a card, per
  * theory.png: cover, title, Completed/Incompleted pill, then one chip per
  * lesson. The pill is derived from the real per-lesson progress the page
- * already loads — it is never stored or computed separately. The reference
- * shows a per-chapter photo; modules have no image field, so this uses the
- * branded placeholder the course catalogue cards use.
+ * already loads — it is never stored or computed separately. The cover is the
+ * module's own image when one was uploaded, otherwise the branded placeholder
+ * the course catalogue cards use.
  */
 export function CourseChapterCard({
   group,
@@ -78,8 +79,12 @@ export function CourseChapterCard({
 
   return (
     <Card flush className="flex flex-col">
-      <div className="flex h-40 items-center justify-center bg-gradient-to-br from-indigo-900 to-indigo-700 text-white/30">
-        <BookOpen className="h-12 w-12" aria-hidden="true" />
+      <div className="flex h-40 items-center justify-center overflow-hidden bg-gradient-to-br from-indigo-900 to-indigo-700 text-white/30">
+        <MediaImage
+          mediaAssetId={group.imageMediaId}
+          className="h-full w-full object-cover"
+          fallback={<BookOpen className="h-12 w-12" aria-hidden="true" />}
+        />
       </div>
       <div className="flex flex-1 flex-col p-5">
         <h4 className="min-h-10 text-sm font-semibold leading-snug text-indigo-950">

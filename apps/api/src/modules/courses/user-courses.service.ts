@@ -215,6 +215,7 @@ export async function getUserCourseDetail(userId: string, courseId: string): Pro
       id: module.id,
       title: module.title,
       description: module.description,
+      image_media_id: module.imageMediaId,
       sort_order: module.sortOrder,
       lessons: module.lessons.map((lesson) => ({
         id: lesson.id,
