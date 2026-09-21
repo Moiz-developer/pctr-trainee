@@ -14,7 +14,7 @@ import { ApiClientError } from "../../../services/api/client";
 import { getSafeHttpsUrl } from "../../../lib/safeUrl";
 import { VideoLessonPlayer } from "./VideoLessonPlayer";
 import { PdfLessonViewer } from "./PdfLessonViewer";
-import { PDF_LESSON_MODAL, usePdfModalSizing, type PdfViewerSizingProps } from "./pdfModalSizing";
+import { usePdfModalSizing, type PdfViewerSizingProps } from "./pdfModalSizing";
 import { DocumentLessonViewer, DOCX_MIME } from "./DocumentLessonViewer";
 import { ExternalVideoPlayer, getEmbeddableVideoUrl } from "./ExternalVideoPlayer";
 import { PresentationLessonViewer } from "./PresentationLessonViewer";
@@ -223,7 +223,7 @@ export function LessonViewerModal({
   onClose: () => void;
 }) {
   // Sizes the modal to the open PDF's page (shared with every PDF modal, see pdfModalSizing.ts).
-  const pdfFit = usePdfModalSizing(PDF_LESSON_MODAL);
+  const pdfFit = usePdfModalSizing();
   const entry = group?.entries.find((e) => e.lesson.id === openLessonId);
   if (!group || !entry) return null;
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 import {
@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { ApiClientError } from "../../../services/api/client";
 import { getMediaAccessUrl } from "../../../services/api/media";
+import { measurePdfModalChrome, type PdfPageFit } from "./pdfModalSizing";
 
 /** How each page is sized: to the viewer's width, to the whole visible area, or a manual zoom. */
 type FitMode = "width" | "page" | "custom";
@@ -141,23 +142,23 @@ const CONTROL_BUTTON_CLASS =
  */
 export function PdfLessonViewer({
   mediaAssetId,
-  onPageAspect,
+  onPageFit,
   reservedHeightPx,
 }: {
   mediaAssetId: string;
-  /** Opt-in: cap the scroll area at the viewport height minus this many px (a modal sizing itself to the PDF) instead of the shared 70vh. */
+  /** Opt-in (fed back from the reported fit): cap the scroll area at the viewport height minus this many px instead of the shared 70vh. */
   reservedHeightPx?: number;
-  /** Called once per loaded document with its first page's aspect ratio (width / height, rotation included), and with null when this viewer goes away, so a host modal can size itself to it. */
-  onPageAspect?: (aspect: number | null) => void;
+  /** Called once the first page is on screen inside a Modal with its aspect ratio and the modal's measured chrome (pdfModalSizing.ts), and with null when this viewer goes away, so the modal can size itself to the PDF. Not called outside a Modal. */
+  onPageFit?: (fit: PdfPageFit | null) => void;
 }) {
-  const onPageAspectRef = useRef(onPageAspect);
+  const onPageFitRef = useRef(onPageFit);
   useEffect(() => {
-    onPageAspectRef.current = onPageAspect;
+    onPageFitRef.current = onPageFit;
   });
   // Tell the host modal this viewer is gone (hidden, lesson switched, modal closed), so it
   // drops back to its normal size. Unmount only: a refreshed signed URL must not flicker it.
   useEffect(() => {
-    const report = onPageAspectRef;
+    const report = onPageFitRef;
     return () => report.current?.(null);
   }, []);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -167,6 +168,7 @@ export function PdfLessonViewer({
   const [view, setView] = useState({ width: 0, height: 0 });
   const [pageNum, setPageNum] = useState(1);
   const [numPages, setNumPages] = useState<number | null>(null);
+  const [firstAspect, setFirstAspect] = useState<number | null>(null);
   const [fitMode, setFitMode] = useState<FitMode>("width");
   const [customScale, setCustomScale] = useState(1);
   const [displayScale, setDisplayScale] = useState(1);
@@ -224,6 +226,17 @@ export function PdfLessonViewer({
     };
   }, [wrapperEl, reservedHeightPx]);
 
+  // Once the first page is on screen inside a Modal, tell it the page's shape and how much of
+  // the modal is chrome, so it can size itself to the PDF (pdfModalSizing.ts). Layout effect:
+  // the modal resizes before paint. Measuring needs the visible scroll area and toolbar; the
+  // result does not depend on the modal's or the reading area's current size, so this cannot
+  // feed back on itself.
+  useLayoutEffect(() => {
+    if (!wrapperEl || isLoadingDoc || !numPages || !firstAspect) return;
+    const chrome = measurePdfModalChrome(wrapperEl);
+    if (chrome) onPageFitRef.current?.({ aspect: firstAspect, ...chrome });
+  }, [wrapperEl, isLoadingDoc, numPages, firstAspect]);
+
   // Load the document once a signed URL is available. Re-runs if the
   // lesson (and therefore the signed URL) changes.
   useEffect(() => {
@@ -239,6 +252,7 @@ export function PdfLessonViewer({
       setIsLoadingDoc(true);
       setLoadFailure(null);
       setNumPages(null);
+      setFirstAspect(null);
       setPageNum(1);
       setFitMode("width");
       let stage: "component" | "document" = "component";
@@ -265,10 +279,10 @@ export function PdfLessonViewer({
         }
         pdfDocRef.current = doc;
         linkRefreshedRef.current = false;
-        // Report the first page's aspect ratio (rotation included) before the first render.
+        // The first page's shape (rotation included), for sizing a host modal to it.
         const first = (await doc.getPage(1)).getViewport({ scale: 1 });
         if (cancelled) return;
-        onPageAspectRef.current?.(first.width / first.height);
+        setFirstAspect(first.width / first.height);
         setNumPages(doc.numPages);
       } catch (error) {
         if (cancelled) return;
@@ -437,7 +451,10 @@ export function PdfLessonViewer({
               ? `${VIEW_MAX_HEIGHT_VH}vh`
               : `calc(100vh - ${reservedHeightPx}px)`,
         }}
-        className={`overflow-auto rounded-lg border border-slate-200 [scrollbar-gutter:stable] ${isLoadingDoc ? "hidden" : ""}`}
+        // A reserved gutter keeps the width (and so the page size) from changing when a scrollbar
+        // appears. In a modal it is reserved on both edges, so the page stays centred; the extra
+        // width is part of the measured chrome (pdfModalSizing.ts).
+        className={`overflow-auto rounded-lg border border-slate-200 ${onPageFit ? "[scrollbar-gutter:stable_both-edges]" : "[scrollbar-gutter:stable]"} ${isLoadingDoc ? "hidden" : ""}`}
       >
         <canvas ref={canvasRef} className="mx-auto block" />
       </div>

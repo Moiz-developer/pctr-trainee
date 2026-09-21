@@ -9,11 +9,7 @@ import { RemoteDataView } from "../../../components/shared/RemoteDataView";
 import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { ProtectedFileViewer } from "../courses/ProtectedFileViewer";
-import {
-  PDF_ONLY_MODAL,
-  usePdfModalSizing,
-  type PdfViewerSizingProps,
-} from "../courses/pdfModalSizing";
+import { usePdfModalSizing, type PdfViewerSizingProps } from "../courses/pdfModalSizing";
 import {
   acknowledgeAnnouncement,
   dismissAnnouncement,
@@ -82,7 +78,7 @@ export function AnnouncementDetailModal({
 }) {
   const queryClient = useQueryClient();
   // Sizes the modal to an attached PDF's page (shared with every PDF modal, see pdfModalSizing.ts).
-  const pdfFit = usePdfModalSizing(PDF_ONLY_MODAL);
+  const pdfFit = usePdfModalSizing();
   const toast = useToast();
 
   const detailQuery = useQuery({

@@ -1,67 +1,107 @@
 import { useState } from "react";
 
 /**
- * Shared sizing for every modal that previews a PDF, derived from the loaded PDF's own
- * first-page aspect ratio (reported by PdfLessonViewer's `onPageAspect`, and `null` again
- * once the viewer goes away — hidden, switched or the modal closed).
+ * Shared sizing for every modal that previews a PDF: the modal follows the loaded PDF's
+ * own first page. No fixed widths or paddings are assumed — once the viewer is on screen it
+ * measures how much of the modal is *not* PDF (`measurePdfModalChrome`) and reports that
+ * with the page's aspect ratio (`PdfPageFit`, via PdfLessonViewer's `onPageFit`; `null`
+ * again when the viewer goes away — hidden, switched, modal closed).
  *
- * The viewer's reading area is `100vh - PDF_MODAL_RESERVED_HEIGHT_PX` tall at most
- * (`reservedHeightPx` on PdfLessonViewer): the viewport minus the modal's own overlay
- * padding, panel padding, title row and toolbar (~176px), plus a few px of slack. Its
- * height is otherwise the page's own height, so the modal grows with the page.
+ * Reading area: the viewer is at most `100vh - reservedHeightPx` tall (the viewport minus
+ * the modal's overlay padding, title, toolbar and nested paddings, all measured), and
+ * otherwise exactly as tall as the page. The modal is then as wide as the page is at that
+ * height, plus the measured horizontal chrome:
  *
- * The width that makes a page fitted to the viewer's width exactly that tall is
- * `aspect × readingAreaHeight + chrome`, so the whole page shows without the PDF (or
- * the modal) scrolling: portrait pages get a narrower, tall modal, landscape pages a wide
- * one. Only a page that cannot fit — a very small screen, or an extreme aspect ratio hitting
- * the width limits below — falls back to normal scrolling. A modal that also holds other
- * content (lesson list, announcement text) keeps its own scroll for it.
+ *   maxWidth = min(100vw - 2rem, aspect × (100vh - reservedHeightPx) + chromeWidthPx)
  *
- * Usage: `const fit = usePdfModalSizing(PDF_ONLY_MODAL)`, then `<Modal size={fit.size ?? …}
+ * So the page fills the reading area edge to edge (portrait → a tall, narrower modal;
+ * landscape → a wide, shorter one) and the modal grows and shrinks with the viewport,
+ * always inside it. A page that cannot fit — a phone, or an extreme aspect ratio — is
+ * simply the viewport width, and the PDF (or a modal that also holds a lesson list or
+ * announcement text) scrolls as normal.
+ *
+ * Usage: `const fit = usePdfModalSizing()`, then `<Modal size={fit.size ?? …}
  * maxWidth={fit.maxWidth}>` and pass `fit.viewerProps` to PdfLessonViewer (or to
  * ProtectedFileViewer as `pdfProps`). Non-modal viewers simply don't opt in.
  */
-export const PDF_MODAL_RESERVED_HEIGHT_PX = 184;
-
-const PDF_MODAL_MAX_WIDTH_PX = 1900;
-
-export interface PdfModalWidthProfile {
-  /** Horizontal space between the modal's edge and the PDF page (paddings, borders, scrollbar gutter). */
+export interface PdfPageFit {
+  /** First page's width / height, rotation included. */
+  aspect: number;
+  /** Modal edge to PDF page, horizontally: paddings, borders and the viewer's scrollbar gutter. */
   chromeWidthPx: number;
-  /** Lower bound so the toolbar (and anything else in the modal) stays usable next to a very tall page. */
-  minWidthPx: number;
-}
-
-/** The viewer sits directly in the modal panel: panel padding (48) + viewer border (2) + scrollbar gutter (~15), rounded up. */
-export const PDF_ONLY_MODAL: PdfModalWidthProfile = { chromeWidthPx: 72, minWidthPx: 420 };
-
-/** The lesson modal also nests the viewer in a padded, bordered lesson card (+42px) beside the lesson list. */
-export const PDF_LESSON_MODAL: PdfModalWidthProfile = { chromeWidthPx: 120, minWidthPx: 720 };
-
-/** The props PdfLessonViewer needs to take part in modal sizing. */
-export interface PdfViewerSizingProps {
-  onPageAspect: (aspect: number | null) => void;
+  /** Everything that shares the viewport height with the reading area (see above). */
   reservedHeightPx: number;
 }
 
-/** CSS `max-width` for the modal: the width above, bounded by the viewport minus the overlay's 2rem padding. */
-function pdfModalMaxWidth(aspect: number, profile: PdfModalWidthProfile): string {
-  const fitted = `calc(${aspect.toFixed(4)} * (100vh - ${PDF_MODAL_RESERVED_HEIGHT_PX}px) + ${profile.chromeWidthPx}px)`;
-  return `min(${PDF_MODAL_MAX_WIDTH_PX}px, calc(100vw - 2rem), max(${profile.minWidthPx}px, ${fitted}))`;
+/** The props PdfLessonViewer needs to take part in modal sizing. */
+export interface PdfViewerSizingProps {
+  onPageFit: (fit: PdfPageFit | null) => void;
+  /** Fed back from the reported fit, so the viewer caps its reading area to the same height. */
+  reservedHeightPx: number | undefined;
+}
+
+const px = (value: string) => parseFloat(value) || 0;
+
+/** Vertical padding + border of an element. */
+function verticalBox(el: Element) {
+  const style = getComputedStyle(el);
+  return (
+    px(style.paddingTop) +
+    px(style.paddingBottom) +
+    px(style.borderTopWidth) +
+    px(style.borderBottomWidth)
+  );
 }
 
 /**
- * Holds the reported aspect ratio for one modal. Before a PDF has loaded (or when none is
- * showing) `size`/`maxWidth` are undefined, so the modal keeps whatever size it already had.
+ * Measures the modal around a visible PDF scroll area (`wrapper`, inside the viewer's root
+ * next to its toolbar, inside the Modal's role="dialog" panel). Returns null when the viewer
+ * is not inside a Modal, so a non-modal viewer never reports a fit.
  */
-export function usePdfModalSizing(profile: PdfModalWidthProfile) {
-  const [aspect, setAspect] = useState<number | null>(null);
+export function measurePdfModalChrome(
+  wrapper: HTMLElement,
+): Pick<PdfPageFit, "chromeWidthPx" | "reservedHeightPx"> | null {
+  const dialog = wrapper.closest<HTMLElement>('[role="dialog"]');
+  const overlay = dialog?.parentElement;
+  const viewerRoot = wrapper.parentElement;
+  if (!dialog || !overlay || !viewerRoot) return null;
+
+  // Vertical: the viewer's own toolbar + gaps, every padding/border between the viewer and
+  // the panel edge (the panel's own, a lesson card's…), the title row, and the overlay's.
+  let reserved = viewerRoot.offsetHeight - wrapper.offsetHeight;
+  for (let el = viewerRoot.parentElement; el; el = el.parentElement) {
+    reserved += verticalBox(el);
+    if (el === dialog) break;
+  }
+  const title = dialog.firstElementChild;
+  if (title instanceof HTMLElement) {
+    reserved += title.offsetHeight + px(getComputedStyle(title).marginBottom);
+  }
+  reserved += verticalBox(overlay);
+
+  return {
+    chromeWidthPx: dialog.offsetWidth - wrapper.clientWidth,
+    // +1: rounding, so the page ends a hair shorter than the space, never taller.
+    reservedHeightPx: Math.ceil(reserved) + 1,
+  };
+}
+
+function pdfModalMaxWidth({ aspect, chromeWidthPx, reservedHeightPx }: PdfPageFit): string {
+  return `min(calc(100vw - 2rem), calc(${aspect.toFixed(4)} * (100vh - ${reservedHeightPx}px) + ${chromeWidthPx}px))`;
+}
+
+/**
+ * Holds the reported fit for one modal. Before a PDF has loaded (or when none is showing)
+ * `size`/`maxWidth` are undefined, so the modal keeps whatever size it already had.
+ */
+export function usePdfModalSizing() {
+  const [fit, setFit] = useState<PdfPageFit | null>(null);
   return {
     viewerProps: {
-      onPageAspect: setAspect,
-      reservedHeightPx: PDF_MODAL_RESERVED_HEIGHT_PX,
+      onPageFit: setFit,
+      reservedHeightPx: fit?.reservedHeightPx,
     } satisfies PdfViewerSizingProps,
-    size: aspect === null ? undefined : ("viewer" as const),
-    maxWidth: aspect === null ? undefined : pdfModalMaxWidth(aspect, profile),
+    size: fit ? ("viewer" as const) : undefined,
+    maxWidth: fit ? pdfModalMaxWidth(fit) : undefined,
   };
 }

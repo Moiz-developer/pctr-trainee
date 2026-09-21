@@ -8,7 +8,7 @@ import { Badge, type BadgeTone } from "../../../components/ui/Badge";
 import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
 import { ProtectedFileViewer } from "../courses/ProtectedFileViewer";
-import { PDF_ONLY_MODAL, usePdfModalSizing } from "../courses/pdfModalSizing";
+import { usePdfModalSizing } from "../courses/pdfModalSizing";
 import { getDashboard } from "../../../services/api/dashboard";
 import { acknowledgeAnnouncement, dismissAnnouncement } from "../../../services/api/announcements";
 
@@ -43,7 +43,7 @@ const PRIORITY_TONE: Record<AnnouncementPriority, BadgeTone> = {
 export function PortalAnnouncementPopup() {
   const queryClient = useQueryClient();
   // Sizes the modal to an attached PDF's page (shared with every PDF modal, see pdfModalSizing.ts).
-  const pdfFit = usePdfModalSizing(PDF_ONLY_MODAL);
+  const pdfFit = usePdfModalSizing();
   const toast = useToast();
   const [queueIndex, setQueueIndex] = useState(0);
   const [dismissedLocally, setDismissedLocally] = useState(false);

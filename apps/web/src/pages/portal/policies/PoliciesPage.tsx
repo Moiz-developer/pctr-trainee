@@ -9,7 +9,7 @@ import { Modal } from "../../../components/ui/Modal";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
 import { listPolicies } from "../../../services/api/policies";
 import { PdfLessonViewer } from "../courses/PdfLessonViewer";
-import { PDF_ONLY_MODAL, usePdfModalSizing } from "../courses/pdfModalSizing";
+import { usePdfModalSizing } from "../courses/pdfModalSizing";
 import { DocumentLessonViewer } from "../courses/DocumentLessonViewer";
 
 const PDF_MIME = "application/pdf";
@@ -31,7 +31,7 @@ const PDF_MIME = "application/pdf";
 function ViewButton({ version }: { version: PolicyResponse["active_version"] }) {
   const [open, setOpen] = useState(false);
   // Sizes the modal to the PDF's page (shared with every PDF modal, see pdfModalSizing.ts).
-  const pdfFit = usePdfModalSizing(PDF_ONLY_MODAL);
+  const pdfFit = usePdfModalSizing();
 
   return (
     <>
