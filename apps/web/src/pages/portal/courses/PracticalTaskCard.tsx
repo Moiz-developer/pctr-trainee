@@ -1,13 +1,8 @@
-import { CheckCircle2, ClipboardList, Eye, Info, Loader2, Play } from "lucide-react";
+import { CheckCircle2, ClipboardList, Eye, Info, Loader2 } from "lucide-react";
+import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { MediaImage } from "../../../components/shared/MediaImage";
-import {
-  getGroupStatus,
-  isVideoLesson,
-  STATUS_LABEL,
-  type LessonEntry,
-  type ModuleGroup,
-} from "./courseLessonMeta";
+import { getGroupStatus, isVideoLesson, STATUS_LABEL, type ModuleGroup } from "./courseLessonMeta";
 import { RichText } from "../../../components/ui/RichText";
 
 // The reference's task status pill: yellow while not started, blue in progress, green when done.
@@ -23,36 +18,12 @@ const RESOURCE_BUTTON_CLASS = [
   "bg-orange-500 hover:bg-orange-400",
 ];
 
-function VideoTile({ entry, onOpen }: { entry: LessonEntry; onOpen: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      title={entry.lesson.title}
-      aria-label={`Play ${entry.lesson.title}`}
-      className="group relative flex aspect-video w-full cursor-pointer items-center justify-center overflow-hidden rounded bg-gradient-to-br from-indigo-950 to-indigo-800"
-    >
-      <span className="absolute inset-x-0 bottom-0 truncate bg-black/40 px-3 py-1.5 text-left text-xs font-medium text-white">
-        {entry.lesson.title}
-      </span>
-      <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/90 text-indigo-900 transition-transform group-hover:scale-105">
-        {entry.loading ? (
-          <Loader2 className="h-6 w-6 animate-spin" aria-hidden="true" />
-        ) : entry.status === "COMPLETED" ? (
-          <CheckCircle2 className="h-7 w-7 text-emerald-600" aria-hidden="true" />
-        ) : (
-          <Play className="ml-0.5 h-6 w-6 fill-current" aria-hidden="true" />
-        )}
-      </span>
-    </button>
-  );
-}
-
 /**
  * One practical task (a module's PRACTICAL lessons) as a card, per
- * practical.png: purple title bar, description, "Resources", "Video
- * Explanation", and a status pill. Resources open in the in-portal protected
- * viewer — the reference's "Download" buttons are deliberately NOT
+ * practical.png: purple title bar, description, "Resources", and a status
+ * pill. Videos have no block of their own: they play in the lesson viewer
+ * the task opens (its "Videos" section), so they are not shown twice. Resources
+ * open in the in-portal protected viewer — the reference's "Download" buttons are deliberately NOT
  * reproduced (downloads were removed by the security hardening). The
  * reference's Awaiting Feedback / Feedback / file-upload elements have no
  * backing data model, so they are not rendered.
@@ -65,7 +36,6 @@ export function PracticalTaskCard({
   onOpenLesson: (lessonId: string) => void;
 }) {
   const status = getGroupStatus(group);
-  const videos = group.entries.filter((e) => isVideoLesson(e.lesson));
   const resources = group.entries.filter((e) => !isVideoLesson(e.lesson));
 
   return (
@@ -74,17 +44,16 @@ export function PracticalTaskCard({
         <h4 className="text-base font-semibold leading-snug text-white">{group.title}</h4>
       </div>
 
-      {/* The module's own image (uploaded in the admin module form), when it has one — the same
-          cover the theory chapter cards show. A task without an image keeps the card as it was. */}
-      {group.imageMediaId && (
-        <div className="flex aspect-video w-full items-center justify-center overflow-hidden bg-gradient-to-br from-indigo-900 to-indigo-700 text-white/30">
-          <MediaImage
-            mediaAssetId={group.imageMediaId}
-            className="h-full w-full object-cover"
-            fallback={<ClipboardList className="h-12 w-12" aria-hidden="true" />}
-          />
-        </div>
-      )}
+      {/* The module's own image (uploaded in the admin module form). Without one, the same
+          branded gradient + icon placeholder the course and chapter cards use fills the box, so
+          every task card keeps the same 16:9 cover. */}
+      <div className="flex aspect-video w-full items-center justify-center overflow-hidden bg-gradient-to-br from-indigo-900 to-indigo-700 text-white/30">
+        <MediaImage
+          mediaAssetId={group.imageMediaId}
+          className="h-full w-full object-cover"
+          fallback={<ClipboardList className="h-14 w-14" aria-hidden="true" />}
+        />
+      </div>
 
       <div className="flex flex-1 flex-col gap-4 p-5">
         {group.description && (
@@ -119,19 +88,17 @@ export function PracticalTaskCard({
           </div>
         )}
 
-        {videos.length > 0 && (
-          <div>
-            <p className="text-sm font-semibold text-indigo-950">Video Explanation:</p>
-            <div className="mt-2 space-y-3">
-              {videos.map((entry) => (
-                <VideoTile
-                  key={entry.lesson.id}
-                  entry={entry}
-                  onOpen={() => onOpenLesson(entry.lesson.id)}
-                />
-              ))}
-            </div>
-          </div>
+        {/* A task with only videos has no resource buttons to open it by, so it gets one. */}
+        {resources.length === 0 && (
+          <Button
+            className="w-full gap-1.5"
+            onClick={() =>
+              onOpenLesson((group.entries.find((e) => e.isCurrent) ?? group.entries[0]!).lesson.id)
+            }
+          >
+            <Eye className="h-4 w-4" aria-hidden="true" />
+            View Task
+          </Button>
         )}
 
         <div className="mt-auto space-y-2">
