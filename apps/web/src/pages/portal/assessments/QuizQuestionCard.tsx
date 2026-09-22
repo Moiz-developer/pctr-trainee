@@ -5,27 +5,21 @@ import type {
 } from "@internal-training/shared";
 import { Card } from "../../../components/ui/Card";
 
-/** The reference's per-option verdict pill, driven by the answer's recorded `is_correct` (null = not graded yet). */
-function VerdictPill({ isCorrect }: { isCorrect: boolean | null }) {
+/**
+ * The review-mode verdict line (course-ui-reference.jpeg's bold "Correct Answer: …" footer
+ * line): the correct answer text itself is never sent to the client (SYSTEM_PLAN.md §19), so
+ * this shows the same `is_correct`/marks data the card already displayed — previously as a small
+ * pill next to the selected option — as one bold colored line instead, matching that reference's
+ * weight/placement without exposing anything new.
+ */
+function VerdictLine({ isCorrect }: { isCorrect: boolean | null }) {
   if (isCorrect === true) {
-    return (
-      <span className="ml-1.5 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
-        Correct
-      </span>
-    );
+    return <p className="text-sm font-semibold text-emerald-600">Correct answer</p>;
   }
   if (isCorrect === false) {
-    return (
-      <span className="ml-1.5 rounded-full bg-orange-200 px-2 py-0.5 text-[11px] font-semibold text-orange-800">
-        Incorrect
-      </span>
-    );
+    return <p className="text-sm font-semibold text-orange-600">Incorrect answer</p>;
   }
-  return (
-    <span className="ml-1.5 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
-      Pending grading
-    </span>
-  );
+  return <p className="text-sm font-semibold text-slate-500">Pending grading</p>;
 }
 
 type QuizQuestionCardProps = { index: number; question: AssessmentAttemptQuestion } & (
@@ -52,11 +46,15 @@ type QuizQuestionCardProps = { index: number; question: AssessmentAttemptQuestio
 export function QuizQuestionCard(props: QuizQuestionCardProps) {
   const { index, question } = props;
   const hasOptions = question.options.length > 0;
+  const answered =
+    props.mode === "review" &&
+    !!props.recorded &&
+    (props.recorded.selected_option_id !== null || props.recorded.answer_text !== null);
 
   return (
     <Card className="flex flex-col">
       <div className="flex items-baseline justify-between gap-2">
-        <h3 className="text-xl font-medium text-indigo-950">Question {index + 1}:</h3>
+        <h3 className="text-xl font-bold text-indigo-950">Question {index + 1}:</h3>
         {props.mode === "take" && (
           <span className="shrink-0 text-xs text-slate-400">{question.marks} pts</span>
         )}
@@ -108,10 +106,7 @@ export function QuizQuestionCard(props: QuizQuestionCardProps) {
                   }`}
                   aria-hidden="true"
                 />
-                <span className="min-w-0">
-                  {option.option_text}
-                  {selected && <VerdictPill isCorrect={props.recorded?.is_correct ?? null} />}
-                </span>
+                <span className="min-w-0">{option.option_text}</span>
               </div>
             );
           })
@@ -127,22 +122,19 @@ export function QuizQuestionCard(props: QuizQuestionCardProps) {
         ) : props.recorded?.answer_text ? (
           <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
             <p className="whitespace-pre-wrap">{props.recorded.answer_text}</p>
-            <div className="mt-1.5">
-              <VerdictPill isCorrect={props.recorded.is_correct} />
-            </div>
           </div>
         ) : null}
       </div>
 
       {props.mode === "review" && (
-        <div className="mt-4 space-y-0.5 text-xs">
-          <p className="text-slate-500">
-            {props.recorded &&
-            (props.recorded.selected_option_id !== null || props.recorded.answer_text !== null)
+        <div className="mt-4 space-y-1">
+          <p className="text-xs text-slate-500">
+            {answered
               ? "You have already answered this question."
               : "You did not answer this question."}
           </p>
-          <p className="font-medium text-indigo-900">
+          {answered && <VerdictLine isCorrect={props.recorded?.is_correct ?? null} />}
+          <p className="text-xs font-medium text-indigo-900">
             {props.recorded?.marks_awarded != null
               ? `${props.recorded.marks_awarded} / ${question.marks} marks`
               : `${question.marks} marks available`}
