@@ -12,34 +12,29 @@ export function AuthLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-indigo-950 via-indigo-900 to-indigo-700 px-4">
-      <div className="mb-6 flex items-center gap-2.5 text-white">
-        {shownLogo ? (
-          // A configured logo replaces the name/description entirely (never rendered alongside
-          // it). The background/rounding lives on the <img> itself (not a wrapping div) so there
-          // is only ever one padded box, not two stacked ones — most uploaded logo files already
-          // carry their own internal margin around the mark, so an extra wrapper's own padding
-          // on top of that was what made the plate look oversized/square. `p-1.5` here is just
-          // enough to keep transparent-PNG edges off the white background's own edge; `bg-white`
-          // is still needed so a dark-colored logo stays visible against this page's dark
-          // gradient, and the taller box gives the logo mark room to render at a legible size.
+      {/* A configured logo renders inside the form card below instead (logo-only, never
+          alongside the name/description) — this block is then just the no-logo fallback. */}
+      {!shownLogo && (
+        <div className="mb-6 flex items-center gap-2.5 text-white">
+          <Star className="h-8 w-8 fill-accent text-accent" aria-hidden="true" />
+          <div className="leading-tight">
+            <p className="text-xl font-bold tracking-tight">{platformName ?? "PCTR"}</p>
+            <p className="line-clamp-2 max-w-[16rem] text-[10px] font-medium uppercase tracking-wider text-white/70">
+              {platformDescription ?? "Training & Recruitment"}
+            </p>
+          </div>
+        </div>
+      )}
+      <div className="w-full max-w-sm rounded-lg bg-white p-8 shadow-xl">
+        {shownLogo && (
           <img
             src={shownLogo}
             alt={platformName ?? "Platform logo"}
-            className="h-16 max-w-[15rem] rounded-md bg-white/95 p-1.5 object-contain shadow-sm"
+            className="mb-6 h-[100px] w-full object-contain"
           />
-        ) : (
-          <>
-            <Star className="h-8 w-8 fill-accent text-accent" aria-hidden="true" />
-            <div className="leading-tight">
-              <p className="text-xl font-bold tracking-tight">{platformName ?? "PCTR"}</p>
-              <p className="line-clamp-2 max-w-[16rem] text-[10px] font-medium uppercase tracking-wider text-white/70">
-                {platformDescription ?? "Training & Recruitment"}
-              </p>
-            </div>
-          </>
         )}
+        {children}
       </div>
-      <div className="w-full max-w-sm rounded-lg bg-white p-8 shadow-xl">{children}</div>
       {supportEmail && (
         <p className="mt-5 text-center text-xs text-white/70">
           Need help?{" "}
