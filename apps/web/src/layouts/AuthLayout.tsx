@@ -15,16 +15,18 @@ export function AuthLayout({ children }: { children: ReactNode }) {
       <div className="mb-6 flex items-center gap-2.5 text-white">
         {shownLogo ? (
           // A configured logo replaces the name/description entirely (never rendered alongside
-          // it) — the white backing plate keeps a dark-colored logo visible against this page's
-          // dark gradient, and the taller, wider box gives it room to render at a legible size
-          // instead of being squeezed into a small fixed box.
-          <div className="rounded-md bg-white/95 px-4 py-2.5 shadow-sm">
-            <img
-              src={shownLogo}
-              alt={platformName ?? "Platform logo"}
-              className="h-12 max-w-[14rem] object-contain"
-            />
-          </div>
+          // it). The background/rounding lives on the <img> itself (not a wrapping div) so there
+          // is only ever one padded box, not two stacked ones — most uploaded logo files already
+          // carry their own internal margin around the mark, so an extra wrapper's own padding
+          // on top of that was what made the plate look oversized/square. `p-1.5` here is just
+          // enough to keep transparent-PNG edges off the white background's own edge; `bg-white`
+          // is still needed so a dark-colored logo stays visible against this page's dark
+          // gradient, and the taller box gives the logo mark room to render at a legible size.
+          <img
+            src={shownLogo}
+            alt={platformName ?? "Platform logo"}
+            className="h-16 max-w-[15rem] rounded-md bg-white/95 p-1.5 object-contain shadow-sm"
+          />
         ) : (
           <>
             <Star className="h-8 w-8 fill-accent text-accent" aria-hidden="true" />

@@ -54,13 +54,16 @@ export function Sidebar({
           {logoUrl ? (
             // A configured logo replaces the name/caption entirely (never rendered alongside
             // it). Height-driven with width auto (not a fixed square) so a wide horizontal logo
-            // renders at a legible size instead of being squeezed/cropped into an 8x8 box; capped
-            // by max-width so it can't overflow the rail, and shrinks further once the rail
-            // itself collapses to its icon-only width.
+            // renders at a legible size instead of being squeezed/cropped into an 8x8 box; most
+            // uploaded logo files carry their own internal margin around the mark, so the taller
+            // box here (h-11 vs. the original h-8 square) is what actually makes that mark
+            // render at a readable size rather than shrinking it further with more container.
+            // Capped by max-width so it can't overflow the rail, and shrinks further once the
+            // rail itself collapses to its icon-only width.
             <img
               src={logoUrl}
               alt={platformName ?? "Platform logo"}
-              className={`h-9 w-auto max-w-[9rem] shrink-0 object-contain ${collapsed ? "lg:h-8 lg:max-w-10" : ""}`}
+              className={`h-11 w-auto max-w-[10rem] shrink-0 object-contain ${collapsed ? "lg:h-9 lg:max-w-12" : ""}`}
             />
           ) : (
             <>
