@@ -5,6 +5,9 @@ import { useBranding } from "../components/shared/useBranding";
 /** Layout for unauthenticated routes (SYSTEM_PLAN.md §27 layouts/ "AuthLayout"). */
 export function AuthLayout({ children }: { children: ReactNode }) {
   const { platformName, platformDescription, supportEmail, loginLogoUrl, logoUrl } = useBranding();
+  // Login Page Logo (Admin Settings -> Branding) is an optional override just for these
+  // unauthenticated pages; when the admin hasn't set one, the same Platform Logo shown
+  // everywhere else in the app is reused here, so one upload still reaches this page.
   const shownLogo = loginLogoUrl ?? logoUrl;
 
   return (

@@ -256,7 +256,7 @@ export function BrandingSettingsCard() {
                 <AssetRow
                   id="branding-platform-logo"
                   label="Platform Logo"
-                  hint="Shown in the sidebar. PNG, JPG, WebP, GIF or SVG · max 2 MB."
+                  hint="Shown in the sidebar everywhere you're signed in, and on the login page too unless you set a separate Login Page Logo below. PNG, JPG, WebP, GIF or SVG · max 2 MB."
                   extensions={LOGO_EXTENSIONS}
                   imageUrl={imageFor("platform_logo_media_id")}
                   uploading={uploadingField === "platform_logo_media_id"}
@@ -278,7 +278,7 @@ export function BrandingSettingsCard() {
                 <AssetRow
                   id="branding-login-logo"
                   label="Login Page Logo"
-                  hint="Shown above the sign-in form. PNG, JPG, WebP, GIF or SVG · max 2 MB."
+                  hint="Optional override for the login/forgot-password/reset-password pages only. Leave unset to use the Platform Logo there too. PNG, JPG, WebP, GIF or SVG · max 2 MB."
                   extensions={LOGO_EXTENSIONS}
                   imageUrl={imageFor("login_logo_media_id")}
                   uploading={uploadingField === "login_logo_media_id"}
