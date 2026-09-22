@@ -72,13 +72,15 @@ const DONE_PILL_CLASS = {
   warning: "bg-amber-500",
 } as const;
 
-function AssessmentCard({ assessment, now }: { assessment: MyAssessmentSummary; now: number }) {
+// Reference layout unit (assessments-ui.jpeg): title, question count, description, a large
+// thumbnail, a bold centered completion line, then full-width stacked action buttons — no
+// badge/course-title/due-date row on the card face (that detail still lives on the assessment's
+// own detail page, reached by the same "View Details"/action buttons as before).
+function AssessmentCard({ assessment }: { assessment: MyAssessmentSummary }) {
   const navigate = useNavigate();
   const TypeIcon = TYPE_ICON[assessment.type];
   const done = assessment.my_status === "COMPLETED";
   const result = resultLabel(assessment.my_best_result, assessment.my_last_submitted_at !== null);
-  const overdue =
-    assessment.due_date !== null && !done && new Date(assessment.due_date).getTime() < now;
   const open = () => void navigate(`/app/assessments/${assessment.id}`);
 
   const progressLine =
@@ -95,10 +97,10 @@ function AssessmentCard({ assessment, now }: { assessment: MyAssessmentSummary; 
   return (
     <Card flush className="card-slide-scope flex flex-col">
       <div className="p-5 pb-3">
-        <h3 className="min-h-10 text-sm font-semibold leading-snug text-indigo-950">
+        <h3 className="min-h-12 text-base font-bold leading-snug text-indigo-950">
           {assessment.title}
         </h3>
-        <p className="mt-3 text-center text-xs font-semibold text-slate-700">
+        <p className="mt-3 text-center text-sm font-bold text-slate-900">
           {assessment.question_count} {assessment.question_count === 1 ? "Question" : "Questions"}
         </p>
         <p className="mt-2 line-clamp-2 min-h-8 text-center text-xs text-slate-500">
@@ -106,64 +108,40 @@ function AssessmentCard({ assessment, now }: { assessment: MyAssessmentSummary; 
         </p>
       </div>
 
-      <div className="card-slide-section-rtl mx-5 flex h-32 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-indigo-900 to-indigo-700 text-white/30">
+      <div className="card-slide-section-rtl mx-5 flex h-44 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-indigo-900 to-indigo-700 text-white/30">
         <MediaImage
           mediaAssetId={assessment.image_media_id}
           className="h-full w-full object-cover"
-          fallback={<TypeIcon className="h-12 w-12" aria-hidden="true" />}
+          fallback={<TypeIcon className="h-14 w-14" aria-hidden="true" />}
         />
       </div>
 
-      <div className="flex flex-1 flex-col p-5 pt-3">
-        <p className="text-center text-xs font-semibold text-slate-700">{progressLine}</p>
-        <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
-          <Badge tone="info">{ASSESSMENT_TYPE_LABEL[assessment.type]}</Badge>
-          <span className="text-xs text-slate-500">{assessment.course_title}</span>
-        </div>
-        <p className="mt-2 text-center text-xs text-slate-500">
-          Assigned {formatAssessmentDate(assessment.assigned_at)}
-          {assessment.due_date && (
-            <>
-              {" · "}
-              <span className={overdue ? "font-medium text-red-600" : undefined}>
-                Due {formatAssessmentDate(assessment.due_date)}
-                {overdue ? " (overdue)" : ""}
-              </span>
-            </>
-          )}
-        </p>
-        {!done && result && (
-          <p className="mt-1 text-center text-xs text-slate-500">Best result: {result.label}</p>
-        )}
+      <div className="flex flex-1 flex-col p-5 pt-4">
+        <p className="text-center text-sm font-bold text-indigo-950">{progressLine}</p>
 
         <div className="mt-4 flex-1" />
-        {done ? (
-          <div className="space-y-2">
-            <Button type="button" className="w-full text-xs" onClick={open}>
-              View Details
-            </Button>
+        <div className="space-y-2.5">
+          <Button type="button" className="w-full py-2.5 text-sm" onClick={open}>
+            View Details
+          </Button>
+          {done ? (
             <p
-              className={`rounded-md px-3 py-2 text-center text-xs font-semibold text-white ${
+              className={`rounded-md px-3 py-2.5 text-center text-sm font-semibold text-white ${
                 DONE_PILL_CLASS[result?.tone ?? "success"]
               }`}
             >
-              Completed{result ? ` · ${result.label}` : ""}
+              Completed
             </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-2">
+          ) : (
             <button
               type="button"
               onClick={open}
-              className="cursor-pointer rounded-md bg-orange-500 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-orange-400"
+              className="w-full cursor-pointer rounded-md bg-orange-500 px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-orange-400"
             >
               {assessment.my_status === "IN_PROGRESS" ? "Continue" : "Start Assessment"}
             </button>
-            <Button type="button" className="text-xs" onClick={open}>
-              View Details
-            </Button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </Card>
   );
@@ -171,8 +149,6 @@ function AssessmentCard({ assessment, now }: { assessment: MyAssessmentSummary; 
 
 function CurrentAssessments() {
   const [filter, setFilter] = useState<StatusFilter>("ALL");
-  // Fixed at mount so render stays pure; only used to flag overdue due dates.
-  const [now] = useState(() => Date.now());
   const query = useQuery({
     queryKey: ["my-assessments"],
     queryFn: listOwnAssessments,
@@ -227,7 +203,7 @@ function CurrentAssessments() {
         {(assessments) => (
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
             {assessments.map((assessment) => (
-              <AssessmentCard key={assessment.id} assessment={assessment} now={now} />
+              <AssessmentCard key={assessment.id} assessment={assessment} />
             ))}
           </div>
         )}
