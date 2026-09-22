@@ -35,6 +35,10 @@ const resourceFormSchema = z.object({
   description: z.string().min(1).nullable().optional(),
   category_id: z.string().min(1, "Select a category"),
   external_url: z.string().optional(),
+  // Business Analysis Templates unit: opt-in trainee Download button
+  // (only meaningful for a file-backed resource — see the FILE-only
+  // checkbox below).
+  is_downloadable: z.boolean().optional(),
 });
 type ResourceFormValues = z.infer<typeof resourceFormSchema>;
 
@@ -121,7 +125,13 @@ export function ResourceFormModal({
     setError,
   } = useForm<ResourceFormValues>({
     resolver: zodResolver(resourceFormSchema),
-    defaultValues: { title: "", description: "", category_id: "", external_url: "" },
+    defaultValues: {
+      title: "",
+      description: "",
+      category_id: "",
+      external_url: "",
+      is_downloadable: false,
+    },
   });
 
   // Resets the react-hook-form fields whenever the modal opens (for a
@@ -142,8 +152,15 @@ export function ResourceFormModal({
             description: resource.description ?? "",
             category_id: resource.category.id,
             external_url: resource.external_url ?? "",
+            is_downloadable: resource.is_downloadable,
           }
-        : { title: "", description: "", category_id: "", external_url: "" },
+        : {
+            title: "",
+            description: "",
+            category_id: "",
+            external_url: "",
+            is_downloadable: false,
+          },
     );
   }, [open, resource, reset]);
 
@@ -168,6 +185,10 @@ export function ResourceFormModal({
         title: values.title,
         description: values.description || null,
         category_id: values.category_id,
+        // Only meaningful for a file-backed resource — force false for a
+        // link (no attached file to download), regardless of whatever the
+        // checkbox last held before switching Source.
+        is_downloadable: sourceMode === "FILE" ? !!values.is_downloadable : false,
       };
 
       // Useful Link unit: exactly one of media_asset_id/external_url is
@@ -308,6 +329,18 @@ export function ResourceFormModal({
               )}
             </div>
             {fileError && <p className="mt-1 text-xs text-red-600">{fileError}</p>}
+
+            <div className="mt-3">
+              <CheckboxField
+                id="r-downloadable"
+                label="Allow trainees to download this file"
+                {...register("is_downloadable")}
+              />
+              <p className="mt-0.5 text-xs text-slate-500">
+                For templates trainees are meant to fill in and return (e.g. a Word or Excel
+                template) — otherwise the file can only be viewed in the portal.
+              </p>
+            </div>
           </div>
         ) : (
           <TextField

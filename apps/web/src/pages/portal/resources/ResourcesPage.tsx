@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Building2,
   ChevronLeft,
   ChevronRight,
+  Download,
   Eye,
   ExternalLink,
   FileText,
@@ -14,8 +15,11 @@ import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
 import { Modal } from "../../../components/ui/Modal";
 import { SelectField } from "../../../components/ui/FormField";
+import { useToast } from "../../../components/ui/Toast";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
 import { listResourceCategories, listResources } from "../../../services/api/resources";
+import { getMediaAccessUrl } from "../../../services/api/media";
+import { ApiClientError } from "../../../services/api/client";
 import { getSafeHttpsUrl } from "../../../lib/safeUrl";
 import { ProtectedFileViewer } from "../courses/ProtectedFileViewer";
 import { usePdfModalSizing } from "../courses/pdfModalSizing";
@@ -25,7 +29,14 @@ import { richTextToPlain } from "../../../lib/richText";
 
 const PDF_MIME = "application/pdf";
 
-/** File types the portal can render itself; everything else has no preview and no download. */
+/**
+ * File types the portal can render itself. Anything else has no in-app preview — Excel
+ * (.xls/.xlsx) included: no already-installed dependency can parse either the modern
+ * spreadsheetml zip format or the legacy binary format client-side (mammoth only implements
+ * Word's wordprocessingml converter), and browsers have no built-in spreadsheet renderer. Adding
+ * real preview would need a new package, so — same as legacy `.doc` below it — this is left
+ * honestly unsupported rather than faked; see Business Analysis Templates unit's audit.
+ */
 function canPreviewInPortal(mimeType: string): boolean {
   return mimeType === PDF_MIME || mimeType === DOCX_MIME || mimeType.startsWith("image/");
 }
@@ -40,9 +51,13 @@ function canPreviewInPortal(mimeType: string): boolean {
  * a server-side query param, not a substitute for the visibility check.
  *
  * Security & download restrictions: a resource file is only ever opened
- * through the in-portal viewer (PDF, DOCX and images). There is no generic
- * "View / Download" that opens the raw signed Storage URL; a file type the
- * portal can't render is shown as "Preview not available".
+ * through the in-portal viewer (PDF, DOCX and images), or — Business Analysis
+ * Templates unit — through `DownloadResourceButton` below, and only for a
+ * resource the admin explicitly flagged `is_downloadable` (a template
+ * trainees are meant to fill in and return, not a reference document). Every
+ * other file type the portal can't render is shown as "Preview not
+ * available"; there is still no generic "open the raw signed Storage URL"
+ * affordance for anything else.
  */
 /**
  * In-app viewer for a previewable resource — opens the shared
@@ -108,6 +123,39 @@ function OpenLinkButton({ externalUrl }: { externalUrl: string }) {
 }
 
 /**
+ * Business Analysis Templates unit: the one Download affordance in the Resource Library, shown
+ * only for a resource the admin explicitly marked `is_downloadable` (a template trainees are
+ * meant to fill in and return, not a reference document — see the audit's finding that no
+ * resource has ever had a download link before this). Reuses the exact same authorized
+ * `GET /media/:id/access-url` signed-URL flow every viewer in the portal already goes through —
+ * no new access path, no raw Storage URL, no change to who can reach the file. A file with no
+ * in-app preview (Excel, legacy `.doc`) is still downloadable this way even though it can't be
+ * viewed first.
+ */
+function DownloadResourceButton({ mediaAssetId }: { mediaAssetId: string }) {
+  const toast = useToast();
+  const mutation = useMutation({
+    mutationFn: () => getMediaAccessUrl(mediaAssetId),
+    onSuccess: (result) => window.open(result.url, "_blank", "noopener"),
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to download the file.");
+    },
+  });
+
+  return (
+    <Button
+      variant="secondary"
+      className="w-full gap-1.5"
+      disabled={mutation.isPending}
+      onClick={() => mutation.mutate()}
+    >
+      <Download className="h-4 w-4" aria-hidden="true" />
+      {mutation.isPending ? "Preparing…" : "Download"}
+    </Button>
+  );
+}
+
+/**
  * One resource card, laid out like CourseCard.tsx (same Card, thumbnail box,
  * text hierarchy, chips and full-width action). Resources have no thumbnail, so
  * the box shows the same file/link icon the table row used.
@@ -148,14 +196,21 @@ function ResourceCard({ item }: { item: ResourceResponse }) {
         <div className="mt-4 flex-1" />
         {item.external_url ? (
           <OpenLinkButton externalUrl={item.external_url} />
-        ) : canPreviewInPortal(item.file_type) ? (
-          <InAppDocumentButton
-            mediaAssetId={item.media_asset_id!}
-            mimeType={item.file_type}
-            title={item.title}
-          />
         ) : (
-          <p className="text-center text-xs text-slate-400">Preview not available</p>
+          <div className="space-y-2">
+            {canPreviewInPortal(item.file_type) ? (
+              <InAppDocumentButton
+                mediaAssetId={item.media_asset_id!}
+                mimeType={item.file_type}
+                title={item.title}
+              />
+            ) : !item.is_downloadable ? (
+              <p className="text-center text-xs text-slate-400">Preview not available</p>
+            ) : null}
+            {/* Business Analysis Templates unit: independent of the preview above — a template
+                can be downloadable whether or not it also has an in-app preview. */}
+            {item.is_downloadable && <DownloadResourceButton mediaAssetId={item.media_asset_id!} />}
+          </div>
         )}
       </div>
     </Card>

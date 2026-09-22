@@ -48,6 +48,7 @@ function toResponse(row: ResourceWithCategory): ResourceResponse {
     file_type: row.fileType,
     uploaded_by: row.uploadedBy,
     status: row.status,
+    is_downloadable: row.isDownloadable,
     departments: row.resourceDepartments.map((rd) => rd.department),
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),

@@ -59,6 +59,7 @@ function toResponse(row: ResourceWithCategory): ResourceResponse {
     file_type: row.fileType,
     uploaded_by: row.uploadedBy,
     status: row.status,
+    is_downloadable: row.isDownloadable,
     departments: row.resourceDepartments.map((rd) => rd.department),
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),
@@ -132,6 +133,7 @@ export async function createResource(
       fileType,
       uploadedBy,
       ...(input.status !== undefined ? { status: input.status } : {}),
+      ...(input.is_downloadable !== undefined ? { isDownloadable: input.is_downloadable } : {}),
     },
     ...withCategory,
   });
@@ -245,6 +247,7 @@ export async function updateResource(
       ...(input.external_url !== undefined ? { externalUrl: input.external_url } : {}),
       ...(fileType !== undefined ? { fileType } : {}),
       ...(input.status !== undefined ? { status: input.status } : {}),
+      ...(input.is_downloadable !== undefined ? { isDownloadable: input.is_downloadable } : {}),
     },
     ...withCategory,
   });

@@ -124,6 +124,12 @@ export const resourceResponseSchema = z.object({
   file_type: z.string(),
   uploaded_by: idSchema.nullable(),
   status: resourceStatusSchema,
+  // Business Analysis Templates unit: admin-set opt-in for a trainee-facing
+  // Download button (ResourcesPage.tsx) — independent of `file_type`'s
+  // in-portal previewability. Never widens who can reach the file: a
+  // download still goes through the same authorized signed-URL flow
+  // (GET /media/:id/access-url) as any other view.
+  is_downloadable: z.boolean(),
   // Department visibility in the Trainer Portal UI unit: the department(s)
   // this resource is assigned to (from `resource_departments`, already the
   // authoritative access-control source `effectiveResourceVisibilityFilter`
@@ -181,6 +187,9 @@ export const createResourceRequestSchema = z
     media_asset_id: idSchema.optional(),
     external_url: httpsUrlSchema.optional(),
     status: resourceStatusSchema.optional(),
+    // Business Analysis Templates unit: opt-in trainee Download button.
+    // Omitted = false (schema default at the DB level covers create).
+    is_downloadable: z.boolean().optional(),
   })
   .refine((data) => (data.media_asset_id !== undefined) !== (data.external_url !== undefined), {
     message: "Provide exactly one of media_asset_id or external_url.",
@@ -211,6 +220,8 @@ export const updateResourceRequestSchema = z
     media_asset_id: idSchema.nullable().optional(),
     external_url: httpsUrlSchema.nullable().optional(),
     status: resourceStatusSchema.optional(),
+    // Business Analysis Templates unit: opt-in trainee Download button.
+    is_downloadable: z.boolean().optional(),
   })
   .refine((data) => !(data.media_asset_id != null && data.external_url != null), {
     message: "Provide either media_asset_id or external_url, not both.",

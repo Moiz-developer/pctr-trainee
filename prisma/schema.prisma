@@ -961,6 +961,14 @@ model Resource {
   fileType     String         @map("file_type")
   uploadedBy   String?        @map("uploaded_by") @db.Uuid
   status       ResourceStatus @default(PUBLISHED)
+  // Business Analysis Templates unit: admin-set opt-in for a trainee-facing
+  // Download button (ResourcesPage.tsx), independent of whether the file is
+  // also previewable in-portal — a resource can be either, both, or neither.
+  // Never changes who can reach the file: the download still goes through
+  // the exact same authorized GET /media/:id/access-url signed-URL flow
+  // every other viewer already uses. Default false, so every existing
+  // resource keeps today's view-only behavior unchanged.
+  isDownloadable Boolean      @default(false) @map("is_downloadable")
   createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
 
