@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ImageIcon, Loader2, RotateCcw, Trash2, UploadCloud } from "lucide-react";
+import { AlertTriangle, ImageIcon, Loader2, RotateCcw, Trash2, UploadCloud } from "lucide-react";
 import type { UpdateSystemSettingsRequest } from "@internal-training/shared";
 import { Card, CardHeader } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
@@ -41,6 +41,7 @@ function AssetRow({
   extensions,
   imageUrl,
   uploading,
+  uploadError,
   disabled,
   onPick,
   onRemove,
@@ -51,6 +52,7 @@ function AssetRow({
   extensions: string[];
   imageUrl: string | null;
   uploading: boolean;
+  uploadError: string | null;
   disabled: boolean;
   onPick: (file: File) => void;
   onRemove: () => void;
@@ -70,6 +72,12 @@ function AssetRow({
           {label}
         </label>
         <p className="mt-0.5 text-xs text-slate-500">{hint}</p>
+        {uploadError && (
+          <p className="mt-1 flex items-start gap-1 text-xs font-medium text-red-600">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            {uploadError} Click Save Branding below to retry.
+          </p>
+        )}
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex h-16 w-28 shrink-0 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-50">
@@ -139,6 +147,11 @@ export function BrandingSettingsCard() {
   const [primaryDraft, setPrimaryDraft] = useState<string | null>(null);
   const [accentDraft, setAccentDraft] = useState<string | null>(null);
   const [colorErrors, setColorErrors] = useState<{ primary?: string; accent?: string }>({});
+  // Persists past the failure toast's auto-dismiss, on the row itself: set when either the
+  // upload itself fails, or the upload succeeds but the automatic save to system_settings
+  // (persistAssetMutation below) fails — so an admin who misses the toast still sees why the
+  // image isn't showing up yet.
+  const [uploadErrors, setUploadErrors] = useState<Partial<Record<AssetField, string>>>({});
 
   const previewUrls = useRef<string[]>([]);
   useEffect(() => {
@@ -159,21 +172,54 @@ export function BrandingSettingsCard() {
     return change ? change.previewUrl : currentUrl[field];
   };
 
+  // Persists one asset field on its own (`{ [field]: mediaId }` only — every other field is
+  // simply omitted, and updateSystemSettings() already treats an omitted field as "leave
+  // unchanged", so this never touches colors/text/other pending edits). Kept separate from
+  // `saveMutation` below (the manual, all-fields-at-once Save Branding submit) since the two
+  // have different success handling: this one only ever clears ITS OWN field from `pending`,
+  // never the whole object.
+  const persistAssetMutation = useMutation({
+    mutationFn: ({ field, mediaId }: { field: AssetField; mediaId: string | null }) => {
+      const input: UpdateSystemSettingsRequest = {};
+      input[field] = mediaId;
+      return updateSystemSettings(input);
+    },
+    onSuccess: async (result, { field }) => {
+      queryClient.setQueryData(SETTINGS_KEY, result);
+      await queryClient.invalidateQueries({ queryKey: ["public-branding"] });
+      setPending((current) => {
+        const { [field]: _removed, ...rest } = current;
+        return rest;
+      });
+      toast.success("Image saved.");
+    },
+    onError: (error, { field }) => {
+      // Left in `pending` deliberately (not cleared) — the image is already uploaded and
+      // previewable, so the admin can retry by clicking Save Branding rather than re-uploading.
+      const message =
+        error instanceof ApiClientError ? error.message : "Failed to save the uploaded image.";
+      setUploadErrors((current) => ({ ...current, [field]: message }));
+      toast.error(`${message} Click Save Branding to retry.`);
+    },
+  });
+
   const uploadMutation = useMutation({
     mutationFn: ({ file }: { field: AssetField; file: File }) => uploadBrandingAsset(file),
     onSuccess: (asset, { field, file }) => {
       const previewUrl = URL.createObjectURL(file);
       previewUrls.current.push(previewUrl);
       setPending((current) => ({ ...current, [field]: { mediaId: asset.id, previewUrl } }));
-      toast.success("Image uploaded. Save branding to apply it.");
+      setUploadErrors((current) => ({ ...current, [field]: undefined }));
+      persistAssetMutation.mutate({ field, mediaId: asset.id });
     },
-    onError: (error) => {
+    onError: (error, { field }) => {
       const fieldMessage =
         error instanceof ApiClientError ? Object.values(error.fields ?? {})[0]?.[0] : undefined;
-      toast.error(
+      const message =
         fieldMessage ??
-          (error instanceof ApiClientError ? error.message : "Upload failed. Please try again."),
-      );
+        (error instanceof ApiClientError ? error.message : "Upload failed. Please try again.");
+      setUploadErrors((current) => ({ ...current, [field]: message }));
+      toast.error(message);
     },
   });
 
@@ -192,9 +238,17 @@ export function BrandingSettingsCard() {
     },
   });
 
-  const busy = uploadMutation.isPending || saveMutation.isPending;
+  const busy = uploadMutation.isPending || persistAssetMutation.isPending || saveMutation.isPending;
+  // A field stays in `pending` in exactly two cases now: briefly, while its just-uploaded image
+  // is being auto-persisted (persistAssetMutation in flight); or indefinitely, if that auto-save
+  // failed (confirmed root cause of the original "I uploaded a logo and it never showed up"
+  // report — see persistAssetMutation's onError, which deliberately leaves it here instead of
+  // clearing it) — in which case Save Branding is the manual retry path. Surfaced persistently
+  // (not just a toast) so a failed auto-save can't be missed by looking away.
+  const hasPendingChanges = Object.keys(pending).length > 0;
 
   function pickFile(field: AssetField, extensions: string[], file: File) {
+    setUploadErrors((current) => ({ ...current, [field]: undefined }));
     const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
     if (!extensions.includes(extension)) {
       toast.error(
@@ -210,6 +264,7 @@ export function BrandingSettingsCard() {
   }
 
   function removeAsset(field: AssetField) {
+    setUploadErrors((current) => ({ ...current, [field]: undefined }));
     setPending((current) => ({ ...current, [field]: { mediaId: null, previewUrl: null } }));
   }
 
@@ -235,9 +290,13 @@ export function BrandingSettingsCard() {
     saveMutation.mutate(input);
   }
 
+  // Covers both legs of "upload, then auto-save" so the row's spinner/"Uploading…" label stays
+  // on for the whole operation, not just the initial upload.
   const uploadingField = uploadMutation.isPending
     ? (uploadMutation.variables?.field ?? null)
-    : null;
+    : persistAssetMutation.isPending
+      ? (persistAssetMutation.variables?.field ?? null)
+      : null;
 
   return (
     <Card flush>
@@ -260,6 +319,7 @@ export function BrandingSettingsCard() {
                   extensions={LOGO_EXTENSIONS}
                   imageUrl={imageFor("platform_logo_media_id")}
                   uploading={uploadingField === "platform_logo_media_id"}
+                  uploadError={uploadErrors.platform_logo_media_id ?? null}
                   disabled={busy}
                   onPick={(file) => pickFile("platform_logo_media_id", LOGO_EXTENSIONS, file)}
                   onRemove={() => removeAsset("platform_logo_media_id")}
@@ -271,6 +331,7 @@ export function BrandingSettingsCard() {
                   extensions={FAVICON_EXTENSIONS}
                   imageUrl={imageFor("favicon_media_id")}
                   uploading={uploadingField === "favicon_media_id"}
+                  uploadError={uploadErrors.favicon_media_id ?? null}
                   disabled={busy}
                   onPick={(file) => pickFile("favicon_media_id", FAVICON_EXTENSIONS, file)}
                   onRemove={() => removeAsset("favicon_media_id")}
@@ -282,6 +343,7 @@ export function BrandingSettingsCard() {
                   extensions={LOGO_EXTENSIONS}
                   imageUrl={imageFor("login_logo_media_id")}
                   uploading={uploadingField === "login_logo_media_id"}
+                  uploadError={uploadErrors.login_logo_media_id ?? null}
                   disabled={busy}
                   onPick={(file) => pickFile("login_logo_media_id", LOGO_EXTENSIONS, file)}
                   onRemove={() => removeAsset("login_logo_media_id")}
@@ -344,12 +406,20 @@ export function BrandingSettingsCard() {
                 ))}
               </div>
               <p className="-mt-2 text-xs text-slate-500">
-                Leave a color empty to keep the built-in PCTR color. Uploaded images and colors
-                apply after you save.
+                Leave a color empty to keep the built-in PCTR color. An uploaded image applies
+                automatically as soon as it finishes uploading; colors apply after you save.
               </p>
 
-              <div className="flex justify-end border-t border-slate-100 pt-4">
-                <Button type="button" disabled={busy} onClick={save}>
+              <div className="flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                {hasPendingChanges && (
+                  <p className="flex items-center gap-1.5 text-xs font-medium text-amber-700">
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                    {busy
+                      ? "Saving your uploaded image…"
+                      : "An uploaded image couldn't be saved automatically — click Save Branding to retry."}
+                  </p>
+                )}
+                <Button type="button" disabled={busy} onClick={save} className="sm:ml-auto">
                   {saveMutation.isPending ? "Saving…" : "Save Branding"}
                 </Button>
               </div>
