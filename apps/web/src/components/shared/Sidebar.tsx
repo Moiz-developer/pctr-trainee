@@ -52,18 +52,32 @@ export function Sidebar({
           }`}
         >
           {logoUrl ? (
-            <img src={logoUrl} alt="" className="h-8 w-8 shrink-0 object-contain" />
+            // A configured logo replaces the name/caption entirely (never rendered alongside
+            // it). Height-driven with width auto (not a fixed square) so a wide horizontal logo
+            // renders at a legible size instead of being squeezed/cropped into an 8x8 box; capped
+            // by max-width so it can't overflow the rail, and shrinks further once the rail
+            // itself collapses to its icon-only width.
+            <img
+              src={logoUrl}
+              alt={platformName ?? "Platform logo"}
+              className={`h-9 w-auto max-w-[9rem] shrink-0 object-contain ${collapsed ? "lg:h-8 lg:max-w-10" : ""}`}
+            />
           ) : (
-            <Star className="h-7 w-7 shrink-0 fill-indigo-900 text-indigo-900" aria-hidden="true" />
+            <>
+              <Star
+                className="h-7 w-7 shrink-0 fill-indigo-900 text-indigo-900"
+                aria-hidden="true"
+              />
+              <div className={`min-w-0 leading-tight ${hideOnRail}`}>
+                <p className="truncate text-base font-bold tracking-tight text-indigo-900">
+                  {platformName ?? "PCTR"}
+                </p>
+                <p className="truncate text-[10px] font-medium uppercase tracking-wider text-slate-500">
+                  {brand}
+                </p>
+              </div>
+            </>
           )}
-          <div className={`min-w-0 leading-tight ${hideOnRail}`}>
-            <p className="truncate text-base font-bold tracking-tight text-indigo-900">
-              {platformName ?? "PCTR"}
-            </p>
-            <p className="truncate text-[10px] font-medium uppercase tracking-wider text-slate-500">
-              {brand}
-            </p>
-          </div>
         </div>
         <nav className="flex-1 space-y-1.5 overflow-y-auto p-2.5">
           {items.map(({ to, label, icon: Icon }) => (

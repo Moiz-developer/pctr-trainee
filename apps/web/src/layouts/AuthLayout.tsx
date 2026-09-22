@@ -14,16 +14,28 @@ export function AuthLayout({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-indigo-950 via-indigo-900 to-indigo-700 px-4">
       <div className="mb-6 flex items-center gap-2.5 text-white">
         {shownLogo ? (
-          <img src={shownLogo} alt="" className="h-10 max-w-[8rem] object-contain" />
+          // A configured logo replaces the name/description entirely (never rendered alongside
+          // it) — the white backing plate keeps a dark-colored logo visible against this page's
+          // dark gradient, and the taller, wider box gives it room to render at a legible size
+          // instead of being squeezed into a small fixed box.
+          <div className="rounded-md bg-white/95 px-4 py-2.5 shadow-sm">
+            <img
+              src={shownLogo}
+              alt={platformName ?? "Platform logo"}
+              className="h-12 max-w-[14rem] object-contain"
+            />
+          </div>
         ) : (
-          <Star className="h-8 w-8 fill-accent text-accent" aria-hidden="true" />
+          <>
+            <Star className="h-8 w-8 fill-accent text-accent" aria-hidden="true" />
+            <div className="leading-tight">
+              <p className="text-xl font-bold tracking-tight">{platformName ?? "PCTR"}</p>
+              <p className="line-clamp-2 max-w-[16rem] text-[10px] font-medium uppercase tracking-wider text-white/70">
+                {platformDescription ?? "Training & Recruitment"}
+              </p>
+            </div>
+          </>
         )}
-        <div className="leading-tight">
-          <p className="text-xl font-bold tracking-tight">{platformName ?? "PCTR"}</p>
-          <p className="line-clamp-2 max-w-[16rem] text-[10px] font-medium uppercase tracking-wider text-white/70">
-            {platformDescription ?? "Training & Recruitment"}
-          </p>
-        </div>
       </div>
       <div className="w-full max-w-sm rounded-lg bg-white p-8 shadow-xl">{children}</div>
       {supportEmail && (
