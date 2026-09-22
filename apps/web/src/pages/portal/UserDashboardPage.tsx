@@ -57,32 +57,45 @@ const QUICK_ACCESS: { to: string; title: string; description: string; icon: Luci
   },
 ];
 
-// The stat value's own responsive scale, decoupled from the generic `sm:` breakpoint that used to
-// grow it — `sm` (640px) fires well before this grid becomes 3-across at `md` (768px), so the
-// value was actually LARGEST right as each card's available width shrank the most, forcing
-// "Trainer ID"/"Training Hours" to truncate or wrap mid-value (see trainer-dashbaord-card.png).
-// This instead shrinks at exactly that `md` breakpoint and only grows again at `xl`, once 3
-// columns each have real room; `truncate` is kept as the safety net for a value still too long at
-// any given width, so it always degrades to a clean single-line ellipsis, never a multi-line wrap.
+// A discrete `md:`/`xl:`/`2xl:` breakpoint ladder still jumped straight to a bigger size the
+// instant each step fired, regardless of how much width the card actually had at that exact
+// viewport — worst of all right at `xl` (1280px), where this dashboard's own two-column split
+// (`xl:grid-cols-[minmax(0,1fr)_22rem]` below) simultaneously hands ~22rem of width to the
+// "Continue Learning" panel, shrinking these cards at the very moment the font grew. `clamp()`
+// scales continuously with the viewport instead: flat at the min below ~1280px, growing smoothly
+// through the 1280–1790px range this was reported cramped in, flat at the max from ~1910px up —
+// no single width where it's ever "mid-jump". `truncate` stays as the safety net for a value still
+// too long at any given width, so it always degrades to a clean single-line ellipsis, never wraps.
 const STAT_VALUE_CLASS =
-  "mt-2 truncate text-2xl font-bold leading-tight tracking-tight md:text-xl xl:text-2xl 2xl:text-3xl";
+  "mt-2 truncate text-2xl font-bold leading-tight tracking-tight md:text-[clamp(1.25rem,1.57vw,1.875rem)]";
 
 /**
  * A stat tile for this dashboard: the shared StatCard with the icon in a small rounded tile
  * (instead of StatCard's large faint corner glyph). The tile takes the card's own text colour
  * via `currentColor`, so it stays legible when the card's hover fill slides in. Local to this
  * page because StatCard is also used by the admin dashboard.
+ *
+ * Icon alignment fix: the icon used to be `absolute`-positioned against StatCard's inner content
+ * wrapper, which only ever sizes to ITS OWN text — so a card with more text (e.g. "Courses
+ * Assigned"'s extra completed/in-progress line) pushed that wrapper taller and the icon lower than
+ * the other two cards in the same row (trainer-dashbaord-card.png). Laying the icon out in a
+ * `h-full` flex row instead (StatCard's inner wrapper now genuinely fills the grid-stretched card
+ * height — see Card.tsx) anchors it to the bottom of the actual card, identically on every card
+ * regardless of how much text sits above it. `min-w-0` lets the text side actually shrink/truncate
+ * instead of forcing the row wider than the card.
  */
 function DashboardStat({ icon: Icon, children }: { icon: LucideIcon; children: ReactNode }) {
   return (
     <StatCard className="card-slide-fill-ltr">
-      <span
-        className="absolute -bottom-2 right-0 flex h-12 w-12 items-center justify-center rounded-xl bg-current/10 ring-1 ring-current/20"
-        aria-hidden="true"
-      >
-        <Icon className="h-6 w-6" strokeWidth={1.75} />
-      </span>
-      <div className="pr-16">{children}</div>
+      <div className="flex h-full items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">{children}</div>
+        <span
+          className="flex h-12 w-12 shrink-0 items-center justify-center self-end rounded-xl bg-current/10 ring-1 ring-current/20"
+          aria-hidden="true"
+        >
+          <Icon className="h-6 w-6" strokeWidth={1.75} />
+        </span>
+      </div>
     </StatCard>
   );
 }

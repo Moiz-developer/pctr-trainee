@@ -47,8 +47,16 @@ export function StatCard({
   icon?: LucideIcon;
 }) {
   return (
+    // `flex flex-col` on this outer box + `flex-1` on the inner content wrapper below: when
+    // several StatCards share a CSS Grid row, the grid stretches each one to the tallest card's
+    // height, but a plain block child only ever sizes to its OWN content — so a caller trying to
+    // align something (e.g. an icon) to "the bottom of the card" via the inner wrapper alone was
+    // actually aligning to the bottom of its own text, which differs per card whenever their text
+    // content differs in length (see UserDashboardPage.tsx's DashboardStat, the reason this
+    // changed). `flex-1` makes the inner wrapper genuinely fill the stretched height, so `h-full`
+    // inside it now means the same thing on every card in the row.
     <div
-      className={`relative overflow-hidden rounded-lg bg-indigo-900 p-6 text-white shadow-[0_2px_8px_rgba(49,44,133,0.25)] ${className}`}
+      className={`relative flex flex-col overflow-hidden rounded-lg bg-indigo-900 p-6 text-white shadow-[0_2px_8px_rgba(49,44,133,0.25)] ${className}`}
     >
       <span
         aria-hidden="true"
@@ -60,7 +68,7 @@ export function StatCard({
           aria-hidden="true"
         />
       )}
-      <div className="relative">{children}</div>
+      <div className="relative flex-1">{children}</div>
     </div>
   );
 }
