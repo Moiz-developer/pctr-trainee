@@ -57,6 +57,16 @@ const QUICK_ACCESS: { to: string; title: string; description: string; icon: Luci
   },
 ];
 
+// The stat value's own responsive scale, decoupled from the generic `sm:` breakpoint that used to
+// grow it — `sm` (640px) fires well before this grid becomes 3-across at `md` (768px), so the
+// value was actually LARGEST right as each card's available width shrank the most, forcing
+// "Trainer ID"/"Training Hours" to truncate or wrap mid-value (see trainer-dashbaord-card.png).
+// This instead shrinks at exactly that `md` breakpoint and only grows again at `xl`, once 3
+// columns each have real room; `truncate` is kept as the safety net for a value still too long at
+// any given width, so it always degrades to a clean single-line ellipsis, never a multi-line wrap.
+const STAT_VALUE_CLASS =
+  "mt-2 truncate text-2xl font-bold leading-tight tracking-tight md:text-xl xl:text-2xl 2xl:text-3xl";
+
 /**
  * A stat tile for this dashboard: the shared StatCard with the icon in a small rounded tile
  * (instead of StatCard's large faint corner glyph). The tile takes the card's own text colour
@@ -115,13 +125,11 @@ export function UserDashboardPage() {
           <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
             <DashboardStat icon={GraduationCap}>
               <p className="text-sm font-medium opacity-90">Trainer ID</p>
-              <p className="mt-2 truncate text-2xl font-bold tracking-tight sm:text-3xl">
-                {identity.data ? identity.data.employeeId : "—"}
-              </p>
+              <p className={STAT_VALUE_CLASS}>{identity.data ? identity.data.employeeId : "—"}</p>
             </DashboardStat>
             <DashboardStat icon={Hourglass}>
               <p className="text-sm font-medium opacity-90">Training Hours</p>
-              <p className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
+              <p className={STAT_VALUE_CLASS}>
                 {query.data
                   ? `${query.data.hours.consumed_hours}${
                       query.data.hours.allocated_hours > 0
@@ -133,11 +141,11 @@ export function UserDashboardPage() {
             </DashboardStat>
             <DashboardStat icon={BookOpen}>
               <p className="text-sm font-medium opacity-90">Courses Assigned</p>
-              <p className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
+              <p className={STAT_VALUE_CLASS}>
                 {query.data ? query.data.courses.total_courses : "—"}
               </p>
               {query.data && (
-                <p className="mt-1 text-xs opacity-80">
+                <p className="mt-1 truncate text-xs opacity-80">
                   {query.data.courses.completed} completed · {query.data.courses.in_progress} in
                   progress
                 </p>
