@@ -47,23 +47,22 @@ export function Sidebar({
         } ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div
-          className={`flex h-16 shrink-0 items-center gap-2.5 border-b border-slate-100 px-4 ${
-            collapsed ? "lg:justify-center lg:px-0" : ""
-          }`}
+          className={`flex shrink-0 items-center gap-2.5 border-b border-slate-100 px-4 ${
+            logoUrl ? "py-3" : "h-16"
+          } ${collapsed ? "lg:justify-center lg:px-0" : ""}`}
         >
           {logoUrl ? (
             // A configured logo replaces the name/caption entirely (never rendered alongside
-            // it). Height-driven with width auto (not a fixed square) so a wide horizontal logo
-            // renders at a legible size instead of being squeezed/cropped into an 8x8 box; most
-            // uploaded logo files carry their own internal margin around the mark, so the taller
-            // box here (h-11 vs. the original h-8 square) is what actually makes that mark
-            // render at a readable size rather than shrinking it further with more container.
-            // Capped by max-width so it can't overflow the rail, and shrinks further once the
-            // rail itself collapses to its icon-only width.
+            // it). Full header width and a fixed 100px height (not a max-width cap) so the logo
+            // renders as large as the rail actually allows instead of leaving unused space next
+            // to it; `object-contain` still preserves its natural aspect ratio (no stretching).
+            // The row's own height comes from this 100px image plus padding now, not a fixed
+            // h-16, since 100px no longer fits the old fixed row. Shrinks to a compact square on
+            // the collapsed icon-only rail, where full width would be too narrow to help.
             <img
               src={logoUrl}
               alt={platformName ?? "Platform logo"}
-              className={`h-11 w-auto max-w-[10rem] shrink-0 object-contain ${collapsed ? "lg:h-9 lg:max-w-12" : ""}`}
+              className={`h-[100px] w-full object-contain ${collapsed ? "lg:h-14 lg:w-14" : ""}`}
             />
           ) : (
             <>
