@@ -14,6 +14,7 @@ import type {
   LessonProgressStatus,
 } from "@internal-training/shared";
 import { DOCX_MIME } from "./DocumentLessonViewer";
+import { XLS_MIME, XLSX_MIME } from "./SpreadsheetViewer";
 import { getEmbeddableVideoUrl } from "./ExternalVideoPlayer";
 
 export const STATUS_LABEL: Record<LessonProgressStatus, string> = {
@@ -88,7 +89,15 @@ export function isVideoLesson(lesson: CourseDetailLesson): boolean {
 
 /** Which protected viewer renders a lesson's body. */
 export type LessonViewerKind =
-  "VIDEO" | "PDF" | "DOCX" | "LEGACY_DOC" | "PRESENTATION" | "IMAGE" | "INLINE" | "NO_MEDIA";
+  | "VIDEO"
+  | "PDF"
+  | "DOCX"
+  | "LEGACY_DOC"
+  | "SPREADSHEET"
+  | "PRESENTATION"
+  | "IMAGE"
+  | "INLINE"
+  | "NO_MEDIA";
 
 const PRESENTATION_MIMES = new Set([
   "application/vnd.ms-powerpoint",
@@ -112,6 +121,7 @@ export function getLessonViewerKind(lesson: CourseDetailLesson): LessonViewerKin
   if (mime === "application/pdf") return "PDF";
   if (mime === DOCX_MIME) return "DOCX";
   if (mime === "application/msword") return "LEGACY_DOC";
+  if (mime === XLSX_MIME || mime === XLS_MIME) return "SPREADSHEET";
   if (mime && PRESENTATION_MIMES.has(mime)) return "PRESENTATION";
   if (mime?.startsWith("image/")) return "IMAGE";
 

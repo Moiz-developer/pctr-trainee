@@ -12,12 +12,6 @@ const STATUS_PILL_CLASS = {
   COMPLETED: "bg-emerald-600 text-white",
 } as const;
 
-// The reference colours its two resource buttons blue and orange; alternated by position.
-const RESOURCE_BUTTON_CLASS = [
-  "bg-blue-600 hover:bg-blue-500",
-  "bg-orange-500 hover:bg-orange-400",
-];
-
 /**
  * One practical task (a module's PRACTICAL lessons) as a card, per
  * practical.png: purple title bar, description, "Resources", and a status
@@ -27,6 +21,11 @@ const RESOURCE_BUTTON_CLASS = [
  * reproduced (downloads were removed by the security hardening). The
  * reference's Awaiting Feedback / Feedback / file-upload elements have no
  * backing data model, so they are not rendered.
+ *
+ * UI consistency unit: each resource button opens a document/file (via the shared lesson viewer
+ * modal), so — like every other document-preview action in the portal — it uses the shared
+ * `Button` component's default primary/purple styling, not a bespoke colour (the reference's own
+ * alternating blue/orange scheme is not reproduced).
  */
 export function PracticalTaskCard({
   group,
@@ -64,15 +63,13 @@ export function PracticalTaskCard({
           <div>
             <p className="text-sm font-semibold text-indigo-950">Resources:</p>
             <div className="mt-2 flex flex-wrap gap-2">
-              {resources.map((entry, index) => (
-                <button
+              {resources.map((entry) => (
+                <Button
                   key={entry.lesson.id}
                   type="button"
                   onClick={() => onOpenLesson(entry.lesson.id)}
                   title={entry.lesson.title}
-                  className={`inline-flex max-w-full cursor-pointer items-center gap-1.5 rounded px-3 py-2 text-xs font-medium text-white transition-colors ${
-                    RESOURCE_BUTTON_CLASS[index % RESOURCE_BUTTON_CLASS.length]
-                  } ${entry.isCurrent ? "ring-2 ring-indigo-300 ring-offset-1" : ""}`}
+                  className={`max-w-full gap-1.5 px-3 py-2 text-xs ${entry.isCurrent ? "ring-2 ring-indigo-300 ring-offset-1" : ""}`}
                 >
                   {entry.loading ? (
                     <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden="true" />
@@ -82,7 +79,7 @@ export function PracticalTaskCard({
                     <Eye className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                   )}
                   <span className="truncate">{entry.lesson.title}</span>
-                </button>
+                </Button>
               ))}
             </div>
           </div>

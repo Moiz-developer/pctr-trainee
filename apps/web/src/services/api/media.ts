@@ -3,9 +3,11 @@ import {
   createMediaUploadUrlRequestSchema,
   mediaAccessUrlSuccessResponseSchema,
   mediaAssetSuccessResponseSchema,
+  mediaDocPreviewSuccessResponseSchema,
   mediaUploadUrlResponseSchema,
   type MediaAccessUrlResponse,
   type MediaAssetResponse,
+  type MediaDocPreviewResponse,
   type MediaPurpose,
 } from "@internal-training/shared";
 import { apiFetch } from "./client";
@@ -112,4 +114,10 @@ export const MEDIA_ACCESS_URL_STALE_MS = 4 * 60_000;
 export async function getMediaAccessUrl(mediaAssetId: string): Promise<MediaAccessUrlResponse> {
   const body = await apiFetch<unknown>(`/media/${mediaAssetId}/access-url`);
   return mediaAccessUrlSuccessResponseSchema.parse(body).data;
+}
+
+/** Legacy `.doc` text, extracted server-side (Document preview UI consistency unit — LegacyDocViewer.tsx). */
+export async function getDocPreviewText(mediaAssetId: string): Promise<MediaDocPreviewResponse> {
+  const body = await apiFetch<unknown>(`/media/${mediaAssetId}/doc-preview`);
+  return mediaDocPreviewSuccessResponseSchema.parse(body).data;
 }

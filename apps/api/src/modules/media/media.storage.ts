@@ -117,6 +117,19 @@ export async function getObjectInfo(
   };
 }
 
+/**
+ * The object's actual bytes (service-role, server-only) — used only where the file's content
+ * itself must be read server-side (Document preview UI consistency unit: legacy `.doc` text
+ * extraction), never handed to the browser directly. Everything the browser renders still goes
+ * through a signed URL (createSignedDownloadUrl below); this never becomes a response body.
+ */
+export async function downloadObject(bucket: string, storagePath: string): Promise<Buffer | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase.storage.from(bucket).download(storagePath);
+  if (error || !data) return null;
+  return Buffer.from(await data.arrayBuffer());
+}
+
 /** Short-lived signed *download* URL, or `null` if the object no longer exists (SYSTEM_PLAN.md §16 read flow step 3). */
 export async function createSignedDownloadUrl(
   bucket: string,

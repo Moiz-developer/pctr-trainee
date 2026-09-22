@@ -16,6 +16,8 @@ import { VideoLessonPlayer } from "./VideoLessonPlayer";
 import { PdfLessonViewer } from "./PdfLessonViewer";
 import { usePdfModalSizing, type PdfViewerSizingProps } from "./pdfModalSizing";
 import { DocumentLessonViewer, DOCX_MIME } from "./DocumentLessonViewer";
+import { LegacyDocViewer } from "./LegacyDocViewer";
+import { SpreadsheetViewer } from "./SpreadsheetViewer";
 import { ExternalVideoPlayer, getEmbeddableVideoUrl } from "./ExternalVideoPlayer";
 import { PresentationLessonViewer } from "./PresentationLessonViewer";
 import { ProtectedFileViewer } from "./ProtectedFileViewer";
@@ -126,12 +128,9 @@ function LessonBody({
     case "DOCX":
       return <DocumentLessonViewer mediaAssetId={lesson.media_asset_id!} mimeType={DOCX_MIME} />;
     case "LEGACY_DOC":
-      return (
-        <DocumentLessonViewer
-          mediaAssetId={lesson.media_asset_id!}
-          mimeType={lesson.media_mime_type}
-        />
-      );
+      return <LegacyDocViewer mediaAssetId={lesson.media_asset_id!} />;
+    case "SPREADSHEET":
+      return <SpreadsheetViewer mediaAssetId={lesson.media_asset_id!} />;
     case "PRESENTATION":
       return <PresentationLessonViewer mediaAssetId={lesson.media_asset_id!} />;
     case "IMAGE":

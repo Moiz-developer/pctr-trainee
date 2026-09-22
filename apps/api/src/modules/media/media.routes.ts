@@ -8,7 +8,12 @@ import {
 import { requireAuth } from "../auth/auth.middleware.js";
 import { ForbiddenError, ValidationError } from "../../lib/errors.js";
 import type { RequestIdentity } from "../auth/auth.types.js";
-import { confirmMediaUpload, createMediaUploadUrl, getMediaAccessUrl } from "./media.service.js";
+import {
+  confirmMediaUpload,
+  createMediaUploadUrl,
+  getDocPreviewText,
+  getMediaAccessUrl,
+} from "./media.service.js";
 
 export const mediaRoutes: Router = Router();
 
@@ -108,6 +113,26 @@ mediaRoutes.get("/:id/access-url", requireAuth, async (req, res, next) => {
       throw new Error("Missing authenticated identity.");
     }
     const result = await getMediaAccessUrl(identity.id, parsed.data.id, identity.permissions);
+    res.json({ data: result });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Document preview UI consistency unit: legacy .doc text, extracted server-side. Same param
+// validation and auth shape as /access-url above — getDocPreviewText itself calls
+// getMediaAccessUrl for the actual authorization check.
+mediaRoutes.get("/:id/doc-preview", requireAuth, async (req, res, next) => {
+  try {
+    const parsed = accessUrlParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      throw new ValidationError(parsed.error.flatten().fieldErrors);
+    }
+    const identity = req.identity;
+    if (!identity) {
+      throw new Error("Missing authenticated identity.");
+    }
+    const result = await getDocPreviewText(identity.id, parsed.data.id, identity.permissions);
     res.json({ data: result });
   } catch (error) {
     next(error);

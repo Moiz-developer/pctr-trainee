@@ -6,6 +6,7 @@ import type {
   MediaUploadUrlResponse,
   MediaAssetResponse,
   MediaAccessUrlResponse,
+  MediaDocPreviewResponse,
 } from "@internal-training/shared";
 import { prisma } from "../../lib/prisma.js";
 import type { MediaAsset } from "../../generated/prisma/client.js";
@@ -32,10 +33,15 @@ import { getMediaSettings } from "../settings/settings.service.js";
 import {
   createSignedDownloadUrl,
   createSignedUploadUrl,
+  downloadObject,
   ensureBucket,
   getObjectInfo,
   removeObject,
 } from "./media.storage.js";
+
+// Legacy Word's binary format — see getDocPreviewText below. Kept local (not media.constants.ts):
+// this is the one MIME this module treats specially for extraction, not a bucket/allowlist value.
+const LEGACY_DOC_MIME = "application/msword";
 
 // A storage path this API generated: `<uuid>/<safe-filename>`. Confirm
 // rejects anything else — prevents path traversal and confirming an
@@ -499,4 +505,56 @@ export async function getMediaAccessUrl(
     expires_in: ttl,
     expires_at: expiresAt.toISOString(),
   };
+}
+
+/**
+ * GET /api/v1/media/:id/doc-preview (Document preview UI consistency unit). Legacy `.doc` is a
+ * binary OLE/CFB container, not the OOXML zip mammoth's client-side DOCX converter needs
+ * (DocumentLessonViewer.tsx) — there is no safe way to parse it in the browser, so its text is
+ * extracted here instead, server-side, with `word-extractor` (a small, focused, pure-JS reader;
+ * no native bindings, no external process/service).
+ *
+ * Authorization: deliberately calls `getMediaAccessUrl` itself rather than re-deriving "can this
+ * caller reach this asset" — every one of its "reachable via ..." branches (lesson, resource,
+ * policy version, announcement, ...) applies identically here, so reusing it outright is the only
+ * way this stays in step with that logic instead of a second, driftable copy. The signed URL it
+ * mints is simply discarded — this function needs the file's bytes, not a browser-facing link —
+ * a negligible extra Storage call for a code path that isn't performance-sensitive.
+ */
+export async function getDocPreviewText(
+  userId: string,
+  mediaAssetId: string,
+  permissions: readonly string[] = [],
+): Promise<MediaDocPreviewResponse> {
+  const { mime_type: mimeType } = await getMediaAccessUrl(userId, mediaAssetId, permissions);
+  if (mimeType !== LEGACY_DOC_MIME) {
+    throw new ValidationError({
+      id: [`Media asset "${mediaAssetId}" is not a legacy .doc file.`],
+    });
+  }
+
+  // Re-fetched rather than threaded out of getMediaAccessUrl above: that function's own
+  // internals stay untouched, and authorization has already passed by this point.
+  const media = await prisma.mediaAsset.findUnique({ where: { id: mediaAssetId } });
+  if (!media) {
+    throw new NotFoundError(`No media asset exists with id "${mediaAssetId}".`);
+  }
+
+  const buffer = await downloadObject(media.bucket, media.storagePath);
+  if (!buffer) {
+    throw new NotFoundError("The media object could not be found in storage.");
+  }
+
+  const { default: WordExtractor } = await import("word-extractor");
+  let text: string;
+  try {
+    const document = await new WordExtractor().extract(buffer);
+    text = document.getBody();
+  } catch {
+    throw new ValidationError({
+      id: ["This document could not be read — the file may be corrupted or password-protected."],
+    });
+  }
+
+  return { text };
 }

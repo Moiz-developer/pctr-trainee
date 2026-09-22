@@ -8,63 +8,52 @@ import { Badge } from "../../../components/ui/Badge";
 import { Modal } from "../../../components/ui/Modal";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
 import { listPolicies } from "../../../services/api/policies";
-import { PdfLessonViewer } from "../courses/PdfLessonViewer";
-import { usePdfModalSizing } from "../courses/pdfModalSizing";
-import { DocumentLessonViewer } from "../courses/DocumentLessonViewer";
+import { DocumentPreviewButton } from "../courses/DocumentPreviewButton";
 import { RichText } from "../../../components/ui/RichText";
 import { richTextToPlain } from "../../../lib/richText";
 
-const PDF_MIME = "application/pdf";
+const VIEW_BUTTON_CLASS = "gap-1.5 px-2 py-1 text-xs";
 
 /**
  * Policy & Procedures (SYSTEM_PLAN.md §4/§14.8/§23/§26): every policy that
  * currently has an active version — server-filtered by `GET /policies`,
  * never a client-side hide of a broader fetched set.
  *
- * Download restriction unit: a version with an attached PDF/DOCX (or
- * legacy DOC) document now opens in-app via PdfLessonViewer/
- * DocumentLessonViewer inside a read-only Modal — the exact same pattern
- * already used here for inline `content` — instead of resolving a signed
- * URL and opening it in a new tab. `media_mime_type` (added alongside this
- * unit, packages/shared/src/api/policies.ts) is what makes that choice
- * possible; a version with only inline `content` (no document) still opens
- * the same read-only text modal as before.
+ * Download restriction unit: a version with an attached document opens
+ * in-app via the shared `DocumentPreviewButton` (UI consistency unit — the
+ * same "View" button + Modal + ProtectedFileViewer pattern ResourcesPage.tsx
+ * uses) instead of resolving a signed URL and opening it in a new tab. A
+ * version with only inline `content` (no document) instead opens the
+ * read-only text modal below — same View button, same size, just no file to
+ * hand to the protected viewer.
  */
 function ViewButton({ version }: { version: PolicyResponse["active_version"] }) {
+  if (version.media_asset_id) {
+    return (
+      <DocumentPreviewButton
+        mediaAssetId={version.media_asset_id}
+        mimeType={version.media_mime_type}
+        title="Policy Content"
+        icon={ScrollText}
+        className={VIEW_BUTTON_CLASS}
+      />
+    );
+  }
+  return <PolicyContentButton content={version.content ?? ""} />;
+}
+
+/** A policy version with only inline text content — the same View button, a plain-text Modal. */
+function PolicyContentButton({ content }: { content: string }) {
   const [open, setOpen] = useState(false);
-  // Sizes the modal to the PDF's page (shared with every PDF modal, see pdfModalSizing.ts).
-  const pdfFit = usePdfModalSizing();
 
   return (
     <>
-      <Button
-        variant="secondary"
-        className="gap-1.5 px-2 py-1 text-xs"
-        onClick={() => setOpen(true)}
-      >
+      <Button className={VIEW_BUTTON_CLASS} onClick={() => setOpen(true)}>
         <ScrollText className="h-3.5 w-3.5" aria-hidden="true" />
         View
       </Button>
-      <Modal
-        open={open}
-        onClose={() => setOpen(false)}
-        title="Policy Content"
-        wide
-        size={pdfFit.size ?? (version.media_mime_type === PDF_MIME ? "xl" : undefined)}
-        maxWidth={pdfFit.maxWidth}
-      >
-        {version.media_asset_id ? (
-          version.media_mime_type === PDF_MIME ? (
-            <PdfLessonViewer mediaAssetId={version.media_asset_id} {...pdfFit.viewerProps} />
-          ) : (
-            <DocumentLessonViewer
-              mediaAssetId={version.media_asset_id}
-              mimeType={version.media_mime_type}
-            />
-          )
-        ) : (
-          <RichText value={version.content ?? ""} className="text-sm text-slate-700" />
-        )}
+      <Modal open={open} onClose={() => setOpen(false)} title="Policy Content" wide>
+        <RichText value={content} className="text-sm text-slate-700" />
       </Modal>
     </>
   );

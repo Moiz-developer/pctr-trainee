@@ -95,6 +95,21 @@ export type MediaAccessUrlResponse = z.infer<typeof mediaAccessUrlResponseSchema
 export const mediaAccessUrlSuccessResponseSchema = apiSuccessSchema(mediaAccessUrlResponseSchema);
 
 /**
+ * GET /api/v1/media/:id/doc-preview — Document preview UI consistency unit. Legacy `.doc`
+ * (OLE binary, not the OOXML zip mammoth's client-side converter needs) has no safe way to
+ * parse it in the browser, so — unlike every other in-portal preview — its text is extracted
+ * server-side (word-extractor) and returned directly, gated by the exact same authorization
+ * `GET /media/:id/access-url` already enforces for this same asset. Plain extracted text, no
+ * markup: the client renders it through the existing RichText component exactly like any other
+ * plain-text value (its own sanitization/typography, nothing new here).
+ */
+export const mediaDocPreviewResponseSchema = z.object({
+  text: z.string(),
+});
+export type MediaDocPreviewResponse = z.infer<typeof mediaDocPreviewResponseSchema>;
+export const mediaDocPreviewSuccessResponseSchema = apiSuccessSchema(mediaDocPreviewResponseSchema);
+
+/**
  * PUT /api/v1/admin/courses/:courseId/modules/:moduleId/lessons/:lessonId/media
  * — attach (`media_asset_id`) or detach (`null`) a lesson's media reference.
  * Permission `course.content.manage` (SYSTEM_PLAN.md §16). Separate from

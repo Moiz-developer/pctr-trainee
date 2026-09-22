@@ -137,7 +137,7 @@ export function DocumentLessonViewer({
 
   return (
     <div
-      className="protected-content max-h-[70vh] overflow-y-auto rounded-lg border border-slate-200 p-4 text-sm leading-relaxed text-slate-700"
+      className="protected-content rich-text max-h-[70vh] overflow-y-auto rounded-lg border border-slate-200 p-4"
       onContextMenu={(event) => event.preventDefault()}
       dangerouslySetInnerHTML={{ __html: html ?? "" }}
     />

@@ -5,7 +5,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
-  Eye,
   ExternalLink,
   FileText,
   Tag,
@@ -13,7 +12,6 @@ import {
 import type { ResourceResponse } from "@internal-training/shared";
 import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
-import { Modal } from "../../../components/ui/Modal";
 import { SelectField } from "../../../components/ui/FormField";
 import { useToast } from "../../../components/ui/Toast";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
@@ -21,8 +19,7 @@ import { listResourceCategories, listResources } from "../../../services/api/res
 import { getMediaAccessUrl } from "../../../services/api/media";
 import { ApiClientError } from "../../../services/api/client";
 import { getSafeHttpsUrl } from "../../../lib/safeUrl";
-import { ProtectedFileViewer } from "../courses/ProtectedFileViewer";
-import { usePdfModalSizing } from "../courses/pdfModalSizing";
+import { DocumentPreviewButton } from "../courses/DocumentPreviewButton";
 import { DOCX_MIME } from "../courses/DocumentLessonViewer";
 import { Chip, THUMBNAIL_BOX_CLASS } from "../courses/CourseCard";
 import { richTextToPlain } from "../../../lib/richText";
@@ -51,58 +48,16 @@ function canPreviewInPortal(mimeType: string): boolean {
  * a server-side query param, not a substitute for the visibility check.
  *
  * Security & download restrictions: a resource file is only ever opened
- * through the in-portal viewer (PDF, DOCX and images), or — Business Analysis
- * Templates unit — through `DownloadResourceButton` below, and only for a
- * resource the admin explicitly flagged `is_downloadable` (a template
- * trainees are meant to fill in and return, not a reference document). Every
- * other file type the portal can't render is shown as "Preview not
- * available"; there is still no generic "open the raw signed Storage URL"
- * affordance for anything else.
+ * through the in-portal viewer (PDF, DOCX and images — `DocumentPreviewButton`,
+ * the same shared "View" button + Modal + ProtectedFileViewer pattern
+ * PoliciesPage.tsx's own View button uses), or — Business Analysis Templates
+ * unit — through `DownloadResourceButton` below, and only for a resource the
+ * admin explicitly flagged `is_downloadable` (a template trainees are meant
+ * to fill in and return, not a reference document). Every other file type
+ * the portal can't render is shown as "Preview not available"; there is
+ * still no generic "open the raw signed Storage URL" affordance for anything
+ * else.
  */
-/**
- * In-app viewer for a previewable resource — opens the shared
- * ProtectedFileViewer inside a Modal (mirrors
- * PoliciesPage.tsx's own "View" + read-only Modal convention) instead of
- * offering a direct download link, satisfying "no download affordance for
- * recognized document formats".
- */
-function InAppDocumentButton({
-  mediaAssetId,
-  mimeType,
-  title,
-}: {
-  mediaAssetId: string;
-  mimeType: string;
-  title: string;
-}) {
-  const [open, setOpen] = useState(false);
-  // Sizes the modal to the PDF's page (shared with every PDF modal, see pdfModalSizing.ts).
-  const pdfFit = usePdfModalSizing();
-
-  return (
-    <>
-      <Button className="w-full gap-1.5" onClick={() => setOpen(true)}>
-        <Eye className="h-4 w-4" aria-hidden="true" />
-        View
-      </Button>
-      <Modal
-        open={open}
-        onClose={() => setOpen(false)}
-        title={title}
-        wide
-        size={pdfFit.size ?? (mimeType === PDF_MIME ? "xl" : undefined)}
-        maxWidth={pdfFit.maxWidth}
-      >
-        <ProtectedFileViewer
-          mediaAssetId={mediaAssetId}
-          mimeType={mimeType}
-          pdfProps={pdfFit.viewerProps}
-        />
-      </Modal>
-    </>
-  );
-}
-
 /**
  * Useful Links unit: a URL-backed resource (`external_url` set, no attached
  * media asset) needs no signed-URL round trip — `external_url` is already a
@@ -199,10 +154,11 @@ function ResourceCard({ item }: { item: ResourceResponse }) {
         ) : (
           <div className="space-y-2">
             {canPreviewInPortal(item.file_type) ? (
-              <InAppDocumentButton
+              <DocumentPreviewButton
                 mediaAssetId={item.media_asset_id!}
                 mimeType={item.file_type}
                 title={item.title}
+                className="w-full gap-1.5"
               />
             ) : !item.is_downloadable ? (
               <p className="text-center text-xs text-slate-400">Preview not available</p>

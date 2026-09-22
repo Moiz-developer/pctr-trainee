@@ -5,6 +5,8 @@ import { getMediaAccessUrl, MEDIA_ACCESS_URL_STALE_MS } from "../../../services/
 import { PdfLessonViewer } from "./PdfLessonViewer";
 import type { PdfViewerSizingProps } from "./pdfModalSizing";
 import { DocumentLessonViewer, DOCX_MIME } from "./DocumentLessonViewer";
+import { LegacyDocViewer, DOC_MIME } from "./LegacyDocViewer";
+import { SpreadsheetViewer, XLS_MIME, XLSX_MIME } from "./SpreadsheetViewer";
 import { PreviewUnavailable } from "./PreviewUnavailable";
 
 const PDF_MIME = "application/pdf";
@@ -49,12 +51,15 @@ function ProtectedImage({ mediaAssetId }: { mediaAssetId: string }) {
 }
 
 /**
- * Views a protected media asset inside the portal, picking a viewer from its
- * MIME type: PDF (pdf.js canvas), DOCX (rendered HTML) or an image. Anything
- * else is reported as not previewable — never opened as a raw Storage URL, so
- * there is no normal download path. Pass `mimeType` when the caller already
- * knows it; otherwise it comes from the authorized access-url response (the
- * same authorization check as any other media access).
+ * Views a protected media asset inside the portal, picking a viewer from its MIME type: PDF
+ * (pdf.js canvas), DOCX (mammoth, client-side), legacy DOC (text extracted server-side —
+ * LegacyDocViewer.tsx), XLS/XLSX (xlsx/SheetJS, client-side — SpreadsheetViewer.tsx) or an image.
+ * Anything else is reported as not previewable — never opened as a raw Storage URL, so there is
+ * no normal download path. Pass `mimeType` when the caller already knows it; otherwise it comes
+ * from the authorized access-url response (the same authorization check as any other media
+ * access). Every entry point in the portal that previews a document (Resources, Policies) goes
+ * through this one dispatcher via DocumentPreviewButton, so a format gains support here exactly
+ * once — never a second, separate copy of this logic.
  */
 export function ProtectedFileViewer({
   mediaAssetId,
@@ -97,6 +102,9 @@ export function ProtectedFileViewer({
   if (mime === PDF_MIME) return <PdfLessonViewer mediaAssetId={mediaAssetId} {...pdfProps} />;
   if (mime === DOCX_MIME)
     return <DocumentLessonViewer mediaAssetId={mediaAssetId} mimeType={mime} />;
+  if (mime === DOC_MIME) return <LegacyDocViewer mediaAssetId={mediaAssetId} />;
+  if (mime === XLSX_MIME || mime === XLS_MIME)
+    return <SpreadsheetViewer mediaAssetId={mediaAssetId} />;
   if (mime.startsWith("image/")) return <ProtectedImage mediaAssetId={mediaAssetId} />;
 
   return (

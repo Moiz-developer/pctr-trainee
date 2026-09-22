@@ -66,7 +66,9 @@ INSERT INTO "system_settings" (
     'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     'application/vnd.ms-powerpoint',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/msword'
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-excel'
   ]::text[],
   26214400, -- 25 MiB, was QUERY_ATTACHMENT_MAX_BYTES
   ARRAY[
