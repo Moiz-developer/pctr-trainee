@@ -1,6 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { ImageIcon } from "lucide-react";
 import type {
   AssessmentResponse,
   AssessmentType,
@@ -9,8 +10,10 @@ import type {
 import { Modal } from "../../../components/ui/Modal";
 import { Button } from "../../../components/ui/Button";
 import { TextField, TextAreaField, SelectField } from "../../../components/ui/FormField";
+import { MediaImage } from "../../../components/shared/MediaImage";
 import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
+import { uploadCourseMedia } from "../../../services/api/media";
 import { createAssessment, updateAssessment } from "../../../services/api/adminAssessments";
 
 /**
@@ -63,6 +66,7 @@ export function AssessmentFormModal({
   const queryClient = useQueryClient();
   const toast = useToast();
   const isEdit = !!assessment;
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
   const {
     register,
@@ -91,8 +95,14 @@ export function AssessmentFormModal({
     );
   }, [open, assessment, reset]);
 
+  function handleClose() {
+    setImageFile(null);
+    onClose();
+  }
+
   const mutation = useMutation({
-    mutationFn: (values: AssessmentFormValues) => {
+    mutationFn: async (values: AssessmentFormValues) => {
+      const image_media_id = imageFile ? (await uploadCourseMedia(imageFile)).id : undefined;
       const payload: CreateAssessmentRequest = {
         title: values.title,
         description: values.description || null,
@@ -105,6 +115,7 @@ export function AssessmentFormModal({
             : values.duration_minutes,
         due_date: values.due_date ? new Date(values.due_date).toISOString() : null,
         max_attempts: values.max_attempts,
+        ...(image_media_id !== undefined ? { image_media_id } : {}),
       };
       return isEdit
         ? updateAssessment(courseId, assessment!.id, payload)
@@ -113,7 +124,7 @@ export function AssessmentFormModal({
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["assessments", courseId] });
       toast.success(isEdit ? "Assessment updated." : "Assessment created.");
-      onClose();
+      handleClose();
     },
     onError: (error) => {
       if (error instanceof ApiClientError && error.fields) {
@@ -129,7 +140,12 @@ export function AssessmentFormModal({
   });
 
   return (
-    <Modal open={open} onClose={onClose} title={isEdit ? "Edit Assessment" : "New Assessment"} wide>
+    <Modal
+      open={open}
+      onClose={handleClose}
+      title={isEdit ? "Edit Assessment" : "New Assessment"}
+      wide
+    >
       <form
         className="space-y-4"
         onSubmit={(event) => void handleSubmit((values) => mutation.mutate(values))(event)}
@@ -146,6 +162,55 @@ export function AssessmentFormModal({
           error={errors.description?.message}
           {...register("description")}
         />
+
+        <div>
+          <label htmlFor="a-image" className="block text-sm font-medium text-slate-700">
+            Picture
+          </label>
+          <div
+            className="mt-1 rounded-lg border border-dashed border-slate-300 p-4 text-center"
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
+              // The native file input used to take dropped files itself; it is visually hidden
+              // now, so the box takes them (images only, like the picker).
+              event.preventDefault();
+              const dropped = event.dataTransfer.files?.[0];
+              if (dropped?.type.startsWith("image/")) setImageFile(dropped);
+            }}
+          >
+            {isEdit && !imageFile && assessment!.image_media_id ? (
+              <span className="mx-auto block h-24 w-40 overflow-hidden rounded bg-slate-100">
+                <MediaImage
+                  mediaAssetId={assessment!.image_media_id}
+                  className="h-full w-full object-cover"
+                  fallback={null}
+                />
+              </span>
+            ) : (
+              <ImageIcon className="mx-auto h-6 w-6 text-slate-400" aria-hidden="true" />
+            )}
+            <p className="mt-2 text-xs text-slate-600">
+              {isEdit && assessment!.image_media_id
+                ? "Replace image (optional)"
+                : "Upload an image (optional)"}
+            </p>
+            <label
+              htmlFor="a-image"
+              className="mt-2 inline-flex cursor-pointer items-center rounded-md bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-900 transition-colors focus-within:ring-2 focus-within:ring-indigo-900 hover:bg-indigo-100"
+            >
+              {imageFile ? "Choose a different image" : "Browse files"}
+              <input
+                id="a-image"
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                onChange={(event) => setImageFile(event.target.files?.[0] ?? null)}
+              />
+            </label>
+            {imageFile && <p className="mt-1 text-xs text-slate-500">{imageFile.name}</p>}
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <SelectField label="Type" id="a-type" error={errors.type?.message} {...register("type")}>
             <option value="QUIZ">Quiz</option>
@@ -201,7 +266,7 @@ export function AssessmentFormModal({
         </div>
 
         <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="secondary" onClick={onClose} disabled={isSubmitting}>
+          <Button type="button" variant="secondary" onClick={handleClose} disabled={isSubmitting}>
             Cancel
           </Button>
           <Button type="submit" disabled={isSubmitting || mutation.isPending}>

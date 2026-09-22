@@ -471,6 +471,33 @@ export async function getMediaAccessUrl(
           select: { id: true },
         });
 
+  // An assessment's cover image: same shape as the module-image path above — a
+  // course.content.manage holder (the same permission required to upload it in the
+  // first place, see media.routes.ts's assertCanUploadForPurpose) may preview any
+  // assessment's image; everyone else only a PUBLISHED assessment in a PUBLISHED
+  // course they have effective access to (assessments_select's own predicate).
+  const reachableViaAssessmentImage =
+    reachableViaLesson ||
+    reachableViaQuery ||
+    reachableViaResource ||
+    reachableViaPolicyVersion ||
+    reachableViaAnnouncement ||
+    reachableViaCourseThumbnail ||
+    reachableViaModuleImage
+      ? null
+      : await prisma.assessment.findFirst({
+          where: {
+            imageMediaId: mediaAssetId,
+            ...(canManageCourseContent
+              ? {}
+              : {
+                  status: "PUBLISHED",
+                  course: { status: "PUBLISHED", ...effectiveCourseAccessFilter(userId) },
+                }),
+          },
+          select: { id: true },
+        });
+
   if (
     !reachableViaLesson &&
     !reachableViaQuery &&
@@ -478,7 +505,8 @@ export async function getMediaAccessUrl(
     !reachableViaPolicyVersion &&
     !reachableViaAnnouncement &&
     !reachableViaCourseThumbnail &&
-    !reachableViaModuleImage
+    !reachableViaModuleImage &&
+    !reachableViaAssessmentImage
   ) {
     // The asset exists but the caller cannot legitimately view it through
     // any path they're authorized for. 403 (not 404) — the asset genuinely

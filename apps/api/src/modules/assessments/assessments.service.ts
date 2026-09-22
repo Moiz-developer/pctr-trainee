@@ -8,6 +8,7 @@ import type {
 import { prisma } from "../../lib/prisma.js";
 import type { Assessment } from "../../generated/prisma/client.js";
 import { NotFoundError, ValidationError } from "../../lib/errors.js";
+import { COURSE_MEDIA_BUCKET } from "../media/media.constants.js";
 
 function toResponse(assessment: Assessment): AssessmentResponse {
   return {
@@ -22,6 +23,7 @@ function toResponse(assessment: Assessment): AssessmentResponse {
     due_date: assessment.dueDate ? assessment.dueDate.toISOString() : null,
     max_attempts: assessment.maxAttempts,
     status: assessment.status,
+    image_media_id: assessment.imageMediaId,
     created_by: assessment.createdBy,
     created_at: assessment.createdAt.toISOString(),
     updated_at: assessment.updatedAt.toISOString(),
@@ -32,6 +34,19 @@ async function assertCourseExists(courseId: string): Promise<void> {
   const course = await prisma.course.findUnique({ where: { id: courseId }, select: { id: true } });
   if (!course) {
     throw new NotFoundError(`No course exists with id "${courseId}".`);
+  }
+}
+
+/** An assessment image must be an uploaded `course-media` asset that is actually an image — same check as course-modules.service.ts's assertModuleImageAsset. */
+async function assertAssessmentImageAsset(mediaAssetId: string): Promise<void> {
+  const media = await prisma.mediaAsset.findUnique({ where: { id: mediaAssetId } });
+  if (!media || media.bucket !== COURSE_MEDIA_BUCKET) {
+    throw new ValidationError({
+      image_media_id: [`No course media exists with id "${mediaAssetId}".`],
+    });
+  }
+  if (!media.mimeType.startsWith("image/")) {
+    throw new ValidationError({ image_media_id: ["The assessment image must be an image file."] });
   }
 }
 
@@ -51,6 +66,7 @@ export async function createAssessment(
   createdBy: string,
 ): Promise<AssessmentResponse> {
   await assertCourseExists(courseId);
+  if (input.image_media_id) await assertAssessmentImageAsset(input.image_media_id);
 
   const assessment = await prisma.assessment.create({
     data: {
@@ -63,6 +79,7 @@ export async function createAssessment(
       durationMinutes: input.duration_minutes ?? null,
       dueDate: input.due_date ? new Date(input.due_date) : null,
       ...(input.max_attempts !== undefined ? { maxAttempts: input.max_attempts } : {}),
+      imageMediaId: input.image_media_id ?? null,
       createdBy,
     },
   });
@@ -111,6 +128,7 @@ export async function updateAssessment(
 ): Promise<AssessmentResponse> {
   await assertCourseExists(courseId);
   const existing = await findOwnedAssessment(courseId, id);
+  if (input.image_media_id) await assertAssessmentImageAsset(input.image_media_id);
 
   const effectiveTotalMarks = input.total_marks ?? existing.totalMarks;
   const effectivePassingMarks = input.passing_marks ?? existing.passingMarks;
@@ -134,6 +152,7 @@ export async function updateAssessment(
         : {}),
       ...(input.max_attempts !== undefined ? { maxAttempts: input.max_attempts } : {}),
       ...(input.status !== undefined ? { status: input.status } : {}),
+      ...(input.image_media_id !== undefined ? { imageMediaId: input.image_media_id } : {}),
     },
   });
   return toResponse(assessment);

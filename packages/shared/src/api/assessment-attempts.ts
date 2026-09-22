@@ -139,6 +139,9 @@ export const myAssessmentSummarySchema = z.object({
   max_attempts: z.number().int(),
   due_date: z.string().nullable(),
   assigned_at: isoDateStringSchema,
+  // Optional cover image (assessments.ts's own image_media_id), shown on the
+  // assessment card in place of its type icon when set.
+  image_media_id: idSchema.nullable(),
   my_attempts_used: z.number().int(),
   my_status: myAssessmentStatusSchema,
   my_best_result: assessmentAttemptResultSchema.nullable(),

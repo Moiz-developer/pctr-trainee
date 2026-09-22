@@ -410,6 +410,7 @@ model MediaAsset {
   uploadedByProfile       Profile?          @relation(fields: [uploadedBy], references: [id], onDelete: SetNull)
   courseThumbnails        Course[]          @relation("CourseThumbnail")
   courseModuleImages      CourseModule[]    @relation("CourseModuleImage")
+  assessmentImages        Assessment[]      @relation("AssessmentImage")
   lessons                 CourseLesson[]
   queryAttachments        QueryAttachment[]
   resources               Resource[]
@@ -637,11 +638,16 @@ model Assessment {
   dueDate         DateTime?        @map("due_date") @db.Timestamptz(6)
   maxAttempts     Int              @default(1) @map("max_attempts")
   status          AssessmentStatus @default(DRAFT)
+  // Optional cover image (course-media bucket), shown on the trainee assessment
+  // card in place of its type icon. FK → media_assets(id) ON DELETE SET NULL,
+  // same shape as course_modules.image_media_id.
+  imageMediaId    String?          @map("image_media_id") @db.Uuid
   createdBy       String?          @map("created_by") @db.Uuid
   createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   course           Course               @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  image            MediaAsset?          @relation("AssessmentImage", fields: [imageMediaId], references: [id], onDelete: SetNull)
   createdByProfile Profile?             @relation(fields: [createdBy], references: [id], onDelete: SetNull)
   questions        AssessmentQuestion[]
   attempts         AssessmentAttempt[]

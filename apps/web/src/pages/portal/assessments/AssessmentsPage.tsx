@@ -13,6 +13,7 @@ import type { AssessmentType, MyAssessmentSummary } from "@internal-training/sha
 import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
 import { Badge } from "../../../components/ui/Badge";
+import { MediaImage } from "../../../components/shared/MediaImage";
 import { RemoteDataView } from "../../../components/shared/RemoteDataView";
 import {
   listAssessmentHistory,
@@ -105,8 +106,12 @@ function AssessmentCard({ assessment, now }: { assessment: MyAssessmentSummary; 
         </p>
       </div>
 
-      <div className="card-slide-section-rtl mx-5 flex h-32 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-900 to-indigo-700 text-white/30">
-        <TypeIcon className="h-12 w-12" aria-hidden="true" />
+      <div className="card-slide-section-rtl mx-5 flex h-32 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-indigo-900 to-indigo-700 text-white/30">
+        <MediaImage
+          mediaAssetId={assessment.image_media_id}
+          className="h-full w-full object-cover"
+          fallback={<TypeIcon className="h-12 w-12" aria-hidden="true" />}
+        />
       </div>
 
       <div className="flex flex-1 flex-col p-5 pt-3">

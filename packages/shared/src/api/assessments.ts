@@ -45,6 +45,10 @@ export const createAssessmentRequestSchema = z
     duration_minutes: z.number().int().positive().nullable().optional(),
     due_date: isoDateStringSchema.nullable().optional(),
     max_attempts: z.number().int().positive().optional(),
+    // Optional cover image: a `course-media` media asset id (uploaded first via
+    // POST /media/upload-url + /media/confirm, purpose `course-media`) — same
+    // shape as course-modules.ts's own image_media_id field.
+    image_media_id: idSchema.nullable().optional(),
   })
   .refine((data) => data.passing_marks <= data.total_marks, {
     message: "passing_marks must not exceed total_marks.",
@@ -69,6 +73,8 @@ export const updateAssessmentRequestSchema = z.object({
   due_date: isoDateStringSchema.nullable().optional(),
   max_attempts: z.number().int().positive().optional(),
   status: assessmentStatusSchema.optional(),
+  // Omit to keep the current image, an id to replace it, `null` to remove it.
+  image_media_id: idSchema.nullable().optional(),
 });
 export type UpdateAssessmentRequest = z.infer<typeof updateAssessmentRequestSchema>;
 
@@ -85,6 +91,7 @@ export const assessmentResponseSchema = z.object({
   due_date: z.string().nullable(),
   max_attempts: z.number().int(),
   status: assessmentStatusSchema,
+  image_media_id: idSchema.nullable(),
   created_by: idSchema.nullable(),
   created_at: isoDateStringSchema,
   updated_at: isoDateStringSchema,

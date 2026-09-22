@@ -242,6 +242,7 @@ export async function listOwnAssessments(
       maxAttempts: true,
       dueDate: true,
       createdAt: true,
+      imageMediaId: true,
       course: { select: { id: true, title: true } },
       _count: { select: { questions: true } },
       attempts: {
@@ -285,6 +286,7 @@ export async function listOwnAssessments(
       max_attempts: assessment.maxAttempts,
       due_date: assessment.dueDate ? assessment.dueDate.toISOString() : null,
       assigned_at: assessment.createdAt.toISOString(),
+      image_media_id: assessment.imageMediaId,
       my_attempts_used: assessment.attempts.length,
       my_status: assessment.attempts.some((a) => a.status === "IN_PROGRESS")
         ? "IN_PROGRESS"
