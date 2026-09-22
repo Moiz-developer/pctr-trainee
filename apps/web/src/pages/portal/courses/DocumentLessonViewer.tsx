@@ -4,6 +4,7 @@ import { AlertTriangle, Loader2 } from "lucide-react";
 import { ApiClientError } from "../../../services/api/client";
 import { getMediaAccessUrl, MEDIA_ACCESS_URL_STALE_MS } from "../../../services/api/media";
 import { PreviewUnavailable } from "./PreviewUnavailable";
+import { DocumentPage } from "./DocumentPage";
 
 // Exported (download restriction unit) so callers outside course lessons —
 // ResourcesPage.tsx/PoliciesPage.tsx — can detect a DOCX file themselves and
@@ -136,10 +137,8 @@ export function DocumentLessonViewer({
   }
 
   return (
-    <div
-      className="protected-content rich-text max-h-[70vh] overflow-y-auto rounded-lg border border-slate-200 p-4"
-      onContextMenu={(event) => event.preventDefault()}
-      dangerouslySetInnerHTML={{ __html: html ?? "" }}
-    />
+    <DocumentPage>
+      <div className="rich-text" dangerouslySetInnerHTML={{ __html: html ?? "" }} />
+    </DocumentPage>
   );
 }

@@ -13,11 +13,7 @@ import { Modal } from "../../../components/ui/Modal";
 import { ApiClientError } from "../../../services/api/client";
 import { getSafeHttpsUrl } from "../../../lib/safeUrl";
 import { VideoLessonPlayer } from "./VideoLessonPlayer";
-import { PdfLessonViewer } from "./PdfLessonViewer";
-import { usePdfModalSizing, type PdfViewerSizingProps } from "./pdfModalSizing";
-import { DocumentLessonViewer, DOCX_MIME } from "./DocumentLessonViewer";
-import { LegacyDocViewer } from "./LegacyDocViewer";
-import { SpreadsheetViewer } from "./SpreadsheetViewer";
+import { DocumentPreviewButton } from "./DocumentPreviewButton";
 import { ExternalVideoPlayer, getEmbeddableVideoUrl } from "./ExternalVideoPlayer";
 import { PresentationLessonViewer } from "./PresentationLessonViewer";
 import { ProtectedFileViewer } from "./ProtectedFileViewer";
@@ -90,15 +86,18 @@ const NOT_UPLOADED_MESSAGE: Partial<Record<CourseDetailLesson["content_type"], s
  * the expandable row used. The viewer is chosen from the file's REAL type
  * (`getLessonViewerKind`), so a lesson labelled "PDF" that actually holds a DOCX
  * goes through the document viewer instead of failing in pdf.js.
+ *
+ * UI consistency unit: a document (PDF/DOCX/legacy DOC/XLS/XLSX) is never rendered
+ * directly in this lesson-browsing modal — same as Resources/Policies, it opens in
+ * its own dedicated modal via the shared `DocumentPreviewButton`, sized to that
+ * document alone rather than resizing this whole modal around it.
  */
 function LessonBody({
   lesson,
   progress,
-  pdfViewerProps,
 }: {
   lesson: CourseDetailLesson;
   progress: LessonProgressResponse | undefined;
-  pdfViewerProps: PdfViewerSizingProps;
 }) {
   const kind = getLessonViewerKind(lesson);
 
@@ -124,13 +123,17 @@ function LessonBody({
         />
       );
     case "PDF":
-      return <PdfLessonViewer mediaAssetId={lesson.media_asset_id!} {...pdfViewerProps} />;
     case "DOCX":
-      return <DocumentLessonViewer mediaAssetId={lesson.media_asset_id!} mimeType={DOCX_MIME} />;
     case "LEGACY_DOC":
-      return <LegacyDocViewer mediaAssetId={lesson.media_asset_id!} />;
     case "SPREADSHEET":
-      return <SpreadsheetViewer mediaAssetId={lesson.media_asset_id!} />;
+      return (
+        <DocumentPreviewButton
+          mediaAssetId={lesson.media_asset_id!}
+          mimeType={lesson.media_mime_type}
+          title={lesson.title}
+          className="w-full gap-1.5"
+        />
+      );
     case "PRESENTATION":
       return <PresentationLessonViewer mediaAssetId={lesson.media_asset_id!} />;
     case "IMAGE":
@@ -223,8 +226,6 @@ export function LessonViewerModal({
   onRetryProgress: () => void;
   onClose: () => void;
 }) {
-  // Sizes the modal to the open PDF's page (shared with every PDF modal, see pdfModalSizing.ts).
-  const pdfFit = usePdfModalSizing();
   const entry = group?.entries.find((e) => e.lesson.id === openLessonId);
   if (!group || !entry) return null;
 
@@ -246,13 +247,7 @@ export function LessonViewerModal({
   }
 
   return (
-    <Modal
-      open
-      onClose={onClose}
-      title={lesson.title}
-      size={pdfFit.size ?? "xl"}
-      maxWidth={pdfFit.maxWidth}
-    >
+    <Modal open onClose={onClose} title={lesson.title} size="xl">
       <div className="space-y-5">
         {categories.length > 1 && (
           <div className={`grid grid-cols-1 gap-4 ${CATEGORY_GRID_COLS[categories.length]}`}>
@@ -339,12 +334,7 @@ export function LessonViewerModal({
           )}
 
           <div className="mt-4 border-t border-slate-100 pt-4">
-            <LessonBody
-              key={lesson.id}
-              lesson={lesson}
-              progress={progress}
-              pdfViewerProps={pdfFit.viewerProps}
-            />
+            <LessonBody key={lesson.id} lesson={lesson} progress={progress} />
 
             {status === "COMPLETED" && (
               <p className="mt-4 flex items-center gap-1.5 text-xs font-medium text-emerald-700">

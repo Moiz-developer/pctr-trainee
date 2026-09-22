@@ -145,9 +145,12 @@ export function SpreadsheetViewer({ mediaAssetId }: { mediaAssetId: string }) {
   const colCount = Math.min(MAX_COLS, Math.max(1, ...active.rows.map((row) => row.length)));
 
   return (
-    <div className="protected-content" onContextMenu={(event) => event.preventDefault()}>
+    <div
+      className="protected-content rounded-lg bg-slate-100 p-3 sm:p-6"
+      onContextMenu={(event) => event.preventDefault()}
+    >
       {sheets.length > 1 && (
-        <div className="mb-2 flex flex-wrap gap-2">
+        <div className="mb-3 flex flex-wrap gap-2">
           {sheets.map((sheet, index) => (
             <button
               key={sheet.name}
@@ -165,7 +168,7 @@ export function SpreadsheetViewer({ mediaAssetId }: { mediaAssetId: string }) {
         </div>
       )}
 
-      <div className="max-h-[70vh] overflow-auto rounded-lg border border-slate-200">
+      <div className="max-h-[65vh] overflow-auto rounded-md border border-slate-200 bg-white shadow-[0_1px_4px_rgba(49,44,133,0.10)]">
         {active.rows.length === 0 ? (
           <p className="p-4 text-center text-sm text-slate-400">This sheet is empty.</p>
         ) : (

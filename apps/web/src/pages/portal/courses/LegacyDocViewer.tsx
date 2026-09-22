@@ -3,6 +3,7 @@ import { AlertTriangle, Loader2 } from "lucide-react";
 import { ApiClientError } from "../../../services/api/client";
 import { getDocPreviewText } from "../../../services/api/media";
 import { RichText } from "../../../components/ui/RichText";
+import { DocumentPage } from "./DocumentPage";
 
 // Exported so callers can detect a legacy .doc file themselves and choose to render this viewer,
 // the same way DocumentLessonViewer.tsx exports DOCX_MIME.
@@ -58,11 +59,8 @@ export function LegacyDocViewer({ mediaAssetId }: { mediaAssetId: string }) {
   }
 
   return (
-    <div
-      className="protected-content max-h-[70vh] overflow-y-auto rounded-lg border border-slate-200 p-4"
-      onContextMenu={(event) => event.preventDefault()}
-    >
+    <DocumentPage>
       <RichText value={text} className="text-sm text-slate-700" />
-    </div>
+    </DocumentPage>
   );
 }
