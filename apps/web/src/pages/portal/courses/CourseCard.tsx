@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { BookOpen, Building2, Clock, Tag } from "lucide-react";
+import { BookOpen, Building2, Tag } from "lucide-react";
 import type { CourseCatalogueItem, CourseProgressStatus } from "@internal-training/shared";
 import { Card } from "../../../components/ui/Card";
 import { Button } from "../../../components/ui/Button";
@@ -109,11 +109,6 @@ export function CourseCard({
               {department.name}
             </Chip>
           ))}
-          {course.duration_minutes !== null && (
-            <Chip icon={<Clock className="h-3 w-3" aria-hidden="true" />}>
-              {course.duration_minutes} min
-            </Chip>
-          )}
         </div>
 
         <div className="mt-4">
