@@ -44,8 +44,13 @@ const NAV_ITEMS: SidebarNavItem[] = [
  * 5.3.6, "important announcements can appear as a popup on Trainer Portal
  * open").
  */
+// The stat cards + "Continue Learning" panel two-column split (UserDashboardPage.tsx,
+// `xl:grid-cols-[minmax(0,1fr)_22rem]`) already leaves little room in this exact window — see
+// useSidebarState.ts's `collapseByDefaultQuery`.
+const SIDEBAR_COLLAPSE_QUERY = "(min-width: 1280px) and (max-width: 1790px)";
+
 export function UserPortalLayout() {
-  const sidebar = useSidebarState();
+  const sidebar = useSidebarState({ collapseByDefaultQuery: SIDEBAR_COLLAPSE_QUERY });
   const { platformName } = useBranding();
 
   return (
