@@ -5,14 +5,14 @@ import { Modal } from "../../../components/ui/Modal";
 import { ProtectedFileViewer } from "./ProtectedFileViewer";
 import { usePdfModalSizing } from "./pdfModalSizing";
 
-const PDF_MIME = "application/pdf";
-
 /**
  * The one "open a protected file in its own modal" pattern for every document-preview entry
  * point in the portal (Resources, Policies — UI consistency unit): a "View" button that opens
  * `ProtectedFileViewer` (the existing PDF/DOCX/image dispatcher, with its own honest "preview not
- * available" fallback for anything else, e.g. .xls/.xlsx or legacy .doc) inside a `Modal`, sized
- * to the page when it's a PDF (pdfModalSizing.ts, shared by every PDF modal in the app).
+ * available" fallback for anything else, e.g. .xls/.xlsx or legacy .doc) inside a `Modal`. The
+ * modal defaults to the wide `"document"` size (Modal.tsx) — plenty of reading/table room for
+ * DOC/DOCX/XLS/XLSX — and, once it's a PDF whose page has been measured, narrows or widens to
+ * fit that exact page instead (pdfModalSizing.ts, shared by every PDF modal in the app).
  *
  * Consolidates what used to be two near-identical hand-rolled implementations
  * (ResourcesPage.tsx's InAppDocumentButton, PoliciesPage.tsx's ViewButton) into one, so every
@@ -53,7 +53,7 @@ export function DocumentPreviewButton({
         onClose={() => setOpen(false)}
         title={title}
         wide
-        size={pdfFit.size ?? (mimeType === PDF_MIME ? "xl" : undefined)}
+        size={pdfFit.size ?? "document"}
         maxWidth={pdfFit.maxWidth}
       >
         <ProtectedFileViewer

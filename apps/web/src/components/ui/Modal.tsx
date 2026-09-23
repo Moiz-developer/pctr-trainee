@@ -6,6 +6,11 @@ const PANEL_SIZE_CLASS = {
   default: "max-h-[90vh] max-w-md",
   wide: "max-h-[90vh] max-w-2xl",
   xl: "max-h-[90vh] max-w-6xl",
+  // Document preview modal (DocumentPreviewButton.tsx): a large, viewport-relative width so
+  // DOC/DOCX/XLS/XLSX/PDF content has real reading/table room, capped so it doesn't become
+  // absurdly wide on an ultra-wide monitor — the same `w-full` + overlay padding as every other
+  // size still shrinks it to fit on small screens.
+  document: "max-h-[90vh] max-w-[min(88rem,92vw)]",
   // Nearly the whole viewport tall; the width is set by the caller's `maxWidth`.
   viewer: "max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)]",
 } as const;
@@ -32,10 +37,11 @@ export function Modal({
   wide?: boolean;
   /**
    * Panel size; overrides `wide`. Omit for the existing sm/wide behaviour. `xl` is for
-   * full-page-style views; `viewer` is for document viewers (nearly the full viewport
-   * height, width from `maxWidth`).
+   * full-page-style views; `document` is a wide, responsive default for document previews;
+   * `viewer` is for document viewers once sized to a page (nearly the full viewport height,
+   * width from `maxWidth`).
    */
-  size?: "xl" | "viewer";
+  size?: "xl" | "document" | "viewer";
   /** CSS max-width for the panel; overrides the width from `size`. Keep it within the viewport. */
   maxWidth?: string;
 }) {
