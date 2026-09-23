@@ -14,10 +14,12 @@ export type CourseStatus = z.infer<typeof courseStatusSchema>;
  * convention to invent one from). `status` is not accepted on create — new
  * courses always start `DRAFT` (schema default), matching the department
  * create convention (state changes go through update/dedicated endpoints).
- * `thumbnail_media_id` is deliberately excluded here even though the column
- * exists: no media/upload endpoint exists yet in this repo, so there is no
- * legitimate way for a client to hold a valid id to send — see this unit's
- * implementation report. `created_by`/timestamps are never client input.
+ * `thumbnail_media_id` (Course image upload unit): a `course-media`-bucket
+ * image, uploaded beforehand via the existing `POST /media/upload-url` +
+ * `POST /media/confirm` flow (purpose `course-media`, permission
+ * `course.content.manage` — the same one module/lesson images already use)
+ * and revalidated server-side (courses.service.ts) — never trusted as-is
+ * from the client. `created_by`/timestamps are never client input.
  * `category_id` replaces the original free-text `category` field (Admin
  * Navigation + Dynamic Course Categories unit) — references an admin-managed
  * `course_categories` row, existence/active-status validated server-side
@@ -28,6 +30,7 @@ export const createCourseRequestSchema = z.object({
   slug: z.string().min(1),
   description: z.string().min(1).nullable().optional(),
   category_id: idSchema.nullable().optional(),
+  thumbnail_media_id: idSchema.nullable().optional(),
   duration_minutes: z.number().int().positive().nullable().optional(),
   completion_require_all_lessons: z.boolean().optional(),
   completion_require_practical: z.boolean().optional(),
@@ -50,6 +53,7 @@ export const updateCourseRequestSchema = z.object({
   slug: z.string().min(1).optional(),
   description: z.string().min(1).nullable().optional(),
   category_id: idSchema.nullable().optional(),
+  thumbnail_media_id: idSchema.nullable().optional(),
   duration_minutes: z.number().int().positive().nullable().optional(),
   status: z.enum(["DRAFT", "PUBLISHED"]).optional(),
   completion_require_all_lessons: z.boolean().optional(),

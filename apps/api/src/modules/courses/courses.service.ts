@@ -9,6 +9,7 @@ import type {
 import { prisma } from "../../lib/prisma.js";
 import { Prisma, type Course, type CourseCategory } from "../../generated/prisma/client.js";
 import { ConflictError, NotFoundError, ValidationError } from "../../lib/errors.js";
+import { COURSE_MEDIA_BUCKET } from "../media/media.constants.js";
 
 type CourseWithCategory = Course & { category: CourseCategory | null };
 
@@ -64,6 +65,26 @@ async function validateCategory(categoryId: string): Promise<void> {
   }
 }
 
+/**
+ * Course image upload unit: a course thumbnail must be an uploaded
+ * `course-media` asset that is actually an image — the exact same rule
+ * course-modules.service.ts's `assertModuleImageAsset` already applies to a
+ * module's own cover image.
+ */
+async function assertCourseThumbnailAsset(mediaAssetId: string): Promise<void> {
+  const media = await prisma.mediaAsset.findUnique({ where: { id: mediaAssetId } });
+  if (!media || media.bucket !== COURSE_MEDIA_BUCKET) {
+    throw new ValidationError({
+      thumbnail_media_id: [`No course media exists with id "${mediaAssetId}".`],
+    });
+  }
+  if (!media.mimeType.startsWith("image/")) {
+    throw new ValidationError({
+      thumbnail_media_id: ["The course thumbnail must be an image file."],
+    });
+  }
+}
+
 /** POST /api/v1/admin/courses (SYSTEM_PLAN.md §14.2, permission `course.create`). */
 export async function createCourse(
   input: CreateCourseRequest,
@@ -76,6 +97,9 @@ export async function createCourse(
   if (input.category_id) {
     await validateCategory(input.category_id);
   }
+  if (input.thumbnail_media_id) {
+    await assertCourseThumbnailAsset(input.thumbnail_media_id);
+  }
 
   try {
     const course = await prisma.course.create({
@@ -84,6 +108,7 @@ export async function createCourse(
         slug: input.slug,
         description: input.description ?? null,
         categoryId: input.category_id ?? null,
+        thumbnailMediaId: input.thumbnail_media_id ?? null,
         durationMinutes: input.duration_minutes ?? null,
         ...(input.completion_require_all_lessons !== undefined
           ? { completionRequireAllLessons: input.completion_require_all_lessons }
@@ -183,6 +208,9 @@ export async function updateCourse(
   if (input.category_id !== undefined && input.category_id !== null) {
     await validateCategory(input.category_id);
   }
+  if (input.thumbnail_media_id !== undefined && input.thumbnail_media_id !== null) {
+    await assertCourseThumbnailAsset(input.thumbnail_media_id);
+  }
 
   try {
     const course = await prisma.course.update({
@@ -192,6 +220,9 @@ export async function updateCourse(
         ...(input.slug !== undefined ? { slug: input.slug } : {}),
         ...(input.description !== undefined ? { description: input.description } : {}),
         ...(input.category_id !== undefined ? { categoryId: input.category_id } : {}),
+        ...(input.thumbnail_media_id !== undefined
+          ? { thumbnailMediaId: input.thumbnail_media_id }
+          : {}),
         ...(input.duration_minutes !== undefined
           ? { durationMinutes: input.duration_minutes }
           : {}),

@@ -23,6 +23,8 @@ import { CourseChapterTabs } from "./CourseChapterTabs";
 import { LessonViewerModal } from "./LessonViewerModal";
 import { isGroupCompleted, type LessonEntry, type ModuleGroup } from "./courseLessonMeta";
 import { RichText } from "../../../components/ui/RichText";
+import { THUMBNAIL_BOX_CLASS } from "./CourseCard";
+import { MediaImage } from "../../../components/shared/MediaImage";
 
 type ChapterFilter = "ALL" | "COMPLETED" | "INCOMPLETE";
 type CourseTab = "training" | "practical";
@@ -291,6 +293,16 @@ export function CourseDetailPage() {
         {(course) => (
           <>
             <div>
+              {/* Course image upload unit: the same signed-URL MediaImage + gradient/BookOpen
+                  fallback CourseCard.tsx's catalogue/completed cards already use — `rounded-lg`
+                  added here since this header isn't nested in a Card that would otherwise clip it. */}
+              <div className={`${THUMBNAIL_BOX_CLASS} mb-4 rounded-lg`}>
+                <MediaImage
+                  mediaAssetId={course.thumbnail_media_id}
+                  className="h-full w-full object-cover"
+                  fallback={<BookOpen className="h-14 w-14" aria-hidden="true" />}
+                />
+              </div>
               <h2 className="text-xl font-semibold text-slate-900">{course.title}</h2>
               <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-slate-500">
                 {course.category && <Badge tone="neutral">{course.category}</Badge>}
