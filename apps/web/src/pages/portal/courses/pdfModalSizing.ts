@@ -86,10 +86,12 @@ export function measurePdfModalChrome(
   };
 }
 
-function pdfModalMaxWidth({ aspect, chromeWidthPx, reservedHeightPx }: PdfPageFit): string {
-  return `min(calc(100vw - 2rem), calc(${aspect.toFixed(4)} * (100vh - ${reservedHeightPx}px) + ${chromeWidthPx}px))`;
-}
-
+// function pdfModalMaxWidth({ aspect, chromeWidthPx, reservedHeightPx }: PdfPageFit): string {
+//   return `min(calc(100vw - 2rem), calc(${aspect.toFixed(4)} * (100vh - ${reservedHeightPx}px) + ${chromeWidthPx}px))`;
+// }
+// function pdfModalMaxWidth(): undefined {
+//   return undefined;
+// }
 /**
  * Holds the reported fit for one modal. Before a PDF has loaded (or when none is showing)
  * `size`/`maxWidth` are undefined, so the modal keeps whatever size it already had.
@@ -102,6 +104,7 @@ export function usePdfModalSizing() {
       reservedHeightPx: fit?.reservedHeightPx,
     } satisfies PdfViewerSizingProps,
     size: fit ? ("viewer" as const) : undefined,
-    maxWidth: fit ? pdfModalMaxWidth(fit) : undefined,
+    maxWidth: undefined,
+    //  fit ? pdfModalMaxWidth(fit) : undefined,
   };
 }

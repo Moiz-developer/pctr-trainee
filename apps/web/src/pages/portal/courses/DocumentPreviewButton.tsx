@@ -53,7 +53,7 @@ export function DocumentPreviewButton({
         onClose={() => setOpen(false)}
         title={title}
         wide
-        size={pdfFit.size ?? "document"}
+        size={"document"}
         maxWidth={pdfFit.maxWidth}
       >
         <ProtectedFileViewer
