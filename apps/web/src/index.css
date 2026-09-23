@@ -356,3 +356,20 @@ input[type="file"]:hover::file-selector-button {
   overflow-y: auto;
   padding: 0.5rem 0.75rem;
 }
+
+/*
+ * CKEditor's toolbar normally goes `position: fixed` ("sticky mode") once its resting spot
+ * scrolls past the top of the viewport, so it can keep floating above a tall page that scrolls
+ * underneath a long editor. Every editor here never needs that: its editable area already scrolls
+ * its own content internally (max-height/overflow-y above), and every usage lives inside a modal
+ * that scrolls independently of the window — an ancestor CKEditor's sticky logic isn't aware of.
+ * That mismatch is what makes the toolbar detach mid-typing and float to the wrong spot instead of
+ * staying put above the text (ckeditor-issue.jpeg). Pinning it to `static` keeps it exactly where
+ * it already sits at rest and just removes the floating behavior this layout never needed.
+ */
+.rich-text-editor .ck.ck-sticky-panel .ck-sticky-panel__content_sticky {
+  position: static !important;
+  top: auto !important;
+  width: auto !important;
+  margin-left: 0 !important;
+}
