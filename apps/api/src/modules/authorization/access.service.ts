@@ -7,7 +7,17 @@ import type { Prisma } from "../../generated/prisma/client.js";
  *   1. they hold an active membership in at least one department the course
  *      is assigned to, OR
  *   2. an active (`revoked_at IS NULL`) explicit `course_access` grant exists
- *      for that user/course pair.
+ *      for that user/course pair,
+ * UNLESS an explicit revoked `course_access` row exists for that user/course
+ * pair, which is a hard deny that overrides department-based access. Without
+ * this, an admin revoking a user's explicit grant could not actually remove
+ * their access if that user also belongs to a department the course is
+ * assigned to — the two access paths are additive by default, so revoking
+ * only one left the other silently in effect (see this unit's bug report).
+ * `course_access` has `@@unique([courseId, userId])` (schema.prisma), so at
+ * most one row exists per pair — never both an active and a revoked row for
+ * the same user/course — meaning this deny clause can never conflict with a
+ * *different*, currently-active grant for the same pair.
  *
  * Expressed as a reusable Prisma `CourseWhereInput` fragment rather than as
  * two imperative existence queries (Unit 2.6's original shape) — refactored
@@ -28,20 +38,31 @@ import type { Prisma } from "../../generated/prisma/client.js";
  */
 export function effectiveCourseAccessFilter(userId: string): Prisma.CourseWhereInput {
   return {
-    OR: [
+    AND: [
       {
-        courseDepartments: {
-          some: {
-            department: {
-              isActive: true,
-              userDepartments: { some: { userId } },
+        OR: [
+          {
+            courseDepartments: {
+              some: {
+                department: {
+                  isActive: true,
+                  userDepartments: { some: { userId } },
+                },
+              },
             },
           },
-        },
+          {
+            accessGrants: {
+              some: { userId, revokedAt: null },
+            },
+          },
+        ],
       },
+      // Hard deny: a revoked explicit grant for this user/course overrides
+      // any department-based access this same user might otherwise have.
       {
         accessGrants: {
-          some: { userId, revokedAt: null },
+          none: { userId, revokedAt: { not: null } },
         },
       },
     ],
