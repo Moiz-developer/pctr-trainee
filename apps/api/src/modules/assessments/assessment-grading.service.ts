@@ -143,8 +143,7 @@ export async function gradeAssessmentAttempt(
       0,
     );
     const percentage = Math.round((score / assessment.totalMarks) * 10000) / 100;
-    const result =
-      (score / assessment.totalMarks) * 100 >= assessment.passingMarks ? "PASS" : "FAIL";
+    const result = score >= assessment.passingMarks ? "PASS" : "FAIL";
 
     const updated = await tx.assessmentAttempt.update({
       where: { id: attemptId },

@@ -483,9 +483,7 @@ export async function submitAssessmentAttempt(
           score,
           percentage: Math.round((score / assessment.totalMarks) * 10000) / 100,
           result:
-            (score / assessment.totalMarks) * 100 >= assessment.passingMarks
-              ? ("PASS" as const)
-              : ("FAIL" as const),
+            score >= assessment.passingMarks ? ("PASS" as const) : ("FAIL" as const),
         };
 
     const updated = await tx.assessmentAttempt.update({
