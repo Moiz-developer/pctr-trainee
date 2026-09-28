@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Clock, Loader2 } from "lucide-react";
@@ -65,6 +65,12 @@ export function TakeAssessmentPage() {
   const [activeAttempt, setActiveAttempt] = useState<AssessmentAttemptResponse | null>(null);
   const [answers, setAnswers] = useState<Record<string, SubmitAssessmentAttemptAnswer>>({});
   const [reviewId, setReviewId] = useState<string | null>(null);
+  // Attempt History's "Review" button (root-cause fix): when the clicked attempt is already the
+  // one being reviewed (the common case — e.g. a single-attempt assessment defaults to reviewing
+  // its only attempt before anything is clicked), setReviewId is a no-op re-render, so clicking
+  // produced no visible effect at all. Scrolling the existing review section into view gives every
+  // click a visible result regardless of whether the reviewed attempt actually changed.
+  const reviewSectionRef = useRef<HTMLDivElement>(null);
 
   const detailQuery = useQuery({
     queryKey: ["assessment-detail", id],
@@ -224,7 +230,7 @@ export function TakeAssessmentPage() {
               )}
 
               {!isTaking && reviewAttempt && (
-                <>
+                <div ref={reviewSectionRef}>
                   {reviewAttempt.status === "SUBMITTED" ? (
                     <Banner tone="warning">
                       <span className="inline-flex items-center gap-1.5">
@@ -248,7 +254,7 @@ export function TakeAssessmentPage() {
                       </span>
                     </Banner>
                   )}
-                </>
+                </div>
               )}
 
               {!isTaking && (
@@ -378,7 +384,13 @@ export function TakeAssessmentPage() {
                                     }
                                     className="px-2 py-1 text-xs"
                                     disabled={isTaking}
-                                    onClick={() => setReviewId(attempt.id)}
+                                    onClick={() => {
+                                      setReviewId(attempt.id);
+                                      reviewSectionRef.current?.scrollIntoView({
+                                        behavior: "smooth",
+                                        block: "start",
+                                      });
+                                    }}
                                   >
                                     {reviewAttempt?.id === attempt.id ? "Viewing" : "Review"}
                                   </Button>

@@ -48,7 +48,7 @@ export function Sidebar({
       >
         <div
           className={`flex shrink-0 items-center gap-2.5 border-b border-slate-100 px-4 ${
-            logoUrl ? "py-3" : "h-16"
+            logoUrl ? "" : "h-16"
           } ${collapsed ? "lg:justify-center lg:px-0" : ""}`}
         >
           {logoUrl ? (

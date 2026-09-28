@@ -317,186 +317,178 @@ export async function getMediaAccessUrl(
   const canManageQueries = permissions.includes("query.manage");
   const canManageResources = permissions.includes("resource.manage");
   const canManageCourseContent = permissions.includes("course.content.manage");
+  const canManagePolicies =
+    permissions.includes("policy.manage") || permissions.includes("policy.version.activate");
+  const canManageAnnouncements =
+    permissions.includes("announcement.manage") || permissions.includes("announcement.publish");
 
-  const reachableViaLesson = await prisma.courseLesson.findFirst({
-    where: {
-      mediaAssetId,
-      isActive: true,
-      module: {
-        isActive: true,
-        course: {
-          // A course.content.manage holder may view any lesson's media
-          // regardless of the course's publish status or the caller's own
-          // department/grant-based access (mirrors the course-thumbnail
-          // branch below); everyone else only a PUBLISHED course they have
-          // effective access to.
+  let reachableViaLesson: { id: string } | null = null;
+  let reachableViaQuery: { queryMessageId: string } | null = null;
+  let reachableViaResource: { id: string } | null = null;
+  let reachableViaPolicyVersion: { id: string } | null = null;
+  let reachableViaAnnouncement: { id: string } | null = null;
+  let reachableViaCourseThumbnail: { id: string } | null = null;
+  let reachableViaModuleImage: { id: string } | null = null;
+  let reachableViaAssessmentImage: { id: string } | null = null;
+
+  // Perf: `purpose` maps 1:1 to a bucket (SYSTEM_PLAN.md §16), and every write path that sets one
+  // of the FKs below re-validates the referenced asset's bucket first (courses.service.ts's
+  // assertCourseThumbnailAsset, course-modules.service.ts's assertModuleImageAsset,
+  // assessments.service.ts's assertAssessmentImageAsset, course-lessons.service.ts's own check,
+  // queries/resources/policies/announcements' equivalents) — so a media asset's bucket, already
+  // fetched above, exhaustively determines which of the 8 checks below could ever match; every
+  // other bucket's checks are genuinely impossible for this asset, not just unlikely, and are
+  // skipped outright rather than reordered. Within one bucket's candidate set, a media row can be
+  // referenced by at most one entity (each is a distinct upload), so those checks are independent
+  // and run in Promise.all instead of the previous sequential `||` waterfall — same predicates,
+  // same permissions, just no longer paying for a full sequential scan through unrelated tables
+  // for every request. A bucket with no reachability path at all (e.g. branding-assets, served
+  // only via the public GET /settings/branding route) falls through with every branch still null,
+  // exactly as it did before when none of the 8 original checks could ever match it either.
+  if (media.bucket === COURSE_MEDIA_BUCKET) {
+    [
+      reachableViaLesson,
+      reachableViaCourseThumbnail,
+      reachableViaModuleImage,
+      reachableViaAssessmentImage,
+    ] = await Promise.all([
+      prisma.courseLesson.findFirst({
+        where: {
+          mediaAssetId,
+          isActive: true,
+          module: {
+            isActive: true,
+            course: {
+              // A course.content.manage holder may view any lesson's media
+              // regardless of the course's publish status or the caller's own
+              // department/grant-based access (mirrors the course-thumbnail
+              // branch below); everyone else only a PUBLISHED course they have
+              // effective access to.
+              ...(canManageCourseContent
+                ? {}
+                : { status: "PUBLISHED", ...effectiveCourseAccessFilter(userId) }),
+            },
+          },
+        },
+        select: { id: true },
+      }),
+      prisma.course.findFirst({
+        where: {
+          thumbnailMediaId: mediaAssetId,
+          // course.content.manage holder may preview any course's
+          // thumbnail (e.g. before it's published); everyone else only a
+          // PUBLISHED course they have effective access to — the exact
+          // predicate the catalogue itself is filtered by.
           ...(canManageCourseContent
             ? {}
             : { status: "PUBLISHED", ...effectiveCourseAccessFilter(userId) }),
         },
-      },
-    },
-    select: { id: true },
-  });
-
-  const reachableViaQuery = reachableViaLesson
-    ? null
-    : await prisma.queryAttachment.findFirst({
+        select: { id: true },
+      }),
+      // A module's cover image: same shape as the course-thumbnail path above —
+      // a course.content.manage holder may preview any module's image; everyone
+      // else only an ACTIVE module of a PUBLISHED course they have effective
+      // access to (the exact predicate the course detail endpoint serves it under).
+      prisma.courseModule.findFirst({
         where: {
-          mediaAssetId,
-          // A query.manage holder may view any query's attachment
-          // (Phase 6.7); everyone else only their own query's.
-          ...(canManageQueries ? {} : { queryMessage: { query: { userId } } }),
+          imageMediaId: mediaAssetId,
+          ...(canManageCourseContent
+            ? {}
+            : {
+                isActive: true,
+                course: { status: "PUBLISHED", ...effectiveCourseAccessFilter(userId) },
+              }),
         },
-        select: { queryMessageId: true },
-      });
-
-  const reachableViaResource =
-    reachableViaLesson || reachableViaQuery
-      ? null
-      : await prisma.resource.findFirst({
-          where: {
-            mediaAssetId,
-            // A resource.manage holder may view any resource's file
-            // (Phase 5.1, managing the whole library); everyone else only a
-            // PUBLISHED, department-visible one.
-            ...(canManageResources
-              ? {}
-              : { status: "PUBLISHED", ...effectiveResourceVisibilityFilter(userId) }),
-          },
-          select: { id: true },
-        });
-
-  const canManagePolicies =
-    permissions.includes("policy.manage") || permissions.includes("policy.version.activate");
-
-  const reachableViaPolicyVersion =
-    reachableViaLesson || reachableViaQuery || reachableViaResource
-      ? null
-      : await prisma.policyVersion.findFirst({
-          where: {
-            mediaAssetId,
-            // policy.manage/policy.version.activate holders may view any
-            // version's document, including archived history (§23);
-            // everyone else only the currently active one WHOSE effective
-            // date has arrived — mirrors policies.service.ts's own
-            // `withActiveVersion` gate exactly, so a trainer can't
-            // view/download a document via this route before its stated
-            // effective date even though the version is already marked
-            // active (effective-date enforcement gap fix) — AND whose
-            // parent policy is department-visible to this caller
-            // (consistent granular access control unit, §7/§9: same
-            // `effectivePolicyVisibilityFilter` predicate `canViewPolicy()`
-            // is composed from, mirroring the resource/announcement
-            // branches' identical use of their own visibility filters).
-            ...(canManagePolicies
-              ? {}
-              : {
-                  isActive: true,
-                  effectiveDate: { lte: new Date() },
-                  policy: effectivePolicyVisibilityFilter(userId),
-                }),
-          },
-          select: { id: true },
-        });
-
-  // Phase 5.3.2 added the admin path (announcement.manage/
-  // announcement.publish holder previewing any announcement's attachment/
-  // image while managing it — covers a DIFFERENT admin than the uploader,
-  // since the self-upload path above already covers previewing one's own
-  // just-uploaded file). Phase 5.3.3 adds the trainee path: a PUBLISHED,
-  // department-visible announcement's attachment/image, same
-  // `effectiveAnnouncementVisibilityFilter` predicate `canViewAnnouncement()`
-  // is built from, mirroring the resource/policy-version trainee branches
-  // exactly.
-  const canManageAnnouncements =
-    permissions.includes("announcement.manage") || permissions.includes("announcement.publish");
-
-  const reachableViaAnnouncement =
-    reachableViaLesson || reachableViaQuery || reachableViaResource || reachableViaPolicyVersion
-      ? null
-      : await prisma.announcement.findFirst({
-          where: {
-            OR: [{ attachmentMediaId: mediaAssetId }, { imageMediaId: mediaAssetId }],
-            ...(canManageAnnouncements
-              ? {}
-              : { status: "PUBLISHED", ...effectiveAnnouncementVisibilityFilter(userId) }),
-          },
-          select: { id: true },
-        });
-
-  const reachableViaCourseThumbnail =
-    reachableViaLesson ||
-    reachableViaQuery ||
-    reachableViaResource ||
-    reachableViaPolicyVersion ||
-    reachableViaAnnouncement
-      ? null
-      : await prisma.course.findFirst({
-          where: {
-            thumbnailMediaId: mediaAssetId,
-            // course.content.manage holder may preview any course's
-            // thumbnail (e.g. before it's published); everyone else only a
-            // PUBLISHED course they have effective access to — the exact
-            // predicate the catalogue itself is filtered by.
-            ...(permissions.includes("course.content.manage")
-              ? {}
-              : { status: "PUBLISHED", ...effectiveCourseAccessFilter(userId) }),
-          },
-          select: { id: true },
-        });
-
-  // A module's cover image: same shape as the course-thumbnail path above —
-  // a course.content.manage holder may preview any module's image; everyone
-  // else only an ACTIVE module of a PUBLISHED course they have effective
-  // access to (the exact predicate the course detail endpoint serves it under).
-  const reachableViaModuleImage =
-    reachableViaLesson ||
-    reachableViaQuery ||
-    reachableViaResource ||
-    reachableViaPolicyVersion ||
-    reachableViaAnnouncement ||
-    reachableViaCourseThumbnail
-      ? null
-      : await prisma.courseModule.findFirst({
-          where: {
-            imageMediaId: mediaAssetId,
-            ...(canManageCourseContent
-              ? {}
-              : {
-                  isActive: true,
-                  course: { status: "PUBLISHED", ...effectiveCourseAccessFilter(userId) },
-                }),
-          },
-          select: { id: true },
-        });
-
-  // An assessment's cover image: same shape as the module-image path above — a
-  // course.content.manage holder (the same permission required to upload it in the
-  // first place, see media.routes.ts's assertCanUploadForPurpose) may preview any
-  // assessment's image; everyone else only a PUBLISHED assessment in a PUBLISHED
-  // course they have effective access to (assessments_select's own predicate).
-  const reachableViaAssessmentImage =
-    reachableViaLesson ||
-    reachableViaQuery ||
-    reachableViaResource ||
-    reachableViaPolicyVersion ||
-    reachableViaAnnouncement ||
-    reachableViaCourseThumbnail ||
-    reachableViaModuleImage
-      ? null
-      : await prisma.assessment.findFirst({
-          where: {
-            imageMediaId: mediaAssetId,
-            ...(canManageCourseContent
-              ? {}
-              : {
-                  status: "PUBLISHED",
-                  course: { status: "PUBLISHED", ...effectiveCourseAccessFilter(userId) },
-                }),
-          },
-          select: { id: true },
-        });
+        select: { id: true },
+      }),
+      // An assessment's cover image: same shape as the module-image path above — a
+      // course.content.manage holder (the same permission required to upload it in the
+      // first place, see media.routes.ts's assertCanUploadForPurpose) may preview any
+      // assessment's image; everyone else only a PUBLISHED assessment in a PUBLISHED
+      // course they have effective access to (assessments_select's own predicate).
+      prisma.assessment.findFirst({
+        where: {
+          imageMediaId: mediaAssetId,
+          ...(canManageCourseContent
+            ? {}
+            : {
+                status: "PUBLISHED",
+                course: { status: "PUBLISHED", ...effectiveCourseAccessFilter(userId) },
+              }),
+        },
+        select: { id: true },
+      }),
+    ]);
+  } else if (media.bucket === QUERY_ATTACHMENTS_BUCKET) {
+    reachableViaQuery = await prisma.queryAttachment.findFirst({
+      where: {
+        mediaAssetId,
+        // A query.manage holder may view any query's attachment
+        // (Phase 6.7); everyone else only their own query's.
+        ...(canManageQueries ? {} : { queryMessage: { query: { userId } } }),
+      },
+      select: { queryMessageId: true },
+    });
+  } else if (media.bucket === RESOURCE_FILES_BUCKET) {
+    reachableViaResource = await prisma.resource.findFirst({
+      where: {
+        mediaAssetId,
+        // A resource.manage holder may view any resource's file
+        // (Phase 5.1, managing the whole library); everyone else only a
+        // PUBLISHED, department-visible one.
+        ...(canManageResources
+          ? {}
+          : { status: "PUBLISHED", ...effectiveResourceVisibilityFilter(userId) }),
+      },
+      select: { id: true },
+    });
+  } else if (media.bucket === POLICY_DOCUMENTS_BUCKET) {
+    reachableViaPolicyVersion = await prisma.policyVersion.findFirst({
+      where: {
+        mediaAssetId,
+        // policy.manage/policy.version.activate holders may view any
+        // version's document, including archived history (§23);
+        // everyone else only the currently active one WHOSE effective
+        // date has arrived — mirrors policies.service.ts's own
+        // `withActiveVersion` gate exactly, so a trainer can't
+        // view/download a document via this route before its stated
+        // effective date even though the version is already marked
+        // active (effective-date enforcement gap fix) — AND whose
+        // parent policy is department-visible to this caller
+        // (consistent granular access control unit, §7/§9: same
+        // `effectivePolicyVisibilityFilter` predicate `canViewPolicy()`
+        // is composed from, mirroring the resource/announcement
+        // branches' identical use of their own visibility filters).
+        ...(canManagePolicies
+          ? {}
+          : {
+              isActive: true,
+              effectiveDate: { lte: new Date() },
+              policy: effectivePolicyVisibilityFilter(userId),
+            }),
+      },
+      select: { id: true },
+    });
+  } else if (media.bucket === ANNOUNCEMENT_MEDIA_BUCKET) {
+    // Phase 5.3.2 added the admin path (announcement.manage/
+    // announcement.publish holder previewing any announcement's attachment/
+    // image while managing it — covers a DIFFERENT admin than the uploader,
+    // since the self-upload path above already covers previewing one's own
+    // just-uploaded file). Phase 5.3.3 adds the trainee path: a PUBLISHED,
+    // department-visible announcement's attachment/image, same
+    // `effectiveAnnouncementVisibilityFilter` predicate `canViewAnnouncement()`
+    // is built from, mirroring the resource/policy-version trainee branches
+    // exactly.
+    reachableViaAnnouncement = await prisma.announcement.findFirst({
+      where: {
+        OR: [{ attachmentMediaId: mediaAssetId }, { imageMediaId: mediaAssetId }],
+        ...(canManageAnnouncements
+          ? {}
+          : { status: "PUBLISHED", ...effectiveAnnouncementVisibilityFilter(userId) }),
+      },
+      select: { id: true },
+    });
+  }
 
   if (
     !reachableViaLesson &&

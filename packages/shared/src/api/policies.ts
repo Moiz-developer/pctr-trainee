@@ -181,11 +181,23 @@ export const listAdminPoliciesQuerySchema = z.object({
 });
 export type ListAdminPoliciesQuery = z.infer<typeof listAdminPoliciesQuerySchema>;
 
+// Policies have no category list to pick from (unlike resources' ResourceCategory) — it's a
+// free-form, genuinely optional text field (`policies.category` is a plain nullable column, no
+// FK). The admin form's text input naturally submits "" for "left blank", not null/undefined, so
+// a plain `z.string().min(1).nullable().optional()` rejected every un-filled submission with a
+// validation error even though the field is optional. Accepting "" alongside a real value here
+// (rather than a `z.preprocess`/`.transform()` that maps it to null) keeps this field's inferred
+// type exactly `string | null | undefined` — either of those would change the input or output
+// shape just enough to break react-hook-form's `zodResolver` generics in PolicyFormModal.tsx. "" is
+// normalized to null on the way to storage instead — PolicyFormModal.tsx's submit handler already
+// does this for create/update, and admin-policies.service.ts does the same server-side.
+const optionalCategorySchema = z.union([z.string().min(1), z.literal("")]).nullable().optional();
+
 /** POST /api/v1/admin/policies (permission `policy.manage`). */
 export const createPolicyRequestSchema = z.object({
   title: z.string().min(1),
   slug: z.string().min(1),
-  category: z.string().min(1).nullable().optional(),
+  category: optionalCategorySchema,
   description: z.string().min(1).nullable().optional(),
 });
 export type CreatePolicyRequest = z.infer<typeof createPolicyRequestSchema>;
@@ -194,7 +206,7 @@ export type CreatePolicyRequest = z.infer<typeof createPolicyRequestSchema>;
 export const updatePolicyRequestSchema = z.object({
   title: z.string().min(1).optional(),
   slug: z.string().min(1).optional(),
-  category: z.string().min(1).nullable().optional(),
+  category: optionalCategorySchema,
   description: z.string().min(1).nullable().optional(),
 });
 export type UpdatePolicyRequest = z.infer<typeof updatePolicyRequestSchema>;

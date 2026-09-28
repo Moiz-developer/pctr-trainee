@@ -120,15 +120,28 @@ export async function listUserCourses(
  * passes.
  */
 export async function getUserCourseDetail(userId: string, courseId: string): Promise<CourseDetail> {
-  const course = await prisma.course.findUnique({
-    where: { id: courseId },
-    include: {
-      category: { select: { name: true } },
-      // Department visibility in the Trainer Portal UI unit: same join as
-      // listUserCourses above.
-      courseDepartments: { select: { department: { select: { id: true, name: true } } } },
-    },
-  });
+  // Perf: `canAccessCourse` takes only `userId`/`courseId` — neither input depends on the course
+  // row below, so it runs alongside the fetch instead of after it. This is NOT redundant with RLS
+  // and must stay a real, separate check: `GET /courses/:id` (user-courses.routes.ts) is
+  // deliberately gated by `requireAuth` alone, no `course.view` permission check, so a caller who
+  // happens to hold `course.view` (an Admin-routes permission, courses.routes.ts) would still be
+  // let through by the `courses_select` RLS policy's `has_permission('course.view')` branch even
+  // with no department/course_access grant for this specific course — `canAccessCourse` is what
+  // actually enforces "every user only sees courses THEY have effective access to" on this
+  // trainee-facing endpoint, per its own doc comment. Fails closed for a nonexistent `courseId`
+  // (returns false, throws nothing), so running it before confirming the course exists is safe.
+  const [course, hasEffectiveAccess] = await Promise.all([
+    prisma.course.findUnique({
+      where: { id: courseId },
+      include: {
+        category: { select: { name: true } },
+        // Department visibility in the Trainer Portal UI unit: same join as
+        // listUserCourses above.
+        courseDepartments: { select: { department: { select: { id: true, name: true } } } },
+      },
+    }),
+    canAccessCourse(userId, courseId),
+  ]);
   if (!course) {
     // Phase 2H: RLS's own courses_select policy may have hidden this row
     // because the caller lacks course.view/effective access — that's a 403
@@ -147,45 +160,46 @@ export async function getUserCourseDetail(userId: string, courseId: string): Pro
   if (course.status !== "PUBLISHED") {
     throw new ForbiddenError();
   }
-
-  const allowed = await canAccessCourse(userId, courseId);
-  if (!allowed) {
+  if (!hasEffectiveAccess) {
     throw new ForbiddenError();
   }
 
-  // A single query for modules with lessons nested via `include` — Prisma
-  // batches the "many" side (one additional IN-query total), not once per
-  // module (no N+1 across course -> modules -> lessons).
-  const modules = await prisma.courseModule.findMany({
-    where: { courseId, isActive: true },
-    orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
-    include: {
-      lessons: {
-        where: { isActive: true },
-        orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
-        // Phase 2I: the lesson viewer needs the attached media's MIME type
-        // to distinguish DOCX (renderable) from legacy DOC (not) — both
-        // share content_type "DOCUMENT". A plain scalar select, not a
-        // second round trip: Prisma batches this into the same "many" side
-        // query as `lessons` itself.
-        include: { mediaAsset: { select: { mimeType: true } } },
+  // Perf: these three depend only on `courseId`/`userId` (both already known once the checks
+  // above pass), not on each other's results, so they run concurrently instead of one at a time.
+  // Each is still the exact same single, already-batched query as before — Prisma batches the
+  // "many" side of `courseModule.findMany`'s nested `lessons`/`mediaAsset` include and
+  // `assessment.findMany`'s nested `attempts` include into one extra query each, not once per row
+  // (no N+1 across course -> modules -> lessons, or course -> assessments -> attempts).
+  const [modules, progress, assessments] = await Promise.all([
+    prisma.courseModule.findMany({
+      where: { courseId, isActive: true },
+      orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+      include: {
+        lessons: {
+          where: { isActive: true },
+          orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+          // Phase 2I: the lesson viewer needs the attached media's MIME type
+          // to distinguish DOCX (renderable) from legacy DOC (not) — both
+          // share content_type "DOCUMENT". A plain scalar select, not a
+          // second round trip: Prisma batches this into the same "many" side
+          // query as `lessons` itself.
+          include: { mediaAsset: { select: { mimeType: true } } },
+        },
       },
-    },
-  });
-
-  const progress = await prisma.courseProgress.findUnique({
-    where: { userId_courseId: { userId, courseId } },
-  });
-
-  // Phase 4: PUBLISHED-only assessment summaries, embedded here rather than
-  // a redundant "list assessments for course" route (see course-catalogue.ts's
-  // doc comment). `my_attempts_used`/`my_best_result` come from this same
-  // user's own attempts only — self-scoped, matching assessment_attempts' RLS.
-  const assessments = await prisma.assessment.findMany({
-    where: { courseId, status: "PUBLISHED" },
-    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-    include: { attempts: { where: { userId }, select: { result: true } } },
-  });
+    }),
+    prisma.courseProgress.findUnique({
+      where: { userId_courseId: { userId, courseId } },
+    }),
+    // Phase 4: PUBLISHED-only assessment summaries, embedded here rather than
+    // a redundant "list assessments for course" route (see course-catalogue.ts's
+    // doc comment). `my_attempts_used`/`my_best_result` come from this same
+    // user's own attempts only — self-scoped, matching assessment_attempts' RLS.
+    prisma.assessment.findMany({
+      where: { courseId, status: "PUBLISHED" },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      include: { attempts: { where: { userId }, select: { result: true } } },
+    }),
+  ]);
 
   return {
     id: course.id,

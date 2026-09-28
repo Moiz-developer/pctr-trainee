@@ -111,7 +111,10 @@ export async function createPolicy(input: CreatePolicyRequest): Promise<AdminPol
       data: {
         title: input.title,
         slug: input.slug,
-        category: input.category ?? null,
+        // `||`, not `??`: an empty string (the admin form's "left blank" value, now accepted by
+        // createPolicyRequestSchema — see policies.ts) must be stored as null, same as
+        // null/undefined, category being genuinely optional with no category list to choose from.
+        category: input.category || null,
         description: input.description ?? null,
       },
       include: { versions: withVersionMedia },
@@ -185,7 +188,7 @@ export async function updatePolicy(
       data: {
         ...(input.title !== undefined ? { title: input.title } : {}),
         ...(input.slug !== undefined ? { slug: input.slug } : {}),
-        ...(input.category !== undefined ? { category: input.category } : {}),
+        ...(input.category !== undefined ? { category: input.category || null } : {}),
         ...(input.description !== undefined ? { description: input.description } : {}),
       },
       include: { versions: withVersionMedia },
