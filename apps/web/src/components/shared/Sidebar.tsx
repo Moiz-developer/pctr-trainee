@@ -1,6 +1,11 @@
-import { Star, type LucideIcon } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { NavLink } from "react-router-dom";
-import { useBranding } from "./useBranding";
+
+/**
+ * Trimmed copy of the Excellium | Global Services logo (public/brand/). Served
+ * as a static asset so the sidebar brand never depends on the branding settings.
+ */
+const SIDEBAR_LOGO_SRC = "/brand/excellium-global-services-logo.png";
 
 export interface SidebarNavItem {
   to: string;
@@ -16,7 +21,6 @@ export interface SidebarNavItem {
  * and UserPortalLayout share one implementation.
  */
 export function Sidebar({
-  brand,
   items,
   isOpen,
   collapsed = false,
@@ -28,7 +32,6 @@ export function Sidebar({
   collapsed?: boolean;
   onClose: () => void;
 }) {
-  const { platformName, logoUrl } = useBranding();
   // Labels stay visible in the mobile overlay; only the desktop rail hides them.
   const hideOnRail = collapsed ? "lg:hidden" : "";
 
@@ -47,39 +50,28 @@ export function Sidebar({
         } ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div
-          className={`flex shrink-0 items-center gap-2.5 border-b border-slate-100 px-4 ${
-            logoUrl ? "" : "h-16"
-          } ${collapsed ? "lg:justify-center lg:px-0" : ""}`}
+          className="flex h-16 shrink-0 items-center border-b border-slate-100 px-4 lg:pl-[4px] lg:pr-0"
         >
-          {logoUrl ? (
-            // A configured logo replaces the name/caption entirely (never rendered alongside
-            // it). Full header width and a fixed 100px height (not a max-width cap) so the logo
-            // renders as large as the rail actually allows instead of leaving unused space next
-            // to it; `object-contain` still preserves its natural aspect ratio (no stretching).
-            // The row's own height comes from this 100px image plus padding now, not a fixed
-            // h-16, since 100px no longer fits the old fixed row. Shrinks to a compact square on
-            // the collapsed icon-only rail, where full width would be too narrow to help.
+          {/*
+           * The logo is clipped, never scaled. Its width (and so the visible
+           * window) changes between the full mark and just "Excellium" (the part
+           * ending at ~63px of the 180px logo), while the image itself stays
+           * left-anchored at a constant size. Expanding reveals the "| Global
+           * Services" portion from the right; collapsing hides it toward the left.
+           * Mobile always shows the full logo since the rail only exists on lg+.
+           */}
+          <div
+            className={`shrink-0 overflow-hidden transition-[width] ${
+              collapsed ? "w-[180px] lg:w-[64px]" : "w-[180px]"
+            }`}
+          >
             <img
-              src={logoUrl}
-              alt={platformName ?? "Platform logo"}
-              className={`h-[100px] w-full object-contain ${collapsed ? "lg:h-14 lg:w-14" : ""}`}
+              src={SIDEBAR_LOGO_SRC}
+              alt="Excellium | Global Services"
+              draggable={false}
+              className="block h-auto w-[180px] max-w-none select-none"
             />
-          ) : (
-            <>
-              <Star
-                className="h-7 w-7 shrink-0 fill-indigo-900 text-indigo-900"
-                aria-hidden="true"
-              />
-              <div className={`min-w-0 leading-tight ${hideOnRail}`}>
-                <p className="truncate text-base font-bold tracking-tight text-indigo-900">
-                  {platformName ?? "PCTR"}
-                </p>
-                <p className="truncate text-[10px] font-medium uppercase tracking-wider text-slate-500">
-                  {brand}
-                </p>
-              </div>
-            </>
-          )}
+          </div>
         </div>
         <nav className="flex-1 space-y-1.5 overflow-y-auto p-2.5">
           {items.map(({ to, label, icon: Icon }) => (
