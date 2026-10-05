@@ -50,23 +50,23 @@ export function Sidebar({
       >
         <div className="flex h-16 shrink-0 items-center border-b border-slate-100 px-4 lg:px-2">
           {/*
-           * One logo at one size in both states: the image is a fixed 224px-wide box with
-           * object-contain (so the complete logo always fits, aspect preserved), anchored at
-           * the left. Its viewport is the header content width when expanded and a 52px
-           * window when collapsed, so collapsing clips the right side while the left/primary
-           * portion stays put, and expanding reveals the rest from the right. Nothing is
-           * scaled or squeezed. Mobile never collapses, so it always shows the full logo.
+           * One logo at one size in both states: the image is a fixed 150px-wide box, sized so
+           * "Excellium" alone fits the 54px collapsed window. The image uses object-contain
+           * (aspect preserved), anchored at the left. Its viewport is 150px when expanded and
+           * 54px when collapsed, so collapsing clips the right side while "Excellium" stays
+           * put, and expanding reveals the rest from the right. Nothing is scaled or squeezed.
+           * Mobile never collapses, so it always shows the full logo.
            */}
           <div
-            className={`h-14 w-full shrink-0 overflow-hidden transition-[width] ${
-              collapsed ? "lg:w-[52px]" : ""
+            className={`h-14 w-[150px] shrink-0 overflow-hidden transition-[width] ${
+              collapsed ? "lg:w-[54px]" : ""
             }`}
           >
             <img
               src={SIDEBAR_LOGO_SRC}
               alt="Excellium | Global Services"
               draggable={false}
-              className="block h-full w-[224px] max-w-none select-none object-contain object-left"
+              className="block h-full w-[150px] max-w-none select-none object-contain object-left"
             />
           </div>
         </div>
