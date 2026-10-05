@@ -1,11 +1,12 @@
 import type { LucideIcon } from "lucide-react";
 import { NavLink } from "react-router-dom";
+import { useBranding } from "./useBranding";
 
 /**
- * Trimmed copy of the Excellium | Global Services logo (public/brand/). Served
- * as a static asset so the sidebar brand never depends on the branding settings.
+ * Shown only when no logo has been uploaded in Admin Settings (Branding).
+ * Trimmed copy of the Excellium | Global Services logo (public/brand/).
  */
-const SIDEBAR_LOGO_SRC = "/brand/excellium-global-services-logo.png";
+const FALLBACK_LOGO_SRC = "/brand/excellium-global-services-logo.png";
 
 export interface SidebarNavItem {
   to: string;
@@ -34,6 +35,9 @@ export function Sidebar({
 }) {
   // Labels stay visible in the mobile overlay; only the desktop rail hides them.
   const hideOnRail = collapsed ? "lg:hidden" : "";
+  const { platformName, logoUrl } = useBranding();
+  const logoSrc = logoUrl ?? FALLBACK_LOGO_SRC;
+  const logoAlt = platformName ?? "Platform logo";
 
   return (
     <>
@@ -49,27 +53,25 @@ export function Sidebar({
           collapsed ? "lg:w-[68px]" : "lg:w-60"
         } ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
-        <div
-          className="flex h-16 shrink-0 items-center border-b border-slate-100 px-4 lg:pl-[8px] lg:pr-0"
-        >
+        <div className="flex h-16 shrink-0 items-center border-b border-slate-100 px-4 lg:px-2">
           {/*
-           * The logo is clipped, never scaled. Its width (and so the visible
-           * window) changes between the full mark and just "Excellium" (the part
-           * ending at ~53px of the 150px logo), while the image itself stays
-           * left-anchored at a constant size. Expanding reveals the "| Global
-           * Services" portion from the right; collapsing hides it toward the left.
-           * Mobile always shows the full logo since the rail only exists on lg+.
+           * One logo at one size in both states: the image is a fixed 224px-wide box with
+           * object-contain (so the complete logo always fits, aspect preserved), anchored at
+           * the left. Its viewport is the header content width when expanded and a 52px
+           * window when collapsed, so collapsing clips the right side while the left/primary
+           * portion stays put, and expanding reveals the rest from the right. Nothing is
+           * scaled or squeezed. Mobile never collapses, so it always shows the full logo.
            */}
           <div
-            className={`shrink-0 overflow-hidden transition-[width] ${
-              collapsed ? "w-[150px] lg:w-[54px]" : "w-[150px]"
+            className={`h-14 w-full shrink-0 overflow-hidden transition-[width] ${
+              collapsed ? "lg:w-[52px]" : ""
             }`}
           >
             <img
-              src={SIDEBAR_LOGO_SRC}
-              alt="Excellium | Global Services"
+              src={logoSrc}
+              alt={logoAlt}
               draggable={false}
-              className="block h-auto w-[150px] max-w-none select-none"
+              className="block h-full w-[224px] max-w-none select-none object-contain object-left"
             />
           </div>
         </div>
