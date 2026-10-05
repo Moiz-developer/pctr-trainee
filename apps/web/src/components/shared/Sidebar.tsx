@@ -1,12 +1,10 @@
 import type { LucideIcon } from "lucide-react";
 import { NavLink } from "react-router-dom";
-import { useBranding } from "./useBranding";
-
 /**
- * Shown only when no logo has been uploaded in Admin Settings (Branding).
- * Trimmed copy of the Excellium | Global Services logo (public/brand/).
+ * Static sidebar logo for now: the Excellium | Global Services mark
+ * (public/brand/). Admin-uploaded logos (branding logoUrl) are not used here.
  */
-const FALLBACK_LOGO_SRC = "/brand/excellium-global-services-logo.png";
+const SIDEBAR_LOGO_SRC = "/brand/excellium-global-services-logo.png";
 
 export interface SidebarNavItem {
   to: string;
@@ -35,9 +33,6 @@ export function Sidebar({
 }) {
   // Labels stay visible in the mobile overlay; only the desktop rail hides them.
   const hideOnRail = collapsed ? "lg:hidden" : "";
-  const { platformName, logoUrl } = useBranding();
-  const logoSrc = logoUrl ?? FALLBACK_LOGO_SRC;
-  const logoAlt = platformName ?? "Platform logo";
 
   return (
     <>
@@ -68,8 +63,8 @@ export function Sidebar({
             }`}
           >
             <img
-              src={logoSrc}
-              alt={logoAlt}
+              src={SIDEBAR_LOGO_SRC}
+              alt="Excellium | Global Services"
               draggable={false}
               className="block h-full w-[224px] max-w-none select-none object-contain object-left"
             />
