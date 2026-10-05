@@ -48,7 +48,11 @@ export function Sidebar({
           collapsed ? "lg:w-[68px]" : "lg:w-60"
         } ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
-        <div className="flex h-16 shrink-0 items-center border-b border-slate-100 px-4 lg:px-2">
+        <div
+          className={`flex h-16 shrink-0 items-center border-b border-slate-100 px-4 ${
+            collapsed ? "lg:px-2" : "lg:px-4"
+          }`}
+        >
           {/*
            * One logo at one size in both states: the image is a fixed 150px-wide box, sized so
            * "Excellium" alone fits the 54px collapsed window. The image uses object-contain
