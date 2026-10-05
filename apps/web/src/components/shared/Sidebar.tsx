@@ -50,26 +50,26 @@ export function Sidebar({
         } ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div
-          className="flex h-16 shrink-0 items-center border-b border-slate-100 px-4 lg:pl-[4px] lg:pr-0"
+          className="flex h-16 shrink-0 items-center border-b border-slate-100 px-4 lg:pl-[8px] lg:pr-0"
         >
           {/*
            * The logo is clipped, never scaled. Its width (and so the visible
            * window) changes between the full mark and just "Excellium" (the part
-           * ending at ~63px of the 180px logo), while the image itself stays
+           * ending at ~53px of the 150px logo), while the image itself stays
            * left-anchored at a constant size. Expanding reveals the "| Global
            * Services" portion from the right; collapsing hides it toward the left.
            * Mobile always shows the full logo since the rail only exists on lg+.
            */}
           <div
             className={`shrink-0 overflow-hidden transition-[width] ${
-              collapsed ? "w-[180px] lg:w-[64px]" : "w-[180px]"
+              collapsed ? "w-[150px] lg:w-[54px]" : "w-[150px]"
             }`}
           >
             <img
               src={SIDEBAR_LOGO_SRC}
               alt="Excellium | Global Services"
               draggable={false}
-              className="block h-auto w-[180px] max-w-none select-none"
+              className="block h-auto w-[150px] max-w-none select-none"
             />
           </div>
         </div>
