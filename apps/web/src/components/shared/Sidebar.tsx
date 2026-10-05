@@ -58,7 +58,7 @@ export function Sidebar({
            * Mobile never collapses, so it always shows the full logo.
            */}
           <div
-            className={`h-14 w-[150px] shrink-0 overflow-hidden transition-[width] ${
+            className={`h-14 w-[150px] shrink-0 overflow-hidden ${
               collapsed ? "lg:w-[54px]" : ""
             }`}
           >
