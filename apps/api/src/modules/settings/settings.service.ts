@@ -16,6 +16,17 @@ import { createSignedDownloadUrl } from "../media/media.storage.js";
  * fetch-per-request convention). No create/delete: the one row is seeded
  * once by the migration itself (20260914090000_system_settings); nothing in
  * the application ever creates a second one.
+ *
+ * sidebar_expanded_logo_media_id/sidebar_collapsed_logo_media_id (Sidebar
+ * branding unit, 20260923090000_sidebar_branding_logos) are read/written/
+ * signed here unchanged, even though the Admin Settings UI no longer offers
+ * upload controls for them and Sidebar.tsx no longer reads them — the
+ * sidebar now always shows its two static built-in assets instead (see that
+ * component's own comment). Retained deliberately: the columns, FKs,
+ * get_public_branding() output, and PATCH/GET admin-settings contract all
+ * stay intact (any previously-uploaded value keeps round-tripping through
+ * this API), so the feature can be re-exposed later without another
+ * migration — only the UI and the one consumer were removed.
  */
 
 function toResponse(row: SystemSettings): SystemSettingsResponse {

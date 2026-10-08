@@ -1,15 +1,21 @@
 import type { LucideIcon } from "lucide-react";
 import { NavLink } from "react-router-dom";
-import { useBranding } from "./useBranding";
 
 /**
- * Built-in defaults (Sidebar branding unit), used whenever the admin hasn't
- * uploaded a sidebar-specific override in Settings → Branding. Independent
- * of the Platform Logo — see useBranding.ts's sidebarExpandedLogoUrl/
- * sidebarCollapsedLogoUrl doc comment.
+ * Static sidebar logos — intentionally not admin-configurable. An uploaded
+ * logo with transparent padding around it rendered small here no matter the
+ * box size (object-contain sizes by the FILE's own aspect ratio, not its
+ * visible content — see this unit's investigation), and asking every admin
+ * to pre-trim their upload wasn't an acceptable trade-off, so the Admin
+ * Settings → Branding "Expanded/Collapsed Sidebar Logo" upload controls were
+ * removed. The backend fields and API they used (sidebar_expanded_logo_
+ * media_id/sidebar_collapsed_logo_media_id on system_settings) are
+ * untouched/retained — see settings.service.ts's own comment — only this
+ * component and the controls that fed it were changed. The sidebar always
+ * shows these two fixed, pre-trimmed assets.
  */
-const DEFAULT_EXPANDED_LOGO_SRC = "/brand/excellium-sidebar-logo-expanded.png";
-const DEFAULT_COLLAPSED_LOGO_SRC = "/brand/excellium-sidebar-logo-collapsed.png";
+const EXPANDED_LOGO_SRC = "/brand/excellium-sidebar-logo-expanded.png";
+const COLLAPSED_LOGO_SRC = "/brand/excellium-sidebar-logo-collapsed.png";
 
 export interface SidebarNavItem {
   to: string;
@@ -38,11 +44,6 @@ export function Sidebar({
 }) {
   // Labels stay visible in the mobile overlay; only the desktop rail hides them.
   const hideOnRail = collapsed ? "lg:hidden" : "";
-  const { platformName, sidebarExpandedLogoUrl, sidebarCollapsedLogoUrl } = useBranding();
-  const expandedLogoSrc = sidebarExpandedLogoUrl ?? DEFAULT_EXPANDED_LOGO_SRC;
-  const collapsedLogoSrc = sidebarCollapsedLogoUrl ?? DEFAULT_COLLAPSED_LOGO_SRC;
-  const expandedLogoAlt = platformName ? `${platformName} logo` : "Excellium Global Services";
-  const collapsedLogoAlt = platformName ? `${platformName} icon` : "Excellium";
 
   return (
     <>
@@ -60,26 +61,16 @@ export function Sidebar({
       >
         <div className="relative h-16 shrink-0 border-b border-slate-100">
           {/*
-           * Two independent, admin-configurable logos (Sidebar branding unit — see
-           * useBranding.ts), each its own fixed image, never scaled/stretched/cropped against
-           * the other. They're layered (absolute, same box) and crossfade: the expanded logo
-           * additionally clip-reveals from the left edge outward, so expanding reads as "the
-           * rest of the logo grows in from the right" and collapsing as "the right side
-           * recedes" rather than a flat swap, while the collapsed icon fades in/out in place.
-           * Synced to the sidebar's own width transition's duration; prefers-reduced-motion
-           * drops straight to the end state with no animation at all. Mobile never collapses
-           * (every collapsed-only rule below is lg:-scoped), so it always shows the full logo.
-           *
-           * Sizing: the image fills nearly the full 64px row height (h-[60px], 2px breathing
-           * room top/bottom) inside 12px side padding — the max this row can give it. This is
-           * genuinely the full available box, not a number tuned for one specific logo:
-           * object-contain scales within it by the IMAGE's OWN aspect ratio, so a tightly
-           * cropped upload (no padding) fills that box; a logo stored on an oversized/padded
-           * canvas (e.g. a square PNG around a wide wordmark) still renders small here, because
-           * its own file reports a ~1:1 aspect ratio — that's the file's content, not something
-           * this component can discard without cropping the admin's actual artwork, which
-           * nothing here does. See BrandingSettingsCard.tsx's hint text for the admin-facing
-           * guidance (upload a tightly cropped image) that actually fixes that case.
+           * Two fixed, static logos (see EXPANDED_LOGO_SRC/COLLAPSED_LOGO_SRC above — not
+           * admin-configurable, by design). They're layered (absolute, same box) and crossfade:
+           * the expanded logo additionally clip-reveals from the left edge outward, so expanding
+           * reads as "the rest of the logo grows in from the right" and collapsing as "the right
+           * side recedes" rather than a flat swap, while the collapsed icon fades in/out in
+           * place. Synced to the sidebar's own width transition's duration; prefers-reduced-
+           * motion drops straight to the end state with no animation at all. Mobile never
+           * collapses (every collapsed-only rule below is lg:-scoped), so it always shows the
+           * full logo. Sizing: the image fills nearly the full 64px row height (h-[60px], 2px
+           * breathing room top/bottom) inside 12px side padding — the max this row can give it.
            */}
           <div
             className={`absolute inset-0 flex items-center overflow-hidden px-3 opacity-100 transition-[clip-path,opacity] duration-200 ease-out [clip-path:inset(0_0%_0_0)] motion-reduce:transition-none ${
@@ -88,8 +79,8 @@ export function Sidebar({
             aria-hidden={collapsed || undefined}
           >
             <img
-              src={expandedLogoSrc}
-              alt={expandedLogoAlt}
+              src={EXPANDED_LOGO_SRC}
+              alt="Excellium Global Services"
               draggable={false}
               className="h-[60px] max-w-full select-none object-contain object-left"
             />
@@ -101,8 +92,8 @@ export function Sidebar({
             aria-hidden={!collapsed || undefined}
           >
             <img
-              src={collapsedLogoSrc}
-              alt={collapsedLogoAlt}
+              src={COLLAPSED_LOGO_SRC}
+              alt="Excellium"
               draggable={false}
               className="h-11 w-11 max-w-[44px] select-none object-contain"
             />

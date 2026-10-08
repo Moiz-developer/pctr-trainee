@@ -31,8 +31,6 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
             logoUrl: data.logo_url,
             loginLogoUrl: data.login_logo_url,
             faviconUrl: data.favicon_url,
-            sidebarExpandedLogoUrl: data.sidebar_expanded_logo_url,
-            sidebarCollapsedLogoUrl: data.sidebar_collapsed_logo_url,
           }
         : EMPTY_BRANDING,
     [data],
