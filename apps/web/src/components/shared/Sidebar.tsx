@@ -69,9 +69,20 @@ export function Sidebar({
            * Synced to the sidebar's own width transition's duration; prefers-reduced-motion
            * drops straight to the end state with no animation at all. Mobile never collapses
            * (every collapsed-only rule below is lg:-scoped), so it always shows the full logo.
+           *
+           * Sizing: the image fills nearly the full 64px row height (h-[60px], 2px breathing
+           * room top/bottom) inside 12px side padding — the max this row can give it. This is
+           * genuinely the full available box, not a number tuned for one specific logo:
+           * object-contain scales within it by the IMAGE's OWN aspect ratio, so a tightly
+           * cropped upload (no padding) fills that box; a logo stored on an oversized/padded
+           * canvas (e.g. a square PNG around a wide wordmark) still renders small here, because
+           * its own file reports a ~1:1 aspect ratio — that's the file's content, not something
+           * this component can discard without cropping the admin's actual artwork, which
+           * nothing here does. See BrandingSettingsCard.tsx's hint text for the admin-facing
+           * guidance (upload a tightly cropped image) that actually fixes that case.
            */}
           <div
-            className={`absolute inset-0 flex items-center overflow-hidden px-4 opacity-100 transition-[clip-path,opacity] duration-200 ease-out [clip-path:inset(0_0%_0_0)] motion-reduce:transition-none ${
+            className={`absolute inset-0 flex items-center overflow-hidden px-3 opacity-100 transition-[clip-path,opacity] duration-200 ease-out [clip-path:inset(0_0%_0_0)] motion-reduce:transition-none ${
               collapsed ? "lg:opacity-0 lg:[clip-path:inset(0_100%_0_0)]" : ""
             }`}
             aria-hidden={collapsed || undefined}
@@ -80,7 +91,7 @@ export function Sidebar({
               src={expandedLogoSrc}
               alt={expandedLogoAlt}
               draggable={false}
-              className="h-14 max-w-full select-none object-contain object-left"
+              className="h-[60px] max-w-full select-none object-contain object-left"
             />
           </div>
           <div

@@ -358,7 +358,7 @@ export function BrandingSettingsCard() {
                 <AssetRow
                   id="branding-sidebar-expanded-logo"
                   label="Expanded Sidebar Logo"
-                  hint="Shown in the sidebar header when it's open. Independent of the Platform Logo above. Recommended: a complete horizontal logo. Leave unset to use the built-in Excellium default. PNG, JPG, WebP, GIF or SVG · max 2 MB."
+                  hint="Shown in the sidebar header when it's open. Independent of the Platform Logo above. Crop the image tightly around the logo first — extra transparent space around it will make the logo appear small in the sidebar. Leave unset to use the built-in Excellium default. PNG, JPG, WebP, GIF or SVG · max 2 MB."
                   extensions={LOGO_EXTENSIONS}
                   imageUrl={imageFor("sidebar_expanded_logo_media_id")}
                   uploading={uploadingField === "sidebar_expanded_logo_media_id"}
@@ -372,7 +372,7 @@ export function BrandingSettingsCard() {
                 <AssetRow
                   id="branding-sidebar-collapsed-logo"
                   label="Collapsed Sidebar Logo"
-                  hint="Shown in the sidebar when it's collapsed to its icon-only rail. Recommended: a square icon or brand symbol. Leave unset to use the built-in Excellium default. PNG, JPG, WebP, GIF or SVG · max 2 MB."
+                  hint="Shown in the sidebar when it's collapsed to its icon-only rail. Recommended: a square icon or brand symbol, cropped tightly with little transparent space around it. Leave unset to use the built-in Excellium default. PNG, JPG, WebP, GIF or SVG · max 2 MB."
                   extensions={LOGO_EXTENSIONS}
                   imageUrl={imageFor("sidebar_collapsed_logo_media_id")}
                   uploading={uploadingField === "sidebar_collapsed_logo_media_id"}
