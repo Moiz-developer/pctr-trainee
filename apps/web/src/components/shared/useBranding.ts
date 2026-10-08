@@ -11,6 +11,8 @@ export interface Branding {
   logoUrl: string | null;
   loginLogoUrl: string | null;
   faviconUrl: string | null;
+  /** Collapsed-sidebar-only override. `null` = use the built-in Excellium default icon. */
+  sidebarCollapsedLogoUrl: string | null;
 }
 
 export const EMPTY_BRANDING: Branding = {
@@ -20,6 +22,7 @@ export const EMPTY_BRANDING: Branding = {
   logoUrl: null,
   loginLogoUrl: null,
   faviconUrl: null,
+  sidebarCollapsedLogoUrl: null,
 };
 
 export const BrandingContext = createContext<Branding>(EMPTY_BRANDING);

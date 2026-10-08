@@ -1,21 +1,23 @@
 import type { LucideIcon } from "lucide-react";
 import { NavLink } from "react-router-dom";
+import { useBranding } from "./useBranding";
 
 /**
- * Static sidebar logos — intentionally not admin-configurable. An uploaded
- * logo with transparent padding around it rendered small here no matter the
- * box size (object-contain sizes by the FILE's own aspect ratio, not its
- * visible content — see this unit's investigation), and asking every admin
- * to pre-trim their upload wasn't an acceptable trade-off, so the Admin
- * Settings → Branding "Expanded/Collapsed Sidebar Logo" upload controls were
- * removed. The backend fields and API they used (sidebar_expanded_logo_
- * media_id/sidebar_collapsed_logo_media_id on system_settings) are
- * untouched/retained — see settings.service.ts's own comment — only this
- * component and the controls that fed it were changed. The sidebar always
- * shows these two fixed, pre-trimmed assets.
+ * Expanded logo: always static, intentionally not admin-configurable. An
+ * uploaded logo with transparent padding around it rendered small here no
+ * matter the box size (object-contain sizes by the FILE's own aspect ratio,
+ * not its visible content — see this unit's investigation), and asking
+ * every admin to pre-trim their upload wasn't an acceptable trade-off, so
+ * the Admin Settings → Branding "Expanded Sidebar Logo" upload control was
+ * removed. The backend field/API it used (sidebar_expanded_logo_media_id on
+ * system_settings) is untouched/retained — see settings.service.ts's own
+ * comment — only this component and that one control were changed.
+ *
+ * Collapsed logo stays admin-configurable (small icon-sized images don't
+ * suffer the same padding problem) — see `useBranding()` below.
  */
 const EXPANDED_LOGO_SRC = "/brand/excellium-sidebar-logo-expanded.png";
-const COLLAPSED_LOGO_SRC = "/brand/excellium-sidebar-logo-collapsed.png";
+const DEFAULT_COLLAPSED_LOGO_SRC = "/brand/excellium-sidebar-logo-collapsed.png";
 
 export interface SidebarNavItem {
   to: string;
@@ -44,6 +46,8 @@ export function Sidebar({
 }) {
   // Labels stay visible in the mobile overlay; only the desktop rail hides them.
   const hideOnRail = collapsed ? "lg:hidden" : "";
+  const { sidebarCollapsedLogoUrl } = useBranding();
+  const collapsedLogoSrc = sidebarCollapsedLogoUrl ?? DEFAULT_COLLAPSED_LOGO_SRC;
 
   return (
     <>
@@ -61,16 +65,17 @@ export function Sidebar({
       >
         <div className="relative h-16 shrink-0 border-b border-slate-100">
           {/*
-           * Two fixed, static logos (see EXPANDED_LOGO_SRC/COLLAPSED_LOGO_SRC above — not
-           * admin-configurable, by design). They're layered (absolute, same box) and crossfade:
-           * the expanded logo additionally clip-reveals from the left edge outward, so expanding
-           * reads as "the rest of the logo grows in from the right" and collapsing as "the right
-           * side recedes" rather than a flat swap, while the collapsed icon fades in/out in
-           * place. Synced to the sidebar's own width transition's duration; prefers-reduced-
-           * motion drops straight to the end state with no animation at all. Mobile never
-           * collapses (every collapsed-only rule below is lg:-scoped), so it always shows the
-           * full logo. Sizing: the image fills nearly the full 64px row height (h-[60px], 2px
-           * breathing room top/bottom) inside 12px side padding — the max this row can give it.
+           * Expanded logo (EXPANDED_LOGO_SRC, always static) and collapsed logo (collapsedLogoSrc,
+           * admin-configurable, falls back to the built-in default) are layered (absolute, same
+           * box) and crossfade: the expanded logo additionally clip-reveals from the left edge
+           * outward, so expanding reads as "the rest of the logo grows in from the right" and
+           * collapsing as "the right side recedes" rather than a flat swap, while the collapsed
+           * icon fades in/out in place. Synced to the sidebar's own width transition's duration;
+           * prefers-reduced-motion drops straight to the end state with no animation at all.
+           * Mobile never collapses (every collapsed-only rule below is lg:-scoped), so it always
+           * shows the full logo. Sizing: the expanded image fills nearly the full 64px row height
+           * (h-[60px], 2px breathing room top/bottom) inside 12px side padding — the max this row
+           * can give it; the collapsed icon is capped at 44×44px, centered in the rail.
            */}
           <div
             className={`absolute inset-0 flex items-center overflow-hidden px-3 opacity-100 transition-[clip-path,opacity] duration-200 ease-out [clip-path:inset(0_0%_0_0)] motion-reduce:transition-none ${
@@ -92,7 +97,7 @@ export function Sidebar({
             aria-hidden={!collapsed || undefined}
           >
             <img
-              src={COLLAPSED_LOGO_SRC}
+              src={collapsedLogoSrc}
               alt="Excellium"
               draggable={false}
               className="h-11 w-11 max-w-[44px] select-none object-contain"

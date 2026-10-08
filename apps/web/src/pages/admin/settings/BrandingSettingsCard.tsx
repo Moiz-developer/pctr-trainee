@@ -12,7 +12,11 @@ import { ApiClientError } from "../../../services/api/client";
 import { getSystemSettings, updateSystemSettings } from "../../../services/api/adminSettings";
 import { uploadBrandingAsset } from "../../../services/api/media";
 
-type AssetField = "platform_logo_media_id" | "favicon_media_id" | "login_logo_media_id";
+type AssetField =
+  | "platform_logo_media_id"
+  | "favicon_media_id"
+  | "login_logo_media_id"
+  | "sidebar_collapsed_logo_media_id";
 
 /** A locally chosen change not yet saved: `mediaId: null` means "remove the image". */
 interface PendingAsset {
@@ -166,6 +170,7 @@ export function BrandingSettingsCard() {
     platform_logo_media_id: branding.logoUrl,
     favicon_media_id: branding.faviconUrl,
     login_logo_media_id: branding.loginLogoUrl,
+    sidebar_collapsed_logo_media_id: branding.sidebarCollapsedLogoUrl,
   };
   const imageFor = (field: AssetField) => {
     const change = pending[field];
@@ -347,6 +352,20 @@ export function BrandingSettingsCard() {
                   disabled={busy}
                   onPick={(file) => pickFile("login_logo_media_id", LOGO_EXTENSIONS, file)}
                   onRemove={() => removeAsset("login_logo_media_id")}
+                />
+                <AssetRow
+                  id="branding-sidebar-collapsed-logo"
+                  label="Collapsed Sidebar Logo"
+                  hint="Shown in the sidebar when it's collapsed to its icon-only rail. Recommended: a square icon or brand symbol, cropped tightly with little transparent space around it. Leave unset to use the built-in Excellium default. PNG, JPG, WebP, GIF or SVG · max 2 MB."
+                  extensions={LOGO_EXTENSIONS}
+                  imageUrl={imageFor("sidebar_collapsed_logo_media_id")}
+                  uploading={uploadingField === "sidebar_collapsed_logo_media_id"}
+                  uploadError={uploadErrors.sidebar_collapsed_logo_media_id ?? null}
+                  disabled={busy}
+                  onPick={(file) =>
+                    pickFile("sidebar_collapsed_logo_media_id", LOGO_EXTENSIONS, file)
+                  }
+                  onRemove={() => removeAsset("sidebar_collapsed_logo_media_id")}
                 />
               </div>
 
