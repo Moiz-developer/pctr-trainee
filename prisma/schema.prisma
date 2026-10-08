@@ -420,6 +420,8 @@ model MediaAsset {
   settingsPlatformLogos   SystemSettings[]  @relation("SettingsPlatformLogo")
   settingsFavicons        SystemSettings[]  @relation("SettingsFavicon")
   settingsLoginLogos      SystemSettings[]  @relation("SettingsLoginLogo")
+  settingsSidebarExpandedLogos  SystemSettings[] @relation("SettingsSidebarExpandedLogo")
+  settingsSidebarCollapsedLogos SystemSettings[] @relation("SettingsSidebarCollapsedLogo")
 
   @@unique([bucket, storagePath])
   @@map("media_assets")
@@ -1280,6 +1282,12 @@ model SystemSettings {
   platformLogoMediaId            String?  @map("platform_logo_media_id") @db.Uuid
   faviconMediaId                 String?  @map("favicon_media_id") @db.Uuid
   loginLogoMediaId               String?  @map("login_logo_media_id") @db.Uuid
+  // Sidebar branding unit: independent, optional overrides of the Platform
+  // Logo specifically for the sidebar's two layout states. NULL (the
+  // default) means "use the built-in Excellium default asset for that
+  // state" — the sidebar never falls back to platformLogoMediaId for these.
+  sidebarExpandedLogoMediaId     String?  @map("sidebar_expanded_logo_media_id") @db.Uuid
+  sidebarCollapsedLogoMediaId    String?  @map("sidebar_collapsed_logo_media_id") @db.Uuid
   primaryColor                   String?  @map("primary_color") // #RRGGBB
   accentColor                    String?  @map("accent_color") // #RRGGBB
   updatedBy                      String?  @map("updated_by") @db.Uuid
@@ -1290,6 +1298,8 @@ model SystemSettings {
   platformLogoMedia MediaAsset? @relation("SettingsPlatformLogo", fields: [platformLogoMediaId], references: [id], onDelete: SetNull)
   faviconMedia      MediaAsset? @relation("SettingsFavicon", fields: [faviconMediaId], references: [id], onDelete: SetNull)
   loginLogoMedia    MediaAsset? @relation("SettingsLoginLogo", fields: [loginLogoMediaId], references: [id], onDelete: SetNull)
+  sidebarExpandedLogoMedia  MediaAsset? @relation("SettingsSidebarExpandedLogo", fields: [sidebarExpandedLogoMediaId], references: [id], onDelete: SetNull)
+  sidebarCollapsedLogoMedia MediaAsset? @relation("SettingsSidebarCollapsedLogo", fields: [sidebarCollapsedLogoMediaId], references: [id], onDelete: SetNull)
 
   @@map("system_settings")
 }

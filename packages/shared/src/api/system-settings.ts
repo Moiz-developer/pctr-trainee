@@ -67,6 +67,8 @@ export const systemSettingsResponseSchema = z.object({
   platform_logo_media_id: idSchema.nullable(),
   favicon_media_id: idSchema.nullable(),
   login_logo_media_id: idSchema.nullable(),
+  sidebar_expanded_logo_media_id: idSchema.nullable(),
+  sidebar_collapsed_logo_media_id: idSchema.nullable(),
   primary_color: z.string().nullable(),
   accent_color: z.string().nullable(),
   updated_by: idSchema.nullable(),
@@ -106,6 +108,8 @@ export const updateSystemSettingsRequestSchema = z.object({
   platform_logo_media_id: idSchema.nullable().optional(),
   favicon_media_id: idSchema.nullable().optional(),
   login_logo_media_id: idSchema.nullable().optional(),
+  sidebar_expanded_logo_media_id: idSchema.nullable().optional(),
+  sidebar_collapsed_logo_media_id: idSchema.nullable().optional(),
   primary_color: hexColorSchema.nullable().optional(),
   accent_color: hexColorSchema.nullable().optional(),
 });
@@ -128,6 +132,8 @@ export const publicBrandingResponseSchema = z.object({
   logo_url: z.string().nullable(),
   favicon_url: z.string().nullable(),
   login_logo_url: z.string().nullable(),
+  sidebar_expanded_logo_url: z.string().nullable(),
+  sidebar_collapsed_logo_url: z.string().nullable(),
 });
 export type PublicBrandingResponse = z.infer<typeof publicBrandingResponseSchema>;
 

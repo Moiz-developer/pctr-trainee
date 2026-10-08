@@ -1,10 +1,15 @@
 import type { LucideIcon } from "lucide-react";
 import { NavLink } from "react-router-dom";
+import { useBranding } from "./useBranding";
+
 /**
- * Static sidebar logo for now: the Excellium | Global Services mark
- * (public/brand/). Admin-uploaded logos (branding logoUrl) are not used here.
+ * Built-in defaults (Sidebar branding unit), used whenever the admin hasn't
+ * uploaded a sidebar-specific override in Settings → Branding. Independent
+ * of the Platform Logo — see useBranding.ts's sidebarExpandedLogoUrl/
+ * sidebarCollapsedLogoUrl doc comment.
  */
-const SIDEBAR_LOGO_SRC = "/brand/excellium-global-services-logo.png";
+const DEFAULT_EXPANDED_LOGO_SRC = "/brand/excellium-sidebar-logo-expanded.png";
+const DEFAULT_COLLAPSED_LOGO_SRC = "/brand/excellium-sidebar-logo-collapsed.png";
 
 export interface SidebarNavItem {
   to: string;
@@ -33,6 +38,11 @@ export function Sidebar({
 }) {
   // Labels stay visible in the mobile overlay; only the desktop rail hides them.
   const hideOnRail = collapsed ? "lg:hidden" : "";
+  const { platformName, sidebarExpandedLogoUrl, sidebarCollapsedLogoUrl } = useBranding();
+  const expandedLogoSrc = sidebarExpandedLogoUrl ?? DEFAULT_EXPANDED_LOGO_SRC;
+  const collapsedLogoSrc = sidebarCollapsedLogoUrl ?? DEFAULT_COLLAPSED_LOGO_SRC;
+  const expandedLogoAlt = platformName ? `${platformName} logo` : "Excellium Global Services";
+  const collapsedLogoAlt = platformName ? `${platformName} icon` : "Excellium";
 
   return (
     <>
@@ -48,29 +58,42 @@ export function Sidebar({
           collapsed ? "lg:w-[68px]" : "lg:w-60"
         } ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
-        <div
-          className={`flex h-16 shrink-0 items-center border-b border-slate-100 px-4 ${
-            collapsed ? "lg:px-2" : "lg:px-4"
-          }`}
-        >
+        <div className="relative h-16 shrink-0 border-b border-slate-100">
           {/*
-           * One logo at one size in both states: the image is a fixed 150px-wide box, sized so
-           * "Excellium" alone fits the 54px collapsed window. The image uses object-contain
-           * (aspect preserved), anchored at the left. Its viewport is 150px when expanded and
-           * 54px when collapsed, so collapsing clips the right side while "Excellium" stays
-           * put, and expanding reveals the rest from the right. Nothing is scaled or squeezed.
-           * Mobile never collapses, so it always shows the full logo.
+           * Two independent, admin-configurable logos (Sidebar branding unit — see
+           * useBranding.ts), each its own fixed image, never scaled/stretched/cropped against
+           * the other. They're layered (absolute, same box) and crossfade: the expanded logo
+           * additionally clip-reveals from the left edge outward, so expanding reads as "the
+           * rest of the logo grows in from the right" and collapsing as "the right side
+           * recedes" rather than a flat swap, while the collapsed icon fades in/out in place.
+           * Synced to the sidebar's own width transition's duration; prefers-reduced-motion
+           * drops straight to the end state with no animation at all. Mobile never collapses
+           * (every collapsed-only rule below is lg:-scoped), so it always shows the full logo.
            */}
           <div
-            className={`h-14 w-[150px] shrink-0 overflow-hidden ${
-              collapsed ? "lg:w-[54px]" : ""
+            className={`absolute inset-0 flex items-center overflow-hidden px-4 opacity-100 transition-[clip-path,opacity] duration-200 ease-out [clip-path:inset(0_0%_0_0)] motion-reduce:transition-none ${
+              collapsed ? "lg:opacity-0 lg:[clip-path:inset(0_100%_0_0)]" : ""
             }`}
+            aria-hidden={collapsed || undefined}
           >
             <img
-              src={SIDEBAR_LOGO_SRC}
-              alt="Excellium | Global Services"
+              src={expandedLogoSrc}
+              alt={expandedLogoAlt}
               draggable={false}
-              className="block h-full w-[150px] max-w-none select-none object-contain object-left"
+              className="h-14 max-w-full select-none object-contain object-left"
+            />
+          </div>
+          <div
+            className={`absolute inset-0 hidden items-center justify-center opacity-0 transition-opacity duration-200 ease-out motion-reduce:transition-none lg:flex ${
+              collapsed ? "lg:opacity-100" : ""
+            }`}
+            aria-hidden={!collapsed || undefined}
+          >
+            <img
+              src={collapsedLogoSrc}
+              alt={collapsedLogoAlt}
+              draggable={false}
+              className="h-11 w-11 max-w-[44px] select-none object-contain"
             />
           </div>
         </div>

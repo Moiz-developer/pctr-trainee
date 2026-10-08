@@ -42,6 +42,8 @@ function toResponse(row: SystemSettings): SystemSettingsResponse {
     platform_logo_media_id: row.platformLogoMediaId,
     favicon_media_id: row.faviconMediaId,
     login_logo_media_id: row.loginLogoMediaId,
+    sidebar_expanded_logo_media_id: row.sidebarExpandedLogoMediaId,
+    sidebar_collapsed_logo_media_id: row.sidebarCollapsedLogoMediaId,
     primary_color: row.primaryColor,
     accent_color: row.accentColor,
     updated_by: row.updatedBy,
@@ -84,6 +86,10 @@ interface PublicBrandingRow {
   favicon_path: string | null;
   login_logo_bucket: string | null;
   login_logo_path: string | null;
+  sidebar_expanded_logo_bucket: string | null;
+  sidebar_expanded_logo_path: string | null;
+  sidebar_collapsed_logo_bucket: string | null;
+  sidebar_collapsed_logo_path: string | null;
 }
 
 async function signBrandingAsset(bucket: string | null, path: string | null) {
@@ -116,6 +122,14 @@ export async function getPublicBranding(): Promise<PublicBrandingResponse> {
       row?.login_logo_bucket ?? null,
       row?.login_logo_path ?? null,
     ),
+    sidebar_expanded_logo_url: await signBrandingAsset(
+      row?.sidebar_expanded_logo_bucket ?? null,
+      row?.sidebar_expanded_logo_path ?? null,
+    ),
+    sidebar_collapsed_logo_url: await signBrandingAsset(
+      row?.sidebar_collapsed_logo_bucket ?? null,
+      row?.sidebar_collapsed_logo_path ?? null,
+    ),
   };
 }
 
@@ -138,6 +152,8 @@ export async function updateSystemSettings(
     platform_logo_media_id: input.platform_logo_media_id,
     favicon_media_id: input.favicon_media_id,
     login_logo_media_id: input.login_logo_media_id,
+    sidebar_expanded_logo_media_id: input.sidebar_expanded_logo_media_id,
+    sidebar_collapsed_logo_media_id: input.sidebar_collapsed_logo_media_id,
   });
   const existing = await getRow();
   const updated = await prisma.systemSettings.update({
@@ -195,6 +211,12 @@ export async function updateSystemSettings(
       ...(input.favicon_media_id !== undefined ? { faviconMediaId: input.favicon_media_id } : {}),
       ...(input.login_logo_media_id !== undefined
         ? { loginLogoMediaId: input.login_logo_media_id }
+        : {}),
+      ...(input.sidebar_expanded_logo_media_id !== undefined
+        ? { sidebarExpandedLogoMediaId: input.sidebar_expanded_logo_media_id }
+        : {}),
+      ...(input.sidebar_collapsed_logo_media_id !== undefined
+        ? { sidebarCollapsedLogoMediaId: input.sidebar_collapsed_logo_media_id }
         : {}),
       ...(input.primary_color !== undefined ? { primaryColor: input.primary_color } : {}),
       ...(input.accent_color !== undefined ? { accentColor: input.accent_color } : {}),
