@@ -14,10 +14,8 @@ import { useBranding } from "../components/shared/useBranding";
  * centering (confirmed against the client's reference, captured at 1920px with
  * zero outer gutter).
  *
- * Mobile/tablet (<768px): a large left-aligned logo above the form (not the photo
- * panel, which only renders at `md:flex` — "hide/substantially simplify the
- * large photograph on smaller screens") so there's no large empty/heavy section
- * competing with the form on a small screen, and never two logos at once.
+ * Mobile/tablet (<768px): a large left-aligned logo above the form, followed
+ * by the corporate photograph beneath the authentication section.
  */
 const DEFAULT_AUTH_LOGO_SRC = "/brand/excellium-logo-white.png";
 const AUTH_PHOTO_SRC = "/brand/auth-corporate-photo.jpg";
@@ -61,6 +59,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
   const logoAlt = platformName ?? "Platform logo";
 
   return (
+    <>
     <div className="flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-gradient-to-br from-indigo-950 via-indigo-900 to-indigo-700">
       {/* The two-panel row — always edge-to-edge, no max-width cap at any viewport. */}
       <div className="flex w-full min-w-0 flex-1 flex-col md:flex-row">
@@ -177,5 +176,12 @@ export function AuthLayout({ children }: { children: ReactNode }) {
         </div>
       </div>
     </div>
+    <img
+      src={AUTH_PHOTO_SRC}
+      alt=""
+      aria-hidden="true"
+      className="block aspect-[4/3] w-full object-cover object-[100%_center] md:hidden"
+    />
+    </>
   );
 }
