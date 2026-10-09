@@ -34,6 +34,9 @@ function hasLinkError(): boolean {
 function InvalidLink() {
   return (
     <div>
+      {/* This card keeps its own light background (unchanged from before) — a
+          self-contained panel, not text sitting directly on the purple background, so
+          the original dark-on-light text stays correct here. */}
       <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50/60 p-4">
         <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-500" aria-hidden="true" />
         <div>
@@ -49,10 +52,7 @@ function InvalidLink() {
       >
         Request a new link
       </Link>
-      <Link
-        to="/login"
-        className="mt-3 block text-center text-sm font-medium text-indigo-800 hover:underline"
-      >
+      <Link to="/login" className="mt-3 block text-center text-sm font-medium text-white hover:underline">
         Back to login
       </Link>
     </div>
@@ -98,8 +98,8 @@ export function ResetPasswordPage() {
 
   if (finished) {
     return (
-      <div className="flex items-center justify-center gap-2 py-6 text-sm text-slate-500">
-        <Loader2 className="h-4 w-4 animate-spin text-indigo-900" aria-hidden="true" />
+      <div className="flex items-center justify-center gap-2 py-6 text-sm text-white/80">
+        <Loader2 className="h-4 w-4 animate-spin text-white" aria-hidden="true" />
         Password updated. Taking you to sign in…
       </div>
     );
@@ -109,8 +109,8 @@ export function ResetPasswordPage() {
 
   if (session === undefined) {
     return (
-      <div className="flex items-center justify-center gap-2 py-6 text-sm text-slate-500">
-        <Loader2 className="h-4 w-4 animate-spin text-indigo-900" aria-hidden="true" />
+      <div className="flex items-center justify-center gap-2 py-6 text-sm text-white/80">
+        <Loader2 className="h-4 w-4 animate-spin text-white" aria-hidden="true" />
         Verifying your reset link…
       </div>
     );
@@ -120,10 +120,12 @@ export function ResetPasswordPage() {
 
   return (
     <div>
-      <h1 className="text-lg font-semibold text-indigo-950">Set a new password</h1>
-      <p className="mt-1 text-sm text-slate-500">Choose a new password for your account.</p>
+      <h1 className="text-2xl font-bold text-white">Set a new password</h1>
+      <p className="mt-1.5 text-sm font-medium text-white/80">
+        Choose a new password for your account.
+      </p>
       <form
-        className="mt-6 space-y-4"
+        className="mt-6 space-y-4 [&_label]:text-white/90"
         noValidate
         onSubmit={(event) => void handleSubmit(onSubmit)(event)}
       >
@@ -146,10 +148,7 @@ export function ResetPasswordPage() {
         <Button type="submit" disabled={isSubmitting} className="w-full">
           {isSubmitting ? "Updating…" : "Update password"}
         </Button>
-        <Link
-          to="/login"
-          className="block text-center text-sm font-medium text-indigo-800 hover:underline"
-        >
+        <Link to="/login" className="block text-center text-sm font-medium text-white hover:underline">
           Back to login
         </Link>
       </form>

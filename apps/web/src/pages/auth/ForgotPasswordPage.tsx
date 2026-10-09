@@ -45,27 +45,27 @@ export function ForgotPasswordPage() {
 
   return (
     <div>
-      <h1 className="text-lg font-semibold text-indigo-950">Forgot password</h1>
-      <p className="mt-1 text-sm text-slate-500">
+      <h1 className="text-2xl font-bold text-white">Forgot password</h1>
+      <p className="mt-1.5 text-sm font-medium text-white/80">
         Enter your email and we&apos;ll send you a link to reset your password.
       </p>
 
       {sent ? (
         <div className="mt-6 space-y-4">
+          {/* This success card keeps its own light background (unchanged from before) —
+              it's a self-contained panel, not text sitting directly on the purple
+              background, so the original dark-on-light text stays correct here. */}
           <div className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50/60 p-4">
             <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" aria-hidden="true" />
             <p className="text-sm text-slate-700">{SUCCESS_MESSAGE}</p>
           </div>
-          <Link
-            to="/login"
-            className="block text-center text-sm font-medium text-indigo-800 hover:underline"
-          >
+          <Link to="/login" className="block text-center text-sm font-medium text-white hover:underline">
             Back to login
           </Link>
         </div>
       ) : (
         <form
-          className="mt-6 space-y-4"
+          className="mt-6 space-y-4 [&_label]:text-white/90"
           noValidate
           onSubmit={(event) => void handleSubmit(onSubmit)(event)}
         >
@@ -80,10 +80,7 @@ export function ForgotPasswordPage() {
           <Button type="submit" disabled={isSubmitting} className="w-full">
             {isSubmitting ? "Sending…" : "Send Reset Link"}
           </Button>
-          <Link
-            to="/login"
-            className="block text-center text-sm font-medium text-indigo-800 hover:underline"
-          >
+          <Link to="/login" className="block text-center text-sm font-medium text-white hover:underline">
             Back to login
           </Link>
         </form>

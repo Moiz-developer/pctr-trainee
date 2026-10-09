@@ -1,66 +1,135 @@
 import type { ReactNode } from "react";
-import { Star } from "lucide-react";
 import { useBranding } from "../components/shared/useBranding";
 
 /**
  * Layout for unauthenticated routes (SYSTEM_PLAN.md §27 layouts/ "AuthLayout") —
  * used by Login, Forgot Password and Reset Password alike (App.tsx), so a change
- * here applies to all three consistently. Two-column on desktop (form left,
- * branding right, on the same continuous gradient background); stacks form above
- * branding on small screens (`lg:flex-row` only kicks in at the `lg` breakpoint —
- * DOM order below is form-then-branding, so that's the natural mobile stack order
- * too, with no `order-*` override needed for either breakpoint).
+ * here applies to all three consistently.
+ *
+ * Breakpoint is `md` (768px). Desktop (>=768px): a full-height split — a purple
+ * panel on the left (55%) holds the logo and the form directly on the gradient
+ * (no card chrome), and a corporate photo fills the right panel (45%), cut by a
+ * CSS diagonal at its top-left corner and carrying a bottom caption bar. The row
+ * is capped at max-w-[1400px] and centered above that width; below it, the row
+ * is simply `w-full` (fluid) — one rule covers both states. The gradient on the
+ * OUTER wrapper spans the full viewport at any width, including the gutters
+ * either side of a centered >1400px row, and is what's visible through the
+ * photo panel's clipped corner.
+ *
+ * Mobile/tablet (<768px): a compact logo header above the form (not the photo
+ * panel, which only renders at `md:flex` — "hide/substantially simplify the
+ * large photograph on smaller screens") so there's no large empty/heavy section
+ * competing with the form on a small screen, and never two logos at once.
  */
+const DEFAULT_AUTH_LOGO_SRC = "/brand/excellium-logo-white.png";
+const AUTH_PHOTO_SRC = "/brand/auth-corporate-photo.jpg";
+
+/**
+ * The logo, sized for its slot. A custom Login Page Logo (admin-uploaded, Admin
+ * Settings -> Branding) is shown exactly as uploaded, but wrapped in a light
+ * backdrop chip — its colors are unknown and this panel is dark, so (same
+ * reasoning as the sidebar's own logo work) a safety backdrop avoids an
+ * invisible logo without altering the admin's file. The built-in default is
+ * `excellium-logo-white.png` — a white-lettering variant derived from the
+ * existing dark-text asset (dark "ink" pixels recolored to white, the purple
+ * diamond accents left untouched) specifically because the original dark-text
+ * default is illegible on this dark panel; it renders directly, no chip needed,
+ * matching the reference design.
+ */
+function AuthLogo({ src, alt, hasCustomLogo, className }: {
+  src: string;
+  alt: string;
+  hasCustomLogo: boolean;
+  className: string;
+}) {
+  if (hasCustomLogo) {
+    return (
+      <div className="inline-block rounded-lg bg-white/95 px-4 py-2.5">
+        <img src={src} alt={alt} className={className} />
+      </div>
+    );
+  }
+  return <img src={src} alt={alt} className={className} />;
+}
+
 export function AuthLayout({ children }: { children: ReactNode }) {
-  const { platformName, platformDescription, supportEmail, loginLogoUrl, logoUrl } = useBranding();
-  // Login Page Logo (Admin Settings -> Branding) is an optional override just for these
-  // unauthenticated pages; when the admin hasn't set one, the same Platform Logo shown
-  // everywhere else in the app is reused here, so one upload still reaches this page.
-  const shownLogo = loginLogoUrl ?? logoUrl;
+  const { platformName, loginLogoUrl } = useBranding();
+  // Login Page Logo (Admin Settings -> Branding) is an optional override just for
+  // these unauthenticated pages; when the admin hasn't set one, the white-text
+  // default above is shown instead — NOT the Platform Logo (that's the signed-in
+  // sidebar's own fallback, a separate setting this page never reads).
+  const hasCustomLogo = loginLogoUrl != null;
+  const logoSrc = loginLogoUrl ?? DEFAULT_AUTH_LOGO_SRC;
+  const logoAlt = platformName ?? "Platform logo";
 
   return (
-    <div className="flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-gradient-to-br from-indigo-950 via-indigo-900 to-indigo-700 lg:flex-row">
-      {/* Form side — the existing white card, unchanged other than the logo removed from it. */}
-      <div className="flex min-w-0 flex-1 flex-col items-center justify-center px-4 py-10 lg:w-1/2">
-        <div className="w-full max-w-sm rounded-lg bg-white p-8 shadow-xl">{children}</div>
-        {supportEmail && (
-          <p className="mt-5 text-center text-xs text-white/70">
-            Need help?{" "}
-            <a href={`mailto:${supportEmail}`} className="font-medium text-white underline">
-              {supportEmail}
-            </a>
-          </p>
-        )}
+    <div className="flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-gradient-to-br from-indigo-950 via-indigo-900 to-indigo-700">
+      {/* Mobile/tablet-only compact logo header (hidden at md+, where the in-panel logo
+          below takes over) — exactly one logo renders at any width, never both. */}
+      <div className="flex shrink-0 items-center justify-center px-6 py-5 md:hidden">
+        <AuthLogo
+          src={logoSrc}
+          alt={logoAlt}
+          hasCustomLogo={hasCustomLogo}
+          className="h-auto max-h-9 w-auto max-w-[190px] object-contain"
+        />
       </div>
 
-      {/* Branding side — large and prominent; this is the ONLY place the logo renders
-          now (previously it also appeared small inside the card, duplicating it).
-          min-w-0 on this flex item (and w-full+max-w-* rather than a bare intrinsic
-          size on the <img>) is required — without it, a wide source image (this one
-          is 1723px natively) sets this flex item's content-based minimum width and
-          overflows a narrow mobile viewport instead of shrinking to fit it.
-          object-contain sizes the logo to whatever aspect ratio the uploaded file
-          actually has — an upload with a lot of transparent padding around the mark
-          will still read smaller within this same box than a tightly-cropped one,
-          since nothing here crops or otherwise alters the admin's uploaded image. */}
-      <div className="flex min-w-0 flex-col items-center justify-center gap-6 px-6 py-10 text-white sm:py-12 lg:w-1/2 lg:px-12">
-        {shownLogo ? (
-          <img
-            src={shownLogo}
-            alt={platformName ?? "Platform logo"}
-            className="h-auto max-h-56 w-full max-w-md object-contain lg:max-h-64 lg:max-w-lg"
-          />
-        ) : (
-          <div className="flex items-center gap-3">
-            <Star className="h-12 w-12 shrink-0 fill-accent text-accent" aria-hidden="true" />
-            <div className="leading-tight">
-              <p className="text-3xl font-bold tracking-tight">{platformName ?? "PCTR"}</p>
-              <p className="line-clamp-2 max-w-xs text-xs font-medium uppercase tracking-wider text-white/70">
-                {platformDescription ?? "Training & Recruitment"}
-              </p>
-            </div>
+      {/* The two-panel row — fluid below/at 1400px, centered and capped above it. */}
+      <div className="mx-auto flex w-full min-w-0 max-w-[1400px] flex-1 flex-col md:flex-row">
+        {/* Left panel — the purple gradient IS the form's background (no card). min-w-0
+            keeps this flex item free to shrink; `md:flex-none` (paired with the explicit
+            `md:w-[55%]`) is required because `flex-1`'s `flex-basis: 0%` otherwise ignores
+            any width utility and both panels split evenly instead of 55/45 — verified
+            behavior, not a hypothetical (see this unit's own breakpoint verification). */}
+        <div className="relative flex min-w-0 flex-1 flex-col justify-center overflow-hidden px-6 py-12 md:w-[55%] md:flex-none md:px-16 md:py-16">
+          {/* Subtle decorative geometry, top-left — plain rotated/translucent panels, no
+              image asset. Purely decorative (aria-hidden), clipped by the parent's own
+              overflow-hidden so nothing escapes the panel bounds at any viewport width. */}
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div className="absolute -top-16 -left-20 h-72 w-72 -rotate-12 rounded-[2rem] bg-white/5" />
+            <div className="absolute -top-8 -left-32 h-56 w-72 -rotate-12 rounded-[2rem] bg-white/5" />
           </div>
-        )}
+
+          <div className="relative mx-auto w-full max-w-[420px]">
+            {/* In-panel logo — desktop/tablet only; the mobile header above covers
+                everything below md, so this and the header are mutually exclusive. */}
+            <div className="mb-8 hidden md:block">
+              <AuthLogo
+                src={logoSrc}
+                alt={logoAlt}
+                hasCustomLogo={hasCustomLogo}
+                className="h-auto max-h-10 w-auto max-w-[220px] object-contain"
+              />
+            </div>
+            {children}
+          </div>
+        </div>
+
+        {/* Right panel — the corporate photograph, desktop/tablet-landscape only ("hide
+            or substantially simplify ... on smaller screens"). The clip-path cuts a
+            diagonal off this panel's own top-left corner; the outer wrapper's gradient
+            (not a second copy of it) shows through that cut, so the purple panel's edge
+            reads as diagonal without needing the two panels to overlap or any extra
+            element. object-cover + object-right-ish positioning keeps the photo's subject
+            (framed toward the right of the source image) in frame despite this panel
+            being much taller/narrower than the source photo's own aspect ratio. */}
+        <div
+          className="relative hidden min-w-0 flex-1 overflow-hidden md:block md:w-[45%] md:flex-none"
+          style={{ clipPath: "polygon(65px 0, 100% 0, 100% 100%, 0 100%)" }}
+        >
+          <img
+            src={AUTH_PHOTO_SRC}
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 h-full w-full object-cover object-[78%_center]"
+          />
+          <div className="absolute inset-x-0 bottom-0 bg-indigo-950/75 px-6 py-4">
+            <p className="text-sm font-medium text-white">
+              Helping Thousands across the UK transition into Professional Careers
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
