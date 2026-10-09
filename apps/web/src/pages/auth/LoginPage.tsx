@@ -39,7 +39,13 @@ export function LoginPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-white">Welcome to your Learning Hub</h1>
+      {/* text-3xl (not the previous text-2xl) and a max-w capped narrower than the form
+          column below it (472px) reproduce the reference's larger heading, which wraps
+          to two lines at this desktop width — measured off the reference's rendered text
+          width (canvas measureText), not a hardcoded line break. */}
+      <h1 className="max-w-[410px] text-3xl font-bold text-white">
+        Welcome to your Learning Hub
+      </h1>
       <p className="mt-1.5 text-sm font-medium text-white/80">
         Log in to access programmes, tools &amp; support
       </p>
@@ -52,7 +58,7 @@ export function LoginPage() {
             id="email"
             type="email"
             autoComplete="email"
-            className="mt-1 w-full rounded-md border border-transparent bg-white px-3 py-2 text-sm focus:border-indigo-900 focus:outline-none focus:ring-1 focus:ring-indigo-900"
+            className="mt-1 w-full rounded-md border border-transparent bg-white px-3 py-1.5 text-sm focus:border-indigo-900 focus:outline-none focus:ring-1 focus:ring-indigo-900"
             {...register("email")}
           />
           {errors.email && <p className="mt-1 text-xs text-red-300">{errors.email.message}</p>}
@@ -65,7 +71,7 @@ export function LoginPage() {
             id="password"
             type="password"
             autoComplete="current-password"
-            className="mt-1 w-full rounded-md border border-transparent bg-white px-3 py-2 text-sm focus:border-indigo-900 focus:outline-none focus:ring-1 focus:ring-indigo-900"
+            className="mt-1 w-full rounded-md border border-transparent bg-white px-3 py-1.5 text-sm focus:border-indigo-900 focus:outline-none focus:ring-1 focus:ring-indigo-900"
             {...register("password")}
           />
           {errors.password && (
@@ -78,24 +84,28 @@ export function LoginPage() {
           </Link>
         </div>
         {submitError && <p className="text-sm text-red-300">{submitError}</p>}
-        {/* Color pinned to the reference design's exact sampled button color via an
-            important-prefixed arbitrary value — the shared Button component's own
-            `primary` variant (bg-indigo-900, used everywhere else in the app) stays
-            untouched; this override is local to this one button. */}
-        <Button
-          type="submit"
-          disabled={isSubmitting}
-          className="w-full gap-2 !bg-[#552D99] hover:!bg-[#46257D]"
-        >
-          {isSubmitting ? (
-            "Signing in…"
-          ) : (
-            <>
-              Sign In &amp; Continue
-              <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            </>
-          )}
-        </Button>
+        {/* Compact, centered — not w-full — and color pinned to the reference design's
+            exact sampled button color via an important-prefixed arbitrary value; the
+            shared Button component's own `primary` variant (bg-indigo-900, full-width
+            callers elsewhere) stays untouched. Centering needs a wrapper rather than
+            mx-auto on the button itself: Button's own base class is inline-flex
+            (inline-level), which auto margins can't center. */}
+        <div className="flex justify-center">
+          <Button
+            type="submit"
+            disabled={isSubmitting}
+            className="gap-2 !bg-[#552D99] hover:!bg-[#46257D]"
+          >
+            {isSubmitting ? (
+              "Signing in…"
+            ) : (
+              <>
+                Sign In &amp; Continue
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </>
+            )}
+          </Button>
+        </div>
       </form>
       {/* PCTR accounts are admin-created, not self-registered (SYSTEM_PLAN.md §9) — this
           is a contact note, never a sign-up link/form, matching the approved reference

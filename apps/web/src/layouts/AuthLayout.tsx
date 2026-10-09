@@ -94,15 +94,22 @@ export function AuthLayout({ children }: { children: ReactNode }) {
             <div className="absolute -top-8 -left-32 h-56 w-72 -rotate-12 rounded-[2rem] bg-white/5" />
           </div>
 
-          <div className="relative mx-auto w-full max-w-[420px]">
+          {/* max-w-[472px] (not the previous 420px) — measured off the client reference
+              (reference-auth.jpeg): its email/password inputs are ~471px wide at this
+              panel's own 1408px-viewport desktop size. */}
+          <div className="relative mx-auto w-full max-w-[472px]">
             {/* In-panel logo — desktop/tablet only; the mobile header above covers
-                everything below md, so this and the header are mutually exclusive. */}
+                everything below md, so this and the header are mutually exclusive.
+                max-h-16/max-w-[300px] (not the previous max-h-10/220px) — the reference's
+                logo measures ~270x64px at 1408px viewport width, roughly 1.6x taller than
+                the previous size; the asset's own aspect ratio (object-contain) keeps it
+                proportional, so max-w here is a ceiling, not a target. */}
             <div className="mb-8 hidden md:block">
               <AuthLogo
                 src={logoSrc}
                 alt={logoAlt}
                 hasCustomLogo={hasCustomLogo}
-                className="h-auto max-h-10 w-auto max-w-[220px] object-contain"
+                className="h-auto max-h-16 w-auto max-w-[300px] object-contain"
               />
             </div>
             {children}
