@@ -10,11 +10,9 @@ import { useBranding } from "../components/shared/useBranding";
  * panel on the left (55%) holds the logo and the form directly on the gradient
  * (no card chrome), and a corporate photo fills the right panel (45%), cut by a
  * CSS diagonal at its top-left corner and carrying a bottom caption bar. The row
- * is capped at max-w-[1400px] and centered above that width; below it, the row
- * is simply `w-full` (fluid) — one rule covers both states. The gradient on the
- * OUTER wrapper spans the full viewport at any width, including the gutters
- * either side of a centered >1400px row, and is what's visible through the
- * photo panel's clipped corner.
+ * is always `w-full` — edge-to-edge at every viewport width, no max-width cap or
+ * centering (confirmed against the client's reference, captured at 1920px with
+ * zero outer gutter).
  *
  * Mobile/tablet (<768px): a compact logo header above the form (not the photo
  * panel, which only renders at `md:flex` — "hide/substantially simplify the
@@ -75,17 +73,22 @@ export function AuthLayout({ children }: { children: ReactNode }) {
         />
       </div>
 
-      {/* The two-panel row — fluid below/at 1400px, centered and capped above it. */}
-      <div className="mx-auto flex w-full min-w-0 max-w-[1400px] flex-1 flex-col md:flex-row">
+      {/* The two-panel row — always edge-to-edge, no max-width cap at any viewport. */}
+      <div className="flex w-full min-w-0 flex-1 flex-col md:flex-row">
         {/* Left panel — the purple gradient IS the form's background (no card). min-w-0
             keeps this flex item free to shrink; `md:flex-none` (paired with the explicit
             `md:w-[55%]`) is required because `flex-1`'s `flex-basis: 0%` otherwise ignores
             any width utility and both panels split evenly instead of 55/45 — verified
             behavior, not a hypothetical (see this unit's own breakpoint verification). */}
-        <div className="relative flex min-w-0 flex-1 flex-col justify-center overflow-hidden px-6 py-12 md:w-[55%] md:flex-none md:px-16 md:py-16">
+        <div className="relative flex min-w-0 flex-1 flex-col justify-center overflow-hidden px-6 py-12 md:w-[55%] md:flex-none md:px-16 md:py-16 2xl:pl-80">
           {/* Subtle decorative geometry, top-left — plain rotated/translucent panels, no
               image asset. Purely decorative (aria-hidden), clipped by the parent's own
-              overflow-hidden so nothing escapes the panel bounds at any viewport width. */}
+              overflow-hidden so nothing escapes the panel bounds at any viewport width.
+              The extra 2xl:pl-80 (desktop panel padding jumps from 64px to 320px at
+              >=1536px) reproduces the reference's wide-screen layout, where the form is
+              inset well clear of this decorative corner rather than centered close to it —
+              measured directly off the reference screenshot (content's left edge sits at
+              ~23% of a 1920px-wide viewport, not simply centered in the panel). */}
           <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
             <div className="absolute -top-16 -left-20 h-72 w-72 -rotate-12 rounded-[2rem] bg-white/5" />
             <div className="absolute -top-8 -left-32 h-56 w-72 -rotate-12 rounded-[2rem] bg-white/5" />
