@@ -121,9 +121,10 @@ export function AuthLayout({ children }: { children: ReactNode }) {
             diagonal off this panel's own top-left corner; the outer wrapper's gradient
             (not a second copy of it) shows through that cut, so the purple panel's edge
             reads as diagonal without needing the two panels to overlap or any extra
-            element. object-cover + object-right-ish positioning keeps the photo's subject
-            (framed toward the right of the source image) in frame despite this panel
-            being much taller/narrower than the source photo's own aspect ratio. */}
+            element. object-cover + object-[100%_center] (full-right anchor, not the
+            previous 78%) keeps the photo's subject anchored to the panel's right edge
+            at every desktop width, despite this panel being much taller/narrower than
+            the source photo's own aspect ratio. */}
         <div
           className="relative hidden min-w-0 flex-1 overflow-hidden md:block md:w-[45%] md:flex-none"
           style={{ clipPath: "polygon(65px 0, 100% 0, 100% 100%, 0 100%)" }}
@@ -132,7 +133,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
             src={AUTH_PHOTO_SRC}
             alt=""
             aria-hidden="true"
-            className="absolute inset-0 h-full w-full object-cover object-[78%_center]"
+            className="absolute inset-0 h-full w-full object-cover object-[100%_center]"
           />
           <div className="absolute inset-x-0 bottom-0 bg-indigo-950/75 px-6 py-4">
             <p className="text-sm font-medium text-white">
