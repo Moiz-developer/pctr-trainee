@@ -7,7 +7,7 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "pnpm -r run typecheck",
-    "build": "pnpm -r run build",
+    "build": "npx --yes pnpm@12.3.4 --filter @internal-training/web... run build",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prisma:generate": "pnpm --filter @internal-training/api run prisma:generate",
