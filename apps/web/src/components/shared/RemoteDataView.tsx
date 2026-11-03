@@ -33,7 +33,7 @@ export function RemoteDataView<T>({
   children: (data: T) => ReactNode;
 }) {
   if (isLoading) {
-    return <PageLoader fullScreen delayMs={150} />;
+    return <PageLoader delayMs={150} />;
   }
 
   if (isError) {

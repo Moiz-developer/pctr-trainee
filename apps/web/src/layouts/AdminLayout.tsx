@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import { PageLoader } from "../components/ui/PageLoader";
 import { Outlet } from "react-router-dom";
 import {
   BookOpen,
@@ -76,7 +78,9 @@ export function AdminLayout() {
         <TopBar onMenuClick={sidebar.toggle} />
         <main className="portal-main flex-1 p-4 sm:p-6 lg:px-8">
           <PageBreadcrumb items={NAV_ITEMS} />
-          <Outlet />
+          <Suspense fallback={<PageLoader />}>
+            <Outlet />
+          </Suspense>
         </main>
         <footer className="border-t border-slate-200 px-4 py-4 text-center text-xs text-slate-500">
           © {new Date().getFullYear()} {platformName ?? "PCTR Training"}. All Rights Reserved.

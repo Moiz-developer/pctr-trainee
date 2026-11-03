@@ -46,16 +46,14 @@ export function LoaderSpinner({ size = 56 }: { size?: number }) {
 /**
  * The app's loading state: the spinner centred on a clear area, announced to
  * assistive tech as a polite status. Two uses:
- *  - inline (default): reserves an in-flow area for the spinner. Unused
- *    directly now that RemoteDataView asks for `fullScreen` instead, but kept
- *    for any caller that wants a loader confined to its own layout box.
+ *  - inline (default): reserves an in-flow area for the spinner. Page data
+ *    and lazy routes use this so navigation stays available while loading.
  *  - `fullScreen`: a `fixed inset-0` overlay above the app shell (sidebar,
  *    header) but below Modal, so it covers the whole viewport no matter where
  *    it's mounted. Used by RequireSession while the session/account is
  *    resolved on a reload (shows immediately — the static boot loader in
  *    index.html is already on screen at that point, so a delay would only add
- *    a blank gap) and by RemoteDataView while a page/panel's data is loading
- *    (`delayMs={150}`, so a response that arrives quickly never flashes it).
+ *    a blank gap). Inline loaders use a 150ms spinner delay to avoid flashes.
  */
 export function PageLoader({
   fullScreen = false,
