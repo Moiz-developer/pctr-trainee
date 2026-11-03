@@ -15,7 +15,7 @@ const BEARER_PREFIX = "Bearer ";
  * response, per §9's anti-token-forging-aid rule); rejects a profile whose
  * status isn't ACTIVE with 403, exactly as §9 specifies.
  */
-export async function requireAuth(req: Request, _res: Response, next: NextFunction): Promise<void> {
+export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const header = req.header("authorization");
     if (!header || !header.startsWith(BEARER_PREFIX)) {
@@ -26,7 +26,9 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
       throw new AuthError();
     }
 
+    const jwtStarted = performance.now();
     const userId = await verifySupabaseAccessToken(token);
+    res.append("Server-Timing", `jwt;dur=${(performance.now() - jwtStarted).toFixed(1)}`);
 
     // Everything from here on — starting with this very profile lookup —
     // must run with this user's identity visible to Postgres RLS
@@ -37,11 +39,16 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
     // first lookup, and `next()` is called from inside this same scope so
     // the entire downstream route handler inherits it too (Phase 2H).
     await runWithUserContext(userId, async () => {
+      const profileStarted = performance.now();
       const profile = await prisma.profile.findUnique({
         where: { id: userId },
         select: {
           id: true,
           status: true,
+          employeeId: true,
+          fullName: true,
+          email: true,
+          phone: true,
           role: {
             select: {
               id: true,
@@ -57,6 +64,7 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
           },
         },
       });
+      res.append("Server-Timing", `auth_db;dur=${(performance.now() - profileStarted).toFixed(1)}`);
 
       if (!profile) {
         throw new AuthError();
@@ -75,6 +83,12 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
       };
 
       req.identity = identity;
+      req.authProfile = {
+        employeeId: profile.employeeId,
+        fullName: profile.fullName,
+        email: profile.email,
+        phone: profile.phone,
+      };
       next();
     });
   } catch (error) {
