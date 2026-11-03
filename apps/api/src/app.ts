@@ -16,6 +16,8 @@ app.use((helmet as unknown as typeof import("helmet").default)());
 app.use(
   cors({
     origin: env.CORS_ALLOWED_ORIGINS,
+    // Reuse successful browser preflights; authentication still runs per request.
+    maxAge: 600,
   }),
 );
 app.use(express.json());

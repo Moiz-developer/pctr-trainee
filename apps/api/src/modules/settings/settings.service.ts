@@ -8,6 +8,7 @@ import type { SystemSettings } from "../../generated/prisma/client.js";
 import { ValidationError } from "../../lib/errors.js";
 import { BRANDING_ASSETS_BUCKET } from "../media/media.constants.js";
 import { createSignedDownloadUrl } from "../media/media.storage.js";
+import { createAsyncCache } from "../../lib/async-cache.js";
 
 /**
  * Admin Portal / System Settings (SYSTEM_PLAN.md §14.9/§16). A single-row
@@ -115,10 +116,30 @@ async function signBrandingAsset(bucket: string | null, path: string | null) {
  * `system_settings`/`media_assets` are RLS-gated on an authenticated user.
  * Logo/favicon URLs are short-lived signed URLs; the buckets stay private.
  */
-export async function getPublicBranding(): Promise<PublicBrandingResponse> {
+const publicBrandingCache = createAsyncCache(loadPublicBranding, 60_000);
+
+export function getPublicBranding(): Promise<PublicBrandingResponse> {
+  return publicBrandingCache.get();
+}
+
+async function loadPublicBranding(): Promise<PublicBrandingResponse> {
   const [row] = await prisma.$queryRaw<
     PublicBrandingRow[]
   >`SELECT * FROM public.get_public_branding()`;
+
+  const [logoUrl, faviconUrl, loginLogoUrl, expandedLogoUrl, collapsedLogoUrl] = await Promise.all([
+    signBrandingAsset(row?.logo_bucket ?? null, row?.logo_path ?? null),
+    signBrandingAsset(row?.favicon_bucket ?? null, row?.favicon_path ?? null),
+    signBrandingAsset(row?.login_logo_bucket ?? null, row?.login_logo_path ?? null),
+    signBrandingAsset(
+      row?.sidebar_expanded_logo_bucket ?? null,
+      row?.sidebar_expanded_logo_path ?? null,
+    ),
+    signBrandingAsset(
+      row?.sidebar_collapsed_logo_bucket ?? null,
+      row?.sidebar_collapsed_logo_path ?? null,
+    ),
+  ]);
 
   return {
     platform_name: row?.platform_name ?? null,
@@ -127,20 +148,11 @@ export async function getPublicBranding(): Promise<PublicBrandingResponse> {
     browser_title: row?.browser_title ?? null,
     primary_color: row?.primary_color ?? null,
     accent_color: row?.accent_color ?? null,
-    logo_url: await signBrandingAsset(row?.logo_bucket ?? null, row?.logo_path ?? null),
-    favicon_url: await signBrandingAsset(row?.favicon_bucket ?? null, row?.favicon_path ?? null),
-    login_logo_url: await signBrandingAsset(
-      row?.login_logo_bucket ?? null,
-      row?.login_logo_path ?? null,
-    ),
-    sidebar_expanded_logo_url: await signBrandingAsset(
-      row?.sidebar_expanded_logo_bucket ?? null,
-      row?.sidebar_expanded_logo_path ?? null,
-    ),
-    sidebar_collapsed_logo_url: await signBrandingAsset(
-      row?.sidebar_collapsed_logo_bucket ?? null,
-      row?.sidebar_collapsed_logo_path ?? null,
-    ),
+    logo_url: logoUrl,
+    favicon_url: faviconUrl,
+    login_logo_url: loginLogoUrl,
+    sidebar_expanded_logo_url: expandedLogoUrl,
+    sidebar_collapsed_logo_url: collapsedLogoUrl,
   };
 }
 
@@ -234,6 +246,7 @@ export async function updateSystemSettings(
       updatedBy,
     },
   });
+  publicBrandingCache.invalidate();
   return toResponse(updated);
 }
 
