@@ -1,0 +1,19 @@
+# React Router fallback for itp.pctrportal.com (Hostinger / LiteSpeed).
+# Shipped via apps/web/public so every Vite build copies it into dist/.
+# Without it, refreshing or opening any client-side route (e.g.
+# /admin/course-categories, /reset-password) returns the host's default 404.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  # Serve real files and directories unchanged
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+  # Missing build files stay a real 404 (never HTML posing as JavaScript),
+  # e.g. a stale chunk requested by a tab opened before the last deploy
+  RewriteRule ^(assets|brand)/ - [L]
+  # The API is on api.pctrportal.com; never answer /api here with the app
+  RewriteRule ^api(/|$) - [L]
+  # Every other path is a client-side route
+  RewriteRule ^ index.html [L]
+</IfModule>
