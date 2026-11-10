@@ -31,20 +31,25 @@ export async function getDashboard(
       getAllocatedHours(userId, departmentIds),
       prisma.course.findMany({
         where: { status: "PUBLISHED", ...effectiveCourseAccessFilter(userId) },
-        select: { id: true, title: true, slug: true },
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          courseProgress: {
+            where: { userId },
+            select: {
+              status: true,
+              theoreticalProgressPct: true,
+              practicalProgressPct: true,
+              overallProgressPct: true,
+              lastRecalculatedAt: true,
+            },
+          },
+        },
       }),
       listDashboardAnnouncements(userId),
       listPopupAnnouncements(userId),
     ]);
-
-  const courseIds = accessibleCourses.map((c) => c.id);
-  const progressRows =
-    courseIds.length === 0
-      ? []
-      : await prisma.courseProgress.findMany({
-          where: { userId, courseId: { in: courseIds } },
-        });
-  const progressByCourseId = new Map(progressRows.map((row) => [row.courseId, row]));
 
   let notStarted = 0;
   let inProgress = 0;
@@ -52,7 +57,7 @@ export async function getDashboard(
   let theoreticalSum = 0;
   let practicalSum = 0;
   for (const course of accessibleCourses) {
-    const progress = progressByCourseId.get(course.id);
+    const progress = course.courseProgress[0];
     const status = progress?.status ?? "NOT_STARTED";
     if (status === "NOT_STARTED") notStarted += 1;
     else if (status === "IN_PROGRESS") inProgress += 1;
@@ -76,7 +81,7 @@ export async function getDashboard(
   };
 
   const continueLearning = accessibleCourses
-    .map((course) => ({ course, progress: progressByCourseId.get(course.id) }))
+    .map((course) => ({ course, progress: course.courseProgress[0] }))
     .filter(
       (
         entry,

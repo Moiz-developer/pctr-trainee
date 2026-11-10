@@ -58,3 +58,7 @@ export async function archiveCourse(id: string): Promise<CourseResponse> {
   const body = await apiFetch<unknown>(`/admin/courses/${id}/archive`, { method: "POST" });
   return courseEnvelope.parse(body).data;
 }
+
+export async function deleteCourse(id: string): Promise<void> {
+  await apiFetch<void>(`/admin/courses/${id}`, { method: "DELETE" });
+}

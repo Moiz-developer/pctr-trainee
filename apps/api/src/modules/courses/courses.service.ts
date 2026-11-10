@@ -271,3 +271,23 @@ export async function archiveCourse(id: string): Promise<CourseResponse> {
   });
   return toResponse(course);
 }
+
+/** Permanently remove an unpublished course and its dependent content. */
+export async function deleteCourse(id: string): Promise<void> {
+  try {
+    const { count } = await prisma.course.deleteMany({
+      where: { id, status: { in: ["DRAFT", "ARCHIVED"] } },
+    });
+    if (count === 0) {
+      await getCourse(id);
+      throw new ConflictError("Only draft or archived courses can be deleted.");
+    }
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
+      throw new ConflictError(
+        "This course has linked records that prevent deletion. Archive it to hide it from trainees.",
+      );
+    }
+    throw error;
+  }
+}

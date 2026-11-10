@@ -24,7 +24,12 @@ import { ConfirmDialog } from "../../../components/shared/ConfirmDialog";
 import { Can } from "../../../authorization/Can";
 import { useToast } from "../../../components/ui/Toast";
 import { ApiClientError } from "../../../services/api/client";
-import { archiveCourse, getCourse, updateCourse } from "../../../services/api/courses";
+import {
+  archiveCourse,
+  deleteCourse,
+  getCourse,
+  updateCourse,
+} from "../../../services/api/courses";
 import { CourseFormModal } from "./CourseFormModal";
 import { CourseDepartmentsPanel } from "./CourseDepartmentsPanel";
 import { CourseModulesPanel } from "./CourseModulesPanel";
@@ -83,6 +88,8 @@ export function AdminCourseDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
 
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+
   const query = useQuery({
     queryKey: ["admin-course", id],
     queryFn: () => getCourse(id!),
@@ -118,6 +125,29 @@ export function AdminCourseDetailPage() {
     },
   });
 
+  const deletion = useMutation({
+    mutationFn: () => deleteCourse(id!),
+    onSuccess: () => {
+      setDeleteConfirmOpen(false);
+      for (const key of [
+        "admin-courses",
+        "admin-course",
+        "user-courses",
+        "user-course-detail",
+        "dashboard",
+        "admin-dashboard-courses-in-progress",
+        "my-assessments",
+      ]) {
+        void queryClient.invalidateQueries({ queryKey: [key], refetchType: "none" });
+      }
+      toast.success("Course deleted.");
+      void navigate("/admin/courses", { replace: true });
+    },
+    onError: (error) => {
+      toast.error(error instanceof ApiClientError ? error.message : "Failed to delete the course.");
+    },
+  });
+
   if (!id) return null;
 
   return (
@@ -150,8 +180,8 @@ export function AdminCourseDetailPage() {
                 </div>
                 <p className="mt-1 break-all font-mono text-xs text-slate-500">/{course.slug}</p>
               </div>
-              <Can permission="course.create">
-                <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2">
+                <Can permission="course.create">
                   <Button variant="secondary" className="gap-2" onClick={() => setEditOpen(true)}>
                     <Pencil className="h-4 w-4" aria-hidden="true" />
                     Edit
@@ -173,15 +203,26 @@ export function AdminCourseDetailPage() {
                       Revert to Draft
                     </Button>
                   )}
-                  {course.status !== "ARCHIVED" && (
-                    <Can permission="course.delete">
-                      <Button variant="destructive" onClick={() => setArchiveConfirmOpen(true)}>
-                        Archive
-                      </Button>
-                    </Can>
-                  )}
-                </div>
-              </Can>
+                </Can>
+                {course.status !== "ARCHIVED" && (
+                  <Can permission="course.delete">
+                    <Button variant="destructive" onClick={() => setArchiveConfirmOpen(true)}>
+                      Archive
+                    </Button>
+                  </Can>
+                )}
+                {course.status !== "PUBLISHED" && (
+                  <Can permission="course.delete">
+                    <Button
+                      variant="destructive"
+                      disabled={deletion.isPending || archive.isPending || setStatus.isPending}
+                      onClick={() => setDeleteConfirmOpen(true)}
+                    >
+                      Delete course
+                    </Button>
+                  </Can>
+                )}
+              </div>
             </div>
 
             <AdminCourseTabs tabs={TABS} active={tab} onChange={setTab} />
@@ -275,6 +316,17 @@ export function AdminCourseDetailPage() {
               onClose={() => setEditOpen(false)}
               course={course}
               onSuccess={() => void invalidate()}
+            />
+            <ConfirmDialog
+              open={deleteConfirmOpen}
+              title="Delete course permanently?"
+              description={`"${course.title}" and its course content and progress will be permanently removed. This cannot be undone.`}
+              confirmLabel="Delete course"
+              isPending={deletion.isPending}
+              onCancel={() => {
+                if (!deletion.isPending) setDeleteConfirmOpen(false);
+              }}
+              onConfirm={() => deletion.mutate()}
             />
             <ConfirmDialog
               open={archiveConfirmOpen}

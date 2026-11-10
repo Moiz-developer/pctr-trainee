@@ -11,6 +11,7 @@ import { ValidationError } from "../../lib/errors.js";
 import {
   archiveCourse,
   createCourse,
+  deleteCourse,
   getCourse,
   getCourseProgressSummary,
   listCourses,
@@ -153,6 +154,25 @@ coursesRoutes.post(
       }
       const result = await archiveCourse(parsedParams.data.id);
       res.json({ data: result });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+coursesRoutes.delete(
+  "/:id",
+  requireAuth,
+  requirePermission("course.view"),
+  requirePermission("course.delete"),
+  async (req, res, next) => {
+    try {
+      const parsedParams = idParamsSchema.safeParse(req.params);
+      if (!parsedParams.success) {
+        throw new ValidationError(parsedParams.error.flatten().fieldErrors);
+      }
+      await deleteCourse(parsedParams.data.id);
+      res.status(204).end();
     } catch (error) {
       next(error);
     }
