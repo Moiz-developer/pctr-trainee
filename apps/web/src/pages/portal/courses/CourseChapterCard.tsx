@@ -82,6 +82,7 @@ export function CourseChapterCard({
       <div className="flex h-40 items-center justify-center overflow-hidden bg-gradient-to-br from-indigo-900 to-indigo-700 text-white/30">
         <MediaImage
           mediaAssetId={group.imageMediaId}
+          src={group.imageUrl}
           className="h-full w-full object-cover"
           fallback={<BookOpen className="h-12 w-12" aria-hidden="true" />}
         />

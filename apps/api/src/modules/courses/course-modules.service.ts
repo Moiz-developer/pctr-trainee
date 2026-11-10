@@ -6,6 +6,7 @@ import type {
   PaginationMeta,
 } from "@internal-training/shared";
 import { prisma } from "../../lib/prisma.js";
+import { signCourseMediaImages, signedUrlFor } from "../media/course-media-urls.js";
 import type { CourseModule } from "../../generated/prisma/client.js";
 import { NotFoundError, ValidationError } from "../../lib/errors.js";
 import { COURSE_MEDIA_BUCKET } from "../media/media.constants.js";
@@ -92,9 +93,17 @@ export async function getCourseModule(courseId: string, id: string): Promise<Cou
  * requirement). Returns both active and inactive modules — no filter was
  * requested for this admin content-management view.
  */
+/**
+ * `signImages`: include signed `image_url`s (one batched Storage call) so the
+ * modules panel needs no per-module media request. The route passes it only
+ * for `course.content.manage` holders, who getMediaAccessUrl lets view every
+ * module image regardless of course/module state; for anyone else the
+ * per-media endpoint's narrower rule still applies via the client fallback.
+ */
 export async function listCourseModules(
   courseId: string,
   query: ListCourseModulesQuery,
+  { signImages = false }: { signImages?: boolean } = {},
 ): Promise<{ items: CourseModuleResponse[]; meta: PaginationMeta }> {
   await assertCourseExists(courseId);
 
@@ -112,8 +121,15 @@ export async function listCourseModules(
     prisma.courseModule.count({ where }),
   ]);
 
+  const imageUrls = signImages
+    ? await signCourseMediaImages(rows.map((row) => row.imageMediaId))
+    : new Map<string, string>();
+
   return {
-    items: rows.map(toResponse),
+    items: rows.map((row) => ({
+      ...toResponse(row),
+      image_url: signedUrlFor(imageUrls, row.imageMediaId),
+    })),
     meta: { page, pageSize, totalItems, totalPages: Math.ceil(totalItems / pageSize) },
   };
 }

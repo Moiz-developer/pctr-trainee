@@ -144,11 +144,17 @@ export function CourseDetailPage() {
   const modules = courseQuery.data?.modules ?? [];
   const lessons = modules.flatMap((module) => module.lessons);
 
+  // Course detail embeds each lesson's progress, so a per-lesson
+  // GET /progress/lessons/:id is only fetched when it's missing (an older
+  // API). The `["lesson-progress", id]` cache still holds what this page's
+  // mutations and VideoLessonPlayer write, and wins whenever it's newer than
+  // the course detail it came with (each of those mutations also refetches
+  // course detail, after which the embedded value is current again).
   const progressQueries = useQueries({
     queries: lessons.map((lesson) => ({
       queryKey: ["lesson-progress", lesson.id],
       queryFn: () => getLessonProgress(lesson.id),
-      enabled: !!courseQuery.data,
+      enabled: !!courseQuery.data && !lesson.progress,
     })),
   });
 
@@ -156,7 +162,12 @@ export function CourseDetailPage() {
   const progressIndexByLessonId = new Map<string, number>();
   lessons.forEach((lesson, index) => {
     progressIndexByLessonId.set(lesson.id, index);
-    const data = progressQueries[index]?.data;
+    const query = progressQueries[index];
+    const cached =
+      query?.data && (!lesson.progress || query.dataUpdatedAt > courseQuery.dataUpdatedAt)
+        ? query.data
+        : undefined;
+    const data = cached ?? lesson.progress;
     if (data) progressByLessonId.set(lesson.id, data);
   });
 
@@ -215,6 +226,7 @@ export function CourseDetailPage() {
         title: module.title,
         description: module.description,
         imageMediaId: module.image_media_id,
+        imageUrl: module.image_url,
         entries: module.lessons
           .filter((lesson) => lesson.classification === classification)
           .map(buildEntry),

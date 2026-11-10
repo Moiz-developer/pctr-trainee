@@ -9,8 +9,16 @@ import { AuthError } from "../../lib/errors.js";
  * JWT secret (or JWKS for asymmetric projects)". Which one a given token
  * needs is determined by its own `alg` header, not a fixed project setting.
  */
+// Keys are cached for 1h instead of jose's 10 min default: each refetch is a
+// blocking request to Supabase on whichever API call happens to need it
+// (measured ~860 ms in production). A token signed by a newly rotated key
+// still verifies right away, because jose refetches on an unknown `kid`
+// (after its 30 s cooldown); the trade-off is that a key Supabase revokes
+// keeps verifying here for up to 1h.
 const remoteJwks = env.SUPABASE_URL
-  ? createRemoteJWKSet(new URL("/auth/v1/.well-known/jwks.json", env.SUPABASE_URL))
+  ? createRemoteJWKSet(new URL("/auth/v1/.well-known/jwks.json", env.SUPABASE_URL), {
+      cacheMaxAge: 60 * 60_000,
+    })
   : undefined;
 
 /**

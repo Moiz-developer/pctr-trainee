@@ -142,6 +142,9 @@ export const myAssessmentSummarySchema = z.object({
   // Optional cover image (assessments.ts's own image_media_id), shown on the
   // assessment card in place of its type icon when set.
   image_media_id: idSchema.nullable(),
+  // Signed cover-image URL, batch-signed with the list. Null/absent when not
+  // signed here; clients then fall back to GET /media/:id/access-url.
+  image_url: z.string().nullable().optional(),
   my_attempts_used: z.number().int(),
   my_status: myAssessmentStatusSchema,
   my_best_result: assessmentAttemptResultSchema.nullable(),

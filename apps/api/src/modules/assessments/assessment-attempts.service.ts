@@ -7,6 +7,7 @@ import type {
   MyAssessmentHistoryItem,
 } from "@internal-training/shared";
 import { prisma, LONG_TRANSACTION_OPTIONS } from "../../lib/prisma.js";
+import { signCourseMediaImages, signedUrlFor } from "../media/course-media-urls.js";
 import type {
   Assessment,
   AssessmentAnswer,
@@ -259,6 +260,12 @@ export async function listOwnAssessments(
     orderBy: [{ createdAt: "desc" }, { id: "asc" }],
   });
 
+  // Covers of the assessments just returned (PUBLISHED, in a PUBLISHED course
+  // the caller has effective access to): the same predicate
+  // getMediaAccessUrl's assessment-image branch applies, so the page needs no
+  // per-card media request.
+  const imageUrls = await signCourseMediaImages(rows.map((row) => row.imageMediaId));
+
   const items: MyAssessmentSummary[] = rows.map((assessment) => {
     // Completed = submitted (auto-graded) or graded; an EXPIRED/IN_PROGRESS attempt has no result to show.
     const completed = assessment.attempts.filter(
@@ -287,6 +294,7 @@ export async function listOwnAssessments(
       due_date: assessment.dueDate ? assessment.dueDate.toISOString() : null,
       assigned_at: assessment.createdAt.toISOString(),
       image_media_id: assessment.imageMediaId,
+      image_url: signedUrlFor(imageUrls, assessment.imageMediaId),
       my_attempts_used: assessment.attempts.length,
       my_status: assessment.attempts.some((a) => a.status === "IN_PROGRESS")
         ? "IN_PROGRESS"
@@ -482,8 +490,7 @@ export async function submitAssessmentAttempt(
           submittedAt: now,
           score,
           percentage: Math.round((score / assessment.totalMarks) * 10000) / 100,
-          result:
-            score >= assessment.passingMarks ? ("PASS" as const) : ("FAIL" as const),
+          result: score >= assessment.passingMarks ? ("PASS" as const) : ("FAIL" as const),
         };
 
     const updated = await tx.assessmentAttempt.update({

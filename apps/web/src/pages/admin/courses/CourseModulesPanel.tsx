@@ -144,6 +144,7 @@ export function CourseModulesPanel({ courseId }: { courseId: string }) {
                         <span className="h-10 w-14 shrink-0 overflow-hidden rounded bg-slate-100">
                           <MediaImage
                             mediaAssetId={module.image_media_id}
+                            src={module.image_url}
                             className="h-full w-full object-cover"
                             fallback={null}
                           />

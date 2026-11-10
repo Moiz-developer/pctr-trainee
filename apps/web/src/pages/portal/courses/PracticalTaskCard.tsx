@@ -49,6 +49,7 @@ export function PracticalTaskCard({
       <div className="flex aspect-video w-full items-center justify-center overflow-hidden bg-gradient-to-br from-indigo-900 to-indigo-700 text-white/30">
         <MediaImage
           mediaAssetId={group.imageMediaId}
+          src={group.imageUrl}
           className="h-full w-full object-cover"
           fallback={<ClipboardList className="h-14 w-14" aria-hidden="true" />}
         />
