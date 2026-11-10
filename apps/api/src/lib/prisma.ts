@@ -1,5 +1,5 @@
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../generated/prisma/client.js";
+import { PrismaClient, type Prisma } from "../generated/prisma/client.js";
 import { env } from "../config/env.js";
 import { getCurrentUserId } from "./request-context.js";
 
@@ -42,10 +42,38 @@ function createBaseClient(): PrismaClient {
   });
 }
 
+/** Same `maxWait`/`timeout` as every model operation's RLS transaction below. */
+const RLS_TRANSACTION_OPTIONS = { maxWait: 10_000, timeout: 15_000 };
+
 function createPrismaClient() {
   const base = createBaseClient();
   return base.$extends({
     name: "rls-request-context",
+    client: {
+      /**
+       * `$queryRaw` is not a model operation, so the `query` hook below never
+       * sees it and it would otherwise run with no `auth.uid()` (every RLS
+       * policy then returns nothing). This runs one raw SELECT inside the same
+       * transaction-local `set_config` context model operations get — for hot
+       * paths where a single joined query replaces several nested Prisma reads
+       * (each nested relation is its own SQL round trip). RLS still applies to
+       * every table the query touches.
+       */
+      async $queryRawWithUserContext<T>(sql: Prisma.Sql): Promise<T> {
+        const userId = getCurrentUserId();
+        if (!userId) {
+          return base.$queryRaw<T>(sql);
+        }
+        const [, result] = await base.$transaction(
+          [
+            base.$executeRaw`SELECT set_config('request.jwt.claim.sub', ${userId}, TRUE)`,
+            base.$queryRaw<T>(sql),
+          ],
+          RLS_TRANSACTION_OPTIONS,
+        );
+        return result;
+      },
+    },
     query: {
       $allModels: {
         async $allOperations({ args, query }) {
@@ -63,7 +91,7 @@ function createPrismaClient() {
             // after a cold start/idle period failed with P2028 ("Unable to
             // start a transaction in the given time") and surfaced as a
             // generic 500.
-            { maxWait: 10_000, timeout: 15_000 },
+            RLS_TRANSACTION_OPTIONS,
           );
           return result;
         },
