@@ -124,13 +124,14 @@ export async function listPolicyAccess(
   policyId: string,
   query: ListPolicyAccessQuery,
 ): Promise<{ items: PolicyAccessResponse[]; meta: PaginationMeta }> {
-  await assertPolicyExists(policyId);
-
   const page = query.page ?? 1;
   const pageSize = query.pageSize ?? 20;
   const where = { policyId };
 
-  const [rows, totalItems] = await Promise.all([
+  const [, rows, totalItems] = await Promise.all([
+    // Existence check runs alongside the read (one round of queries, not two);
+    // a missing parent still rejects the whole call with its 404.
+    assertPolicyExists(policyId),
     prisma.policyAccess.findMany({
       where,
       orderBy: [{ grantedAt: "desc" }, { id: "asc" }],

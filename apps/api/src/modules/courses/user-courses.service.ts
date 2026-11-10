@@ -13,7 +13,12 @@ import {
 } from "../progress/course-progress.service.js";
 import { computeBestAssessmentResult } from "../assessments/assessment-attempts.service.js";
 import type { CourseProgress } from "../../generated/prisma/client.js";
-import { signCourseMediaImages, signedUrlFor } from "../media/course-media-urls.js";
+import {
+  SIGNABLE_MEDIA_SELECT,
+  signCourseMediaAssets,
+  signCourseMediaImages,
+  signedUrlFor,
+} from "../media/course-media-urls.js";
 import { toLessonProgressResponse } from "../progress/progress.service.js";
 
 function toCatalogueItem(
@@ -223,9 +228,9 @@ export async function getUserCourseDetail(userId: string, courseId: string): Pro
     prisma.courseModule
       .findMany({
         where: { courseId, isActive: true, imageMediaId: { not: null } },
-        select: { imageMediaId: true },
+        select: { image: { select: SIGNABLE_MEDIA_SELECT } },
       })
-      .then((rows) => signCourseMediaImages(rows.map((row) => row.imageMediaId))),
+      .then((rows) => signCourseMediaAssets(rows.map((row) => row.image))),
   ]);
   const lessonProgressByLessonId = new Map(lessonProgressRows.map((row) => [row.lessonId, row]));
 

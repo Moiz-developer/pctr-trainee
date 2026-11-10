@@ -46,13 +46,16 @@ async function assertAnnouncementExists(announcementId: string): Promise<void> {
 export async function listAnnouncementDepartments(
   announcementId: string,
 ): Promise<DepartmentResponse[]> {
-  await assertAnnouncementExists(announcementId);
-
-  const rows = await prisma.announcementDepartment.findMany({
-    where: { announcementId },
-    include: { department: true },
-    orderBy: { department: { name: "asc" } },
-  });
+  const [, rows] = await Promise.all([
+    // Existence check runs alongside the read (one round of queries, not two);
+    // a missing parent still rejects the whole call with its 404.
+    assertAnnouncementExists(announcementId),
+    prisma.announcementDepartment.findMany({
+      where: { announcementId },
+      include: { department: true },
+      orderBy: { department: { name: "asc" } },
+    }),
+  ]);
   return rows.map((row) => toResponse(row.department));
 }
 

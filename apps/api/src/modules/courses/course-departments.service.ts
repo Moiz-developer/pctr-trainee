@@ -31,13 +31,16 @@ async function assertCourseExists(courseId: string): Promise<void> {
 
 /** GET /api/v1/admin/courses/:courseId/departments — the course's current department assignments. */
 export async function listCourseDepartments(courseId: string): Promise<DepartmentResponse[]> {
-  await assertCourseExists(courseId);
-
-  const rows = await prisma.courseDepartment.findMany({
-    where: { courseId },
-    include: { department: true },
-    orderBy: { department: { name: "asc" } },
-  });
+  const [, rows] = await Promise.all([
+    // Existence check runs alongside the read (one round of queries, not two);
+    // a missing parent still rejects the whole call with its 404.
+    assertCourseExists(courseId),
+    prisma.courseDepartment.findMany({
+      where: { courseId },
+      include: { department: true },
+      orderBy: { department: { name: "asc" } },
+    }),
+  ]);
   return rows.map((row) => toResponse(row.department));
 }
 

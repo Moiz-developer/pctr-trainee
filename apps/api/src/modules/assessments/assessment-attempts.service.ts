@@ -7,7 +7,11 @@ import type {
   MyAssessmentHistoryItem,
 } from "@internal-training/shared";
 import { prisma, LONG_TRANSACTION_OPTIONS } from "../../lib/prisma.js";
-import { signCourseMediaImages, signedUrlFor } from "../media/course-media-urls.js";
+import {
+  SIGNABLE_MEDIA_SELECT,
+  signCourseMediaAssets,
+  signedUrlFor,
+} from "../media/course-media-urls.js";
 import type {
   Assessment,
   AssessmentAnswer,
@@ -244,6 +248,7 @@ export async function listOwnAssessments(
       dueDate: true,
       createdAt: true,
       imageMediaId: true,
+      image: { select: SIGNABLE_MEDIA_SELECT },
       course: { select: { id: true, title: true } },
       _count: { select: { questions: true } },
       attempts: {
@@ -264,7 +269,7 @@ export async function listOwnAssessments(
   // the caller has effective access to): the same predicate
   // getMediaAccessUrl's assessment-image branch applies, so the page needs no
   // per-card media request.
-  const imageUrls = await signCourseMediaImages(rows.map((row) => row.imageMediaId));
+  const imageUrls = await signCourseMediaAssets(rows.map((row) => row.image));
 
   const items: MyAssessmentSummary[] = rows.map((assessment) => {
     // Completed = submitted (auto-graded) or graded; an EXPIRED/IN_PROGRESS attempt has no result to show.

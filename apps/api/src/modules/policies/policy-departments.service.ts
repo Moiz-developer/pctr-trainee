@@ -39,13 +39,16 @@ async function assertPolicyExists(policyId: string): Promise<void> {
 
 /** GET /api/v1/admin/policies/:policyId/departments — the policy's current department assignments (empty = globally visible). */
 export async function listPolicyDepartments(policyId: string): Promise<DepartmentResponse[]> {
-  await assertPolicyExists(policyId);
-
-  const rows = await prisma.policyDepartment.findMany({
-    where: { policyId },
-    include: { department: true },
-    orderBy: { department: { name: "asc" } },
-  });
+  const [, rows] = await Promise.all([
+    // Existence check runs alongside the read (one round of queries, not two);
+    // a missing parent still rejects the whole call with its 404.
+    assertPolicyExists(policyId),
+    prisma.policyDepartment.findMany({
+      where: { policyId },
+      include: { department: true },
+      orderBy: { department: { name: "asc" } },
+    }),
+  ]);
   return rows.map((row) => toResponse(row.department));
 }
 

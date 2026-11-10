@@ -123,13 +123,14 @@ export async function listResourceAccess(
   resourceId: string,
   query: ListResourceAccessQuery,
 ): Promise<{ items: ResourceAccessResponse[]; meta: PaginationMeta }> {
-  await assertResourceExists(resourceId);
-
   const page = query.page ?? 1;
   const pageSize = query.pageSize ?? 20;
   const where = { resourceId };
 
-  const [rows, totalItems] = await Promise.all([
+  const [, rows, totalItems] = await Promise.all([
+    // Existence check runs alongside the read (one round of queries, not two);
+    // a missing parent still rejects the whole call with its 404.
+    assertResourceExists(resourceId),
     prisma.resourceAccess.findMany({
       where,
       orderBy: [{ grantedAt: "desc" }, { id: "asc" }],

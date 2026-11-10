@@ -98,13 +98,14 @@ export async function listAssessments(
   courseId: string,
   query: ListAssessmentsQuery,
 ): Promise<{ items: AssessmentResponse[]; meta: PaginationMeta }> {
-  await assertCourseExists(courseId);
-
   const page = query.page ?? 1;
   const pageSize = query.pageSize ?? 20;
   const where = { courseId };
 
-  const [rows, totalItems] = await Promise.all([
+  const [, rows, totalItems] = await Promise.all([
+    // Existence check runs alongside the read (one round of queries, not two);
+    // a missing parent still rejects the whole call with its 404.
+    assertCourseExists(courseId),
     prisma.assessment.findMany({
       where,
       orderBy: [{ createdAt: "desc" }, { id: "asc" }],
