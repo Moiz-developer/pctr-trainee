@@ -31,22 +31,25 @@ export async function getConsumedHours(userId: string): Promise<number> {
 export async function getAllocatedHours(userId: string, departmentIds: string[]): Promise<number> {
   const today = new Date();
 
-  const userRow = await prisma.trainingHourRequirement.findFirst({
-    where: { scope: "USER", userId, effectiveFrom: { lte: today } },
-    orderBy: { effectiveFrom: "desc" },
-  });
+  // Both lookups at once (one database stage instead of two); a user-level
+  // requirement still takes precedence over department ones, as before.
+  const [userRow, departmentRows] = await Promise.all([
+    prisma.trainingHourRequirement.findFirst({
+      where: { scope: "USER", userId, effectiveFrom: { lte: today } },
+      orderBy: { effectiveFrom: "desc" },
+    }),
+    departmentIds.length === 0
+      ? Promise.resolve([])
+      : prisma.trainingHourRequirement.findMany({
+          where: {
+            scope: "DEPARTMENT",
+            departmentId: { in: departmentIds },
+            effectiveFrom: { lte: today },
+          },
+          orderBy: { effectiveFrom: "desc" },
+        }),
+  ]);
   if (userRow) return round2(Number(userRow.requiredHours));
-
-  if (departmentIds.length === 0) return 0;
-
-  const departmentRows = await prisma.trainingHourRequirement.findMany({
-    where: {
-      scope: "DEPARTMENT",
-      departmentId: { in: departmentIds },
-      effectiveFrom: { lte: today },
-    },
-    orderBy: { effectiveFrom: "desc" },
-  });
   if (departmentRows.length === 0) return 0;
 
   const latestByDepartment = new Map<string, (typeof departmentRows)[number]>();

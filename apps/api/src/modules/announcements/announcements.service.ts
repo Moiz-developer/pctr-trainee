@@ -82,6 +82,23 @@ async function getReadStateMap(
 }
 
 /**
+ * The caller's read state for every PUBLISHED announcement matching `where`,
+ * without needing the announcement ids first, so it can run alongside the
+ * announcement query instead of after it (one database stage, not two). It
+ * may return rows for announcements the page doesn't show; callers only
+ * look up the ids they render.
+ */
+async function getReadStateMapFor(
+  userId: string,
+  where: { isImportant?: true; showAsPopup?: true },
+): Promise<Map<string, AnnouncementRead>> {
+  const rows = await prisma.announcementRead.findMany({
+    where: { userId, announcement: { status: "PUBLISHED", ...where } },
+  });
+  return new Map(rows.map((row) => [row.announcementId, row]));
+}
+
+/**
  * Loads a PUBLISHED, visible-to-this-caller announcement, or throws the
  * same 404-vs-403 distinction `getResourceDetail`/`getUserCourseDetail`
  * already establish (SYSTEM_PLAN.md §26/§31): a genuinely nonexistent id is
@@ -266,20 +283,19 @@ export async function listDashboardAnnouncements(
   userId: string,
   limit = 5,
 ): Promise<AnnouncementResponse[]> {
-  const rows = await prisma.announcement.findMany({
-    where: {
-      status: "PUBLISHED",
-      isImportant: true,
-      ...effectiveAnnouncementVisibilityFilter(userId),
-    },
-    orderBy: [{ publishedAt: "desc" }, { id: "asc" }],
-    take: limit,
-    ...withAuthor,
-  });
-  const readStateMap = await getReadStateMap(
-    userId,
-    rows.map((row) => row.id),
-  );
+  const [rows, readStateMap] = await Promise.all([
+    prisma.announcement.findMany({
+      where: {
+        status: "PUBLISHED",
+        isImportant: true,
+        ...effectiveAnnouncementVisibilityFilter(userId),
+      },
+      orderBy: [{ publishedAt: "desc" }, { id: "asc" }],
+      take: limit,
+      ...withAuthor,
+    }),
+    getReadStateMapFor(userId, { isImportant: true }),
+  ]);
   return rows.map((row) => toResponse(row, readStateMap.get(row.id)));
 }
 
@@ -294,21 +310,18 @@ export async function listDashboardAnnouncements(
  * `dismissAnnouncement` above already writes).
  */
 export async function listPopupAnnouncements(userId: string): Promise<AnnouncementResponse[]> {
-  const rows = await prisma.announcement.findMany({
-    where: {
-      status: "PUBLISHED",
-      showAsPopup: true,
-      ...effectiveAnnouncementVisibilityFilter(userId),
-    },
-    orderBy: [{ publishedAt: "desc" }, { id: "asc" }],
-    ...withAuthor,
-  });
-  if (rows.length === 0) return [];
-
-  const readStateMap = await getReadStateMap(
-    userId,
-    rows.map((row) => row.id),
-  );
+  const [rows, readStateMap] = await Promise.all([
+    prisma.announcement.findMany({
+      where: {
+        status: "PUBLISHED",
+        showAsPopup: true,
+        ...effectiveAnnouncementVisibilityFilter(userId),
+      },
+      orderBy: [{ publishedAt: "desc" }, { id: "asc" }],
+      ...withAuthor,
+    }),
+    getReadStateMapFor(userId, { showAsPopup: true }),
+  ]);
   return rows
     .filter((row) => !readStateMap.get(row.id)?.dismissedAt)
     .map((row) => toResponse(row, readStateMap.get(row.id)));
