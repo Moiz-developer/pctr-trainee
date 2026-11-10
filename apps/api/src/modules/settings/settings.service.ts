@@ -249,6 +249,7 @@ export async function updateSystemSettings(
     },
   });
   publicBrandingCache.invalidate();
+  mediaSettingsCache.invalidate();
   return toResponse(updated);
 }
 
@@ -264,7 +265,7 @@ export async function getVideoCompletionThreshold(): Promise<number> {
  * media.constants.ts exports (bucket NAMES themselves stay hardcoded
  * constants; only MIME allowlist / max bytes / TTLs moved here).
  */
-export async function getMediaSettings(): Promise<{
+type MediaSettings = {
   courseMediaMaxBytes: number;
   courseMediaMimeAllowlist: ReadonlySet<string>;
   queryAttachmentMaxBytes: number;
@@ -277,7 +278,9 @@ export async function getMediaSettings(): Promise<{
   announcementMediaMimeAllowlist: ReadonlySet<string>;
   signedUrlTtlVideoSeconds: number;
   signedUrlTtlDefaultSeconds: number;
-}> {
+};
+
+async function loadMediaSettings(): Promise<MediaSettings> {
   const row = await getRow();
   return {
     courseMediaMaxBytes: Number(row.courseMediaMaxBytes),
@@ -293,4 +296,13 @@ export async function getMediaSettings(): Promise<{
     signedUrlTtlVideoSeconds: row.signedUrlTtlVideoSeconds,
     signedUrlTtlDefaultSeconds: row.signedUrlTtlDefaultSeconds,
   };
+}
+// Read on every media request and every batch of signed image URLs, so it is
+// cached in-process for 60 s instead of costing a database round trip each
+// time. updateSystemSettings invalidates it immediately on this process; any
+// other API process picks a change up within 60 s.
+const mediaSettingsCache = createAsyncCache(loadMediaSettings, 60_000);
+
+export function getMediaSettings(): Promise<MediaSettings> {
+  return mediaSettingsCache.get();
 }

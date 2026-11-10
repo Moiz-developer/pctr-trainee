@@ -42,14 +42,18 @@ function toResponse(lesson: CourseLesson): CourseLessonResponse {
  * module really belongs to.
  */
 async function assertModuleInCourse(courseId: string, moduleId: string): Promise<void> {
-  const course = await prisma.course.findUnique({ where: { id: courseId }, select: { id: true } });
+  // Both lookups at once (independent reads); the course error still takes
+  // precedence, exactly as when they ran one after the other.
+  const [course, module] = await Promise.all([
+    prisma.course.findUnique({ where: { id: courseId }, select: { id: true } }),
+    prisma.courseModule.findUnique({
+      where: { id: moduleId },
+      select: { id: true, courseId: true },
+    }),
+  ]);
   if (!course) {
     throw new NotFoundError(`No course exists with id "${courseId}".`);
   }
-  const module = await prisma.courseModule.findUnique({
-    where: { id: moduleId },
-    select: { id: true, courseId: true },
-  });
   if (!module || module.courseId !== courseId) {
     throw new NotFoundError(`No module exists with id "${moduleId}" for course "${courseId}".`);
   }
@@ -130,13 +134,14 @@ export async function listCourseLessons(
   moduleId: string,
   query: ListCourseLessonsQuery,
 ): Promise<{ items: CourseLessonResponse[]; meta: PaginationMeta }> {
-  await assertModuleInCourse(courseId, moduleId);
-
   const page = query.page ?? 1;
   const pageSize = query.pageSize ?? 20;
   const where = { moduleId };
 
-  const [rows, totalItems] = await Promise.all([
+  const [, rows, totalItems] = await Promise.all([
+    // Existence check runs alongside the read (one round of queries, not two);
+    // a missing course/module still rejects the whole call with its 404.
+    assertModuleInCourse(courseId, moduleId),
     prisma.courseLesson.findMany({
       where,
       orderBy: [{ sortOrder: "asc" }, { id: "asc" }],

@@ -6,7 +6,11 @@ import type {
   PaginationMeta,
 } from "@internal-training/shared";
 import { prisma } from "../../lib/prisma.js";
-import { signCourseMediaImages, signedUrlFor } from "../media/course-media-urls.js";
+import {
+  SIGNABLE_MEDIA_SELECT,
+  signCourseMediaAssets,
+  signedUrlFor,
+} from "../media/course-media-urls.js";
 import type { CourseModule } from "../../generated/prisma/client.js";
 import { NotFoundError, ValidationError } from "../../lib/errors.js";
 import { COURSE_MEDIA_BUCKET } from "../media/media.constants.js";
@@ -105,24 +109,28 @@ export async function listCourseModules(
   query: ListCourseModulesQuery,
   { signImages = false }: { signImages?: boolean } = {},
 ): Promise<{ items: CourseModuleResponse[]; meta: PaginationMeta }> {
-  await assertCourseExists(courseId);
-
   const page = query.page ?? 1;
   const pageSize = query.pageSize ?? 20;
   const where = { courseId };
 
-  const [rows, totalItems] = await Promise.all([
+  // One round of parallel queries instead of check-then-list-then-sign: on a
+  // remote database each sequential step costs several network round trips.
+  // A nonexistent course still 404s (the extra list/count just return empty).
+  const [, rows, totalItems] = await Promise.all([
+    assertCourseExists(courseId),
     prisma.courseModule.findMany({
       where,
       orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
       skip: (page - 1) * pageSize,
       take: pageSize,
+      // Only the signing path needs the image record (one extra SELECT).
+      include: { image: signImages ? { select: SIGNABLE_MEDIA_SELECT } : false },
     }),
     prisma.courseModule.count({ where }),
   ]);
 
   const imageUrls = signImages
-    ? await signCourseMediaImages(rows.map((row) => row.imageMediaId))
+    ? await signCourseMediaAssets(rows.map((row) => row.image))
     : new Map<string, string>();
 
   return {

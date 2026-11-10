@@ -120,13 +120,14 @@ export async function listAnnouncementAccess(
   announcementId: string,
   query: ListAnnouncementAccessQuery,
 ): Promise<{ items: AnnouncementAccessResponse[]; meta: PaginationMeta }> {
-  await assertAnnouncementExists(announcementId);
-
   const page = query.page ?? 1;
   const pageSize = query.pageSize ?? 20;
   const where = { announcementId };
 
-  const [rows, totalItems] = await Promise.all([
+  const [, rows, totalItems] = await Promise.all([
+    // Existence check runs alongside the read (one round of queries, not two);
+    // a missing parent still rejects the whole call with its 404.
+    assertAnnouncementExists(announcementId),
     prisma.announcementAccess.findMany({
       where,
       orderBy: [{ grantedAt: "desc" }, { id: "asc" }],

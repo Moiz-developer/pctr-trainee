@@ -44,13 +44,16 @@ async function assertResourceExists(resourceId: string): Promise<void> {
 
 /** GET /api/v1/admin/resources/:resourceId/departments — the resource's current department assignments (empty = globally visible). */
 export async function listResourceDepartments(resourceId: string): Promise<DepartmentResponse[]> {
-  await assertResourceExists(resourceId);
-
-  const rows = await prisma.resourceDepartment.findMany({
-    where: { resourceId },
-    include: { department: true },
-    orderBy: { department: { name: "asc" } },
-  });
+  const [, rows] = await Promise.all([
+    // Existence check runs alongside the read (one round of queries, not two);
+    // a missing parent still rejects the whole call with its 404.
+    assertResourceExists(resourceId),
+    prisma.resourceDepartment.findMany({
+      where: { resourceId },
+      include: { department: true },
+      orderBy: { department: { name: "asc" } },
+    }),
+  ]);
   return rows.map((row) => toResponse(row.department));
 }
 
