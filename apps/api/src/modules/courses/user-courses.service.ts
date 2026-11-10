@@ -13,6 +13,12 @@ import {
 } from "../progress/course-progress.service.js";
 import { computeBestAssessmentResult } from "../assessments/assessment-attempts.service.js";
 import type { CourseProgress } from "../../generated/prisma/client.js";
+import { getMediaSettings } from "../settings/settings.service.js";
+import { createSignedDownloadUrls } from "../media/media.storage.js";
+import {
+  COURSE_MEDIA_BUCKET,
+  MAX_DEFAULT_SIGNED_URL_TTL_SECONDS,
+} from "../media/media.constants.js";
 
 function toCatalogueItem(
   course: {
@@ -48,6 +54,48 @@ function toCatalogueItem(
     // Phase 3: the caller's own course_progress — see course-progress.service.ts.
     progress: toCourseProgressSummary(progress),
   };
+}
+
+/**
+ * Signed thumbnail URLs for a catalogue page in one Storage request, so the
+ * page doesn't need one `GET /media/:id/access-url` per card (each of which
+ * re-runs authentication and several access lookups). Authorization matches
+ * that endpoint's course-thumbnail branch: callers pass only thumbnails of
+ * courses already returned by the PUBLISHED + effective-access query, the
+ * asset must be in the course-media bucket, and `media_assets` RLS still
+ * applies. Same capped default TTL as getMediaAccessUrl. Only images are
+ * signed here. Anything this can't sign (video, a missing object, a Storage
+ * failure) is simply omitted and the card falls back to the per-media
+ * endpoint.
+ */
+async function signCourseThumbnails(mediaIds: (string | null)[]): Promise<Map<string, string>> {
+  const ids = [...new Set(mediaIds.filter((id): id is string => !!id))];
+  const urls = new Map<string, string>();
+  if (ids.length === 0) return urls;
+  try {
+    const [assets, settings] = await Promise.all([
+      prisma.mediaAsset.findMany({
+        where: { id: { in: ids }, bucket: COURSE_MEDIA_BUCKET },
+        select: { id: true, storagePath: true, mimeType: true },
+      }),
+      getMediaSettings(),
+    ]);
+    const images = assets.filter((asset) => asset.mimeType.startsWith("image/"));
+    const ttl = Math.min(settings.signedUrlTtlDefaultSeconds, MAX_DEFAULT_SIGNED_URL_TTL_SECONDS);
+    const byPath = await createSignedDownloadUrls(
+      COURSE_MEDIA_BUCKET,
+      images.map((asset) => asset.storagePath),
+      ttl,
+    );
+    for (const asset of images) {
+      const url = byPath.get(asset.storagePath);
+      if (url) urls.set(asset.id, url);
+    }
+  } catch {
+    // Best effort: the catalogue itself must not fail because of thumbnails.
+    urls.clear();
+  }
+  return urls;
 }
 
 /**
@@ -93,13 +141,21 @@ export async function listUserCourses(
     prisma.course.count({ where }),
   ]);
 
-  const progressByCourseId = await getCourseProgressMap(
-    userId,
-    rows.map((row) => row.id),
-  );
+  const [progressByCourseId, thumbnailUrls] = await Promise.all([
+    getCourseProgressMap(
+      userId,
+      rows.map((row) => row.id),
+    ),
+    signCourseThumbnails(rows.map((row) => row.thumbnailMediaId)),
+  ]);
 
   return {
-    items: rows.map((row) => toCatalogueItem(row, progressByCourseId.get(row.id))),
+    items: rows.map((row) => ({
+      ...toCatalogueItem(row, progressByCourseId.get(row.id)),
+      thumbnail_url: row.thumbnailMediaId
+        ? (thumbnailUrls.get(row.thumbnailMediaId) ?? null)
+        : null,
+    })),
     meta: { page, pageSize, totalItems, totalPages: Math.ceil(totalItems / pageSize) },
   };
 }

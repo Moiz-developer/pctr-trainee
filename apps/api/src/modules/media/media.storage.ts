@@ -143,3 +143,30 @@ export async function createSignedDownloadUrl(
   if (error || !data) return null;
   return data.signedUrl;
 }
+
+/**
+ * Batch form of createSignedDownloadUrl: one Storage request for many objects
+ * in the same bucket (e.g. every thumbnail on a catalogue page) instead of one
+ * request each. Returns storagePath → signed URL for the objects that could be
+ * signed; a missing object, or a failure of the whole call, simply has no
+ * entry, so callers fall back to the per-object flow.
+ */
+export async function createSignedDownloadUrls(
+  bucket: string,
+  storagePaths: string[],
+  ttlSeconds: number,
+): Promise<Map<string, string>> {
+  const urls = new Map<string, string>();
+  if (storagePaths.length === 0) return urls;
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .createSignedUrls(storagePaths, ttlSeconds);
+  if (error || !data) return urls;
+  for (const entry of data) {
+    if (!entry.error && entry.path && entry.signedUrl) {
+      urls.set(entry.path, entry.signedUrl);
+    }
+  }
+  return urls;
+}

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { BookOpen, Building2, Tag } from "lucide-react";
@@ -19,24 +19,46 @@ export const THUMBNAIL_BOX_CLASS =
   "card-slide-section-rtl flex h-44 items-center justify-center overflow-hidden bg-gradient-to-br from-indigo-900 to-indigo-700 text-white/30";
 
 /**
- * Resolves and renders one course's thumbnail on demand via the existing
- * signed-URL flow, mirroring VideoLessonPlayer.tsx's own
- * `["media-access-url", id]` query exactly — no new media architecture.
- * Falls back to the branded `BookOpen` placeholder whenever there's no
- * `thumbnailMediaId`, the fetch is still loading, or it fails (a course the
- * caller is otherwise authorized to see should never show a broken image).
+ * Renders one course's thumbnail. Uses the signed `thumbnailUrl` the
+ * catalogue list already carries (batch-signed server-side) when present, so
+ * a page of cards needs no per-card request. Falls back to the existing
+ * on-demand `["media-access-url", id]` query (as VideoLessonPlayer.tsx uses)
+ * when the list had no URL for it, or when that URL fails to load (e.g. it
+ * expired while the list sat in the query cache). Shows the branded
+ * `BookOpen` placeholder whenever there's no `thumbnailMediaId`, the fetch is
+ * still loading, or it fails (a course the caller is otherwise authorized to
+ * see should never show a broken image).
  */
-function CourseThumbnail({ thumbnailMediaId }: { thumbnailMediaId: string | null }) {
+function CourseThumbnail({
+  thumbnailMediaId,
+  thumbnailUrl,
+}: {
+  thumbnailMediaId: string | null;
+  thumbnailUrl: string | null | undefined;
+}) {
+  const [listUrlFailed, setListUrlFailed] = useState(false);
+  const listUrlUsable = !!thumbnailUrl && !listUrlFailed;
   const accessUrlQuery = useQuery({
     queryKey: ["media-access-url", thumbnailMediaId],
     queryFn: () => getMediaAccessUrl(thumbnailMediaId!),
-    enabled: !!thumbnailMediaId,
+    enabled: !!thumbnailMediaId && !listUrlUsable,
   });
 
-  if (thumbnailMediaId && accessUrlQuery.data) {
+  const src = listUrlUsable
+    ? thumbnailUrl
+    : thumbnailMediaId
+      ? accessUrlQuery.data?.url
+      : undefined;
+
+  if (src) {
     return (
       <div className={THUMBNAIL_BOX_CLASS}>
-        <img src={accessUrlQuery.data.url} alt="" className="h-full w-full object-cover" />
+        <img
+          src={src}
+          alt=""
+          className="h-full w-full object-cover"
+          onError={listUrlUsable ? () => setListUrlFailed(true) : undefined}
+        />
       </div>
     );
   }
@@ -82,7 +104,10 @@ export function CourseCard({
 
   return (
     <Card flush className="card-slide-scope flex flex-col">
-      <CourseThumbnail thumbnailMediaId={course.thumbnail_media_id} />
+      <CourseThumbnail
+        thumbnailMediaId={course.thumbnail_media_id}
+        thumbnailUrl={course.thumbnail_url}
+      />
 
       <div className="flex flex-1 flex-col p-5">
         <h3 className="text-sm font-semibold leading-snug text-indigo-950">{course.title}</h3>

@@ -25,6 +25,11 @@ export const courseCatalogueItemSchema = z.object({
   slug: z.string(),
   description: z.string().nullable(),
   thumbnail_media_id: idSchema.nullable(),
+  // Short-lived signed URL for the thumbnail, batch-signed with the list so a
+  // catalogue page needs no per-card media request. Null/absent when it
+  // couldn't be signed here; clients then fall back to
+  // GET /media/:id/access-url. Optional so older API/web builds stay compatible.
+  thumbnail_url: z.string().nullable().optional(),
   category: z.string().nullable(),
   duration_minutes: z.number().int().nullable(),
   // Department visibility in the Trainer Portal UI unit: the department(s)
