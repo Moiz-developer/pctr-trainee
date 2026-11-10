@@ -35,7 +35,16 @@ import { getCurrentUserId } from "./request-context.js";
 const globalForPrisma = globalThis as unknown as { prisma?: ReturnType<typeof createPrismaClient> };
 
 function createBaseClient(): PrismaClient {
-  const adapter = new PrismaPg({ connectionString: env.RUNTIME_DATABASE_URL });
+  const adapter = new PrismaPg({
+    connectionString: env.RUNTIME_DATABASE_URL,
+    // pg's default closes idle connections after 10 s, so the first request
+    // after any short pause pays a full reconnect (TCP + TLS + auth) to the
+    // remote pooler. Keep them for 5 min; keepAlive lets the OS notice a
+    // connection the network silently dropped. Idle-connection errors are
+    // already handled by the adapter (the pool just discards that client).
+    idleTimeoutMillis: 5 * 60_000,
+    keepAlive: true,
+  });
   return new PrismaClient({
     adapter,
     log: env.NODE_ENV === "production" ? ["error"] : ["warn", "error"],

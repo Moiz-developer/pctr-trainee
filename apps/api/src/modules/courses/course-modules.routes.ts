@@ -52,7 +52,13 @@ courseModulesRoutes.get(
       if (!parsedQuery.success) {
         throw new ValidationError(parsedQuery.error.flatten().fieldErrors);
       }
-      const { items, meta } = await listCourseModules(parsedParams.data.courseId, parsedQuery.data);
+      const { items, meta } = await listCourseModules(
+        parsedParams.data.courseId,
+        parsedQuery.data,
+        {
+          signImages: req.identity?.permissions.includes("course.content.manage") ?? false,
+        },
+      );
       res.json({ data: items, meta });
     } catch (error) {
       next(error);

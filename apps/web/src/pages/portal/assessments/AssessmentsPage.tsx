@@ -111,6 +111,7 @@ function AssessmentCard({ assessment }: { assessment: MyAssessmentSummary }) {
       <div className="card-slide-section-rtl mx-5 flex h-44 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-indigo-900 to-indigo-700 text-white/30">
         <MediaImage
           mediaAssetId={assessment.image_media_id}
+          src={assessment.image_url}
           className="h-full w-full object-cover"
           fallback={<TypeIcon className="h-14 w-14" aria-hidden="true" />}
         />

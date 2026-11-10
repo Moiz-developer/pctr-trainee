@@ -9,7 +9,11 @@ import { ForbiddenError, NotFoundError } from "../../lib/errors.js";
 import { recomputeCourseProgress } from "./course-progress.service.js";
 import { syncTrainingSessionForLessonProgress } from "../training-hours/training-sessions.service.js";
 
-function toResponse(lessonId: string, row: LessonProgress | null): LessonProgressResponse {
+/** Exported so course detail can embed the same per-lesson shape (see user-courses.service.ts). */
+export function toLessonProgressResponse(
+  lessonId: string,
+  row: LessonProgress | null,
+): LessonProgressResponse {
   if (!row) {
     return {
       id: null,
@@ -115,7 +119,7 @@ export async function getLessonProgress(
   const row = await prisma.lessonProgress.findUnique({
     where: { userId_lessonId: { userId, lessonId } },
   });
-  return toResponse(lessonId, row);
+  return toLessonProgressResponse(lessonId, row);
 }
 
 /**
@@ -192,6 +196,6 @@ export async function upsertLessonProgress(
 
     await recomputeCourseProgress(tx, userId, courseId);
 
-    return toResponse(lessonId, row);
+    return toLessonProgressResponse(lessonId, row);
   }, LONG_TRANSACTION_OPTIONS);
 }

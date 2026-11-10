@@ -116,7 +116,9 @@ async function signBrandingAsset(bucket: string | null, path: string | null) {
  * `system_settings`/`media_assets` are RLS-gated on an authenticated user.
  * Logo/favicon URLs are short-lived signed URLs; the buckets stay private.
  */
-const publicBrandingCache = createAsyncCache(loadPublicBranding, 60_000);
+// 10 min: updates invalidate it immediately (updateSystemSettings), and the
+// 1h signed logo URLs stay valid for the web app's 30 min client cache on top.
+const publicBrandingCache = createAsyncCache(loadPublicBranding, 10 * 60_000);
 
 export function getPublicBranding(): Promise<PublicBrandingResponse> {
   return publicBrandingCache.get();

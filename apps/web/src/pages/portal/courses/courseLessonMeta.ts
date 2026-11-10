@@ -53,6 +53,8 @@ export interface ModuleGroup {
   title: string;
   description: string | null;
   imageMediaId: string | null;
+  /** Signed cover URL from course detail, when the API included one. */
+  imageUrl?: string | null;
   entries: LessonEntry[];
 }
 

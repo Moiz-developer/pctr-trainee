@@ -13,12 +13,8 @@ import {
 } from "../progress/course-progress.service.js";
 import { computeBestAssessmentResult } from "../assessments/assessment-attempts.service.js";
 import type { CourseProgress } from "../../generated/prisma/client.js";
-import { getMediaSettings } from "../settings/settings.service.js";
-import { createSignedDownloadUrls } from "../media/media.storage.js";
-import {
-  COURSE_MEDIA_BUCKET,
-  MAX_DEFAULT_SIGNED_URL_TTL_SECONDS,
-} from "../media/media.constants.js";
+import { signCourseMediaImages, signedUrlFor } from "../media/course-media-urls.js";
+import { toLessonProgressResponse } from "../progress/progress.service.js";
 
 function toCatalogueItem(
   course: {
@@ -54,48 +50,6 @@ function toCatalogueItem(
     // Phase 3: the caller's own course_progress — see course-progress.service.ts.
     progress: toCourseProgressSummary(progress),
   };
-}
-
-/**
- * Signed thumbnail URLs for a catalogue page in one Storage request, so the
- * page doesn't need one `GET /media/:id/access-url` per card (each of which
- * re-runs authentication and several access lookups). Authorization matches
- * that endpoint's course-thumbnail branch: callers pass only thumbnails of
- * courses already returned by the PUBLISHED + effective-access query, the
- * asset must be in the course-media bucket, and `media_assets` RLS still
- * applies. Same capped default TTL as getMediaAccessUrl. Only images are
- * signed here. Anything this can't sign (video, a missing object, a Storage
- * failure) is simply omitted and the card falls back to the per-media
- * endpoint.
- */
-async function signCourseThumbnails(mediaIds: (string | null)[]): Promise<Map<string, string>> {
-  const ids = [...new Set(mediaIds.filter((id): id is string => !!id))];
-  const urls = new Map<string, string>();
-  if (ids.length === 0) return urls;
-  try {
-    const [assets, settings] = await Promise.all([
-      prisma.mediaAsset.findMany({
-        where: { id: { in: ids }, bucket: COURSE_MEDIA_BUCKET },
-        select: { id: true, storagePath: true, mimeType: true },
-      }),
-      getMediaSettings(),
-    ]);
-    const images = assets.filter((asset) => asset.mimeType.startsWith("image/"));
-    const ttl = Math.min(settings.signedUrlTtlDefaultSeconds, MAX_DEFAULT_SIGNED_URL_TTL_SECONDS);
-    const byPath = await createSignedDownloadUrls(
-      COURSE_MEDIA_BUCKET,
-      images.map((asset) => asset.storagePath),
-      ttl,
-    );
-    for (const asset of images) {
-      const url = byPath.get(asset.storagePath);
-      if (url) urls.set(asset.id, url);
-    }
-  } catch {
-    // Best effort: the catalogue itself must not fail because of thumbnails.
-    urls.clear();
-  }
-  return urls;
 }
 
 /**
@@ -146,15 +100,16 @@ export async function listUserCourses(
       userId,
       rows.map((row) => row.id),
     ),
-    signCourseThumbnails(rows.map((row) => row.thumbnailMediaId)),
+    // Thumbnails of courses the PUBLISHED + effective-access query above just
+    // returned: the same predicate getMediaAccessUrl's course-thumbnail
+    // branch applies.
+    signCourseMediaImages(rows.map((row) => row.thumbnailMediaId)),
   ]);
 
   return {
     items: rows.map((row) => ({
       ...toCatalogueItem(row, progressByCourseId.get(row.id)),
-      thumbnail_url: row.thumbnailMediaId
-        ? (thumbnailUrls.get(row.thumbnailMediaId) ?? null)
-        : null,
+      thumbnail_url: signedUrlFor(thumbnailUrls, row.thumbnailMediaId),
     })),
     meta: { page, pageSize, totalItems, totalPages: Math.ceil(totalItems / pageSize) },
   };
@@ -226,7 +181,12 @@ export async function getUserCourseDetail(userId: string, courseId: string): Pro
   // "many" side of `courseModule.findMany`'s nested `lessons`/`mediaAsset` include and
   // `assessment.findMany`'s nested `attempts` include into one extra query each, not once per row
   // (no N+1 across course -> modules -> lessons, or course -> assessments -> attempts).
-  const [modules, progress, assessments] = await Promise.all([
+  // Lesson progress and module image URLs ride along with this response so
+  // the page needs no per-lesson GET /progress/lessons/:id and no per-module
+  // GET /media/:id/access-url. Both are safe to include here: everything
+  // those endpoints check (course PUBLISHED, caller has effective access,
+  // module and lesson active) was checked above or is filtered below.
+  const [modules, progress, assessments, lessonProgressRows, moduleImageUrls] = await Promise.all([
     prisma.courseModule.findMany({
       where: { courseId, isActive: true },
       orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
@@ -255,7 +215,19 @@ export async function getUserCourseDetail(userId: string, courseId: string): Pro
       orderBy: [{ createdAt: "asc" }, { id: "asc" }],
       include: { attempts: { where: { userId }, select: { result: true } } },
     }),
+    prisma.lessonProgress.findMany({
+      where: { userId, lesson: { isActive: true, module: { courseId, isActive: true } } },
+    }),
+    // Started alongside (not after) the modules query to avoid an extra
+    // sequential database round trip.
+    prisma.courseModule
+      .findMany({
+        where: { courseId, isActive: true, imageMediaId: { not: null } },
+        select: { imageMediaId: true },
+      })
+      .then((rows) => signCourseMediaImages(rows.map((row) => row.imageMediaId))),
   ]);
+  const lessonProgressByLessonId = new Map(lessonProgressRows.map((row) => [row.lessonId, row]));
 
   return {
     id: course.id,
@@ -286,6 +258,7 @@ export async function getUserCourseDetail(userId: string, courseId: string): Pro
       title: module.title,
       description: module.description,
       image_media_id: module.imageMediaId,
+      image_url: signedUrlFor(moduleImageUrls, module.imageMediaId),
       sort_order: module.sortOrder,
       lessons: module.lessons.map((lesson) => ({
         id: lesson.id,
@@ -300,6 +273,10 @@ export async function getUserCourseDetail(userId: string, courseId: string): Pro
         sort_order: lesson.sortOrder,
         is_required: lesson.isRequired,
         classification: lesson.classification,
+        progress: toLessonProgressResponse(
+          lesson.id,
+          lessonProgressByLessonId.get(lesson.id) ?? null,
+        ),
       })),
     })),
   };

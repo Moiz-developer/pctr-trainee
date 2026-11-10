@@ -50,6 +50,10 @@ export const courseModuleResponseSchema = z.object({
   title: z.string(),
   description: z.string().nullable(),
   image_media_id: idSchema.nullable(),
+  // Signed cover-image URL, included by the module list for callers who may
+  // view every module image. Null/absent otherwise; clients then fall back
+  // to GET /media/:id/access-url.
+  image_url: z.string().nullable().optional(),
   sort_order: z.number().int(),
   is_active: z.boolean(),
   created_at: isoDateStringSchema,

@@ -6,6 +6,7 @@ import { courseProgressSummarySchema } from "./course-progress.js";
 import { assessmentAttemptResultSchema } from "./assessment-attempts.js";
 import { assessmentTypeSchema } from "./assessments.js";
 import { departmentRefSchema } from "./departments.js";
+import { lessonProgressResponseSchema } from "./lesson-progress.js";
 
 /**
  * User-facing course catalogue/detail (SYSTEM_PLAN.md §26 `GET /courses`,
@@ -85,6 +86,10 @@ export const courseDetailLessonSchema = z.object({
   sort_order: z.number().int(),
   is_required: z.boolean(),
   classification: lessonClassificationSchema,
+  // The caller's own progress on this lesson (same shape as
+  // GET /progress/lessons/:id), embedded so the page needs no per-lesson
+  // request. Optional so older API/web builds stay compatible.
+  progress: lessonProgressResponseSchema.optional(),
 });
 export type CourseDetailLesson = z.infer<typeof courseDetailLessonSchema>;
 
@@ -94,6 +99,10 @@ export const courseDetailModuleSchema = z.object({
   title: z.string(),
   description: z.string().nullable(),
   image_media_id: idSchema.nullable(),
+  // Short-lived signed URL for the cover image, batch-signed with the
+  // response. Null/absent when not signed here; clients then fall back to
+  // GET /media/:id/access-url.
+  image_url: z.string().nullable().optional(),
   sort_order: z.number().int(),
   lessons: z.array(courseDetailLessonSchema),
 });
